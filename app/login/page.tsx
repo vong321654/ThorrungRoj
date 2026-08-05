@@ -1,85 +1,132 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import liff from "@line/liff";
-import { env } from "process";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import styles from "./Login.module.css";
 
-const LIFF_ID = process.env.LINE_LIFF_ID || "";
+const LIFF_ID = "2009558098-JoPkdhsJ";
 
-export default function LineLogin() {
-  const hasInitialized = useRef(false);
+export default function LoginPage() {
+  const liffInitPromise = useRef<Promise<void> | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const [hasLoggedOut] = useState(
-    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("loggedOut")
+    () =>
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("loggedOut"),
   );
+
+  function initializeLiff() {
+    if (!liffInitPromise.current) {
+      liffInitPromise.current = liff.init({ liffId: LIFF_ID });
+    }
+    return liffInitPromise.current;
+  }
+
+  async function completeLineLogin() {
+    const accessToken = liff.getAccessToken();
+    if (!accessToken) {
+      throw new Error("ไม่พบ LINE access token กรุณาเข้าสู่ระบบอีกครั้ง");
+    }
+
+    const response = await fetch("/api/auth/line", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accessToken }),
+    });
+
+    const result = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(result?.error || "ไม่สามารถเข้าสู่ระบบด้วย LINE ได้");
+    }
+
+    sessionStorage.removeItem("lineLoginPending");
+    window.location.replace("/productPage");
+  }
+
   useEffect(() => {
-    if (hasInitialized.current) return;
-    hasInitialized.current = true;
+    let isCancelled = false;
 
-    async function initializeLogin() {
+    async function resumeLineLogin() {
       try {
-        await liff.init({ liffId: LIFF_ID });
+        await initializeLiff();
+        const isPending = sessionStorage.getItem("lineLoginPending") === "1";
 
-        if (!liff.isLoggedIn()) {
-          if (!hasLoggedOut) {
-            liff.login();
-          }
-          return;
+        if (!isCancelled && isPending && liff.isLoggedIn()) {
+          setIsLoading(true);
+          await completeLineLogin();
         }
-
-        const accessToken = liff.getAccessToken();
-        if (!accessToken) {
-          console.error("LINE access token is unavailable");
-          return;
-        }
-
-        const response = await fetch("/api/auth/line", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accessToken }),
-        });
-
-        if (!response.ok) {
-          console.error("Login API failed:", await response.json());
-          return;
-        }
-
-        // A full navigation makes the root Header read the newly-set auth cookie.
-        window.location.replace("/productPage");
       } catch (error) {
-        console.error("LIFF login failed:", error);
+        if (!isCancelled) {
+          setMessage(error instanceof Error ? error.message : "เริ่มต้น LINE Login ไม่สำเร็จ");
+          setIsLoading(false);
+        }
       }
     }
 
-    initializeLogin();
-  }, [hasLoggedOut]);
+    resumeLineLogin();
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
-  async function handleLogin() {
-    await liff.init({ liffId: LIFF_ID });
-    liff.login();
+  async function handleLineLogin() {
+    setIsLoading(true);
+    setMessage(null);
+
+    try {
+      await initializeLiff();
+
+      if (!liff.isLoggedIn()) {
+        sessionStorage.setItem("lineLoginPending", "1");
+        liff.login();
+        return;
+      }
+
+      await completeLineLogin();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ");
+      setIsLoading(false);
+    }
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50">
-      <div className="space-y-4 rounded-2xl bg-white p-8 text-center shadow-xl">
-        {hasLoggedOut ? (
-          <>
-            <h1 className="text-xl font-bold text-gray-800">ออกจากระบบแล้ว</h1>
-            <button
-              className="rounded-lg bg-green-600 px-5 py-2 font-semibold text-white hover:bg-green-700"
-              type="button"
-              onClick={handleLogin}
-            >
-              เข้าสู่ระบบด้วย LINE
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-green-500" />
-            <h1 className="text-xl font-bold text-gray-800">กำลังเข้าสู่ระบบด้วย LINE</h1>
-            <p className="text-gray-500">กรุณารอสักครู่ ระบบกำลังยืนยันตัวตนของคุณ...</p>
-          </>
+    <main className={styles.page}>
+      <section className={styles.card} aria-labelledby="login-title">
+        <div className={styles.brandMark}>TR</div>
+        <header className={styles.heading}>
+          <p className={styles.eyebrow}>ร้านแก๊สทอรุ่งโรจน์</p>
+        </header>
+
+        {hasLoggedOut && (
+          <p className={styles.successMessage} role="status">
+            ออกจากระบบเรียบร้อยแล้ว
+          </p>
         )}
-      </div>
-    </div>
+
+        {message && (
+          <p className={styles.message} role="alert">
+            {message}
+          </p>
+        )}
+
+        <div className={styles.methods}>
+          <button
+            className={styles.lineButton}
+            type="button"
+            onClick={handleLineLogin}
+            disabled={isLoading}
+          >
+            <span className={styles.lineIcon} aria-hidden="true">LINE</span>
+            <span>
+              <strong>{isLoading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบด้วย LINE"}</strong>
+            </span>
+          </button>
+        </div>
+
+        <p className={styles.securityNote}>ระบบจะไม่เปิดเผยข้อมูลเข้าสู่ระบบของคุณแก่บุคคลอื่น</p>
+      </section>
+    </main>
   );
 }

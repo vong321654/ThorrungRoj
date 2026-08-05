@@ -53,7 +53,7 @@ export default function EditUserFields({ initialValues }: EditUserFieldsProps) {
             type="email"
             value={values.email || ""}
             onInput={(event) => updateField("email", event.currentTarget.value)}
-            placeholder="name@example.com"
+            placeholder="name@gmail.com"
             autoComplete="email"
             maxLength={255}
             aria-invalid={Boolean(errors.email)}

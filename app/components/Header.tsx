@@ -25,7 +25,7 @@ export default async function Header() {
               {initial}
             </span>
           )}
-          <Link className="site-header__edit" href="/editUser">
+          <Link className="site-header__edit" href="/manageUser/editUser">
             แก้ไขข้อมูลส่วนตัว
           </Link>
           <LogoutButton />

@@ -44,7 +44,7 @@ export async function saveEditUserData(payload: UpdateUserPayload) {
 
   try {
     await updateUser(currentUser.id, { name, email, phone, address });
-    revalidatePath("/editUser");
+    revalidatePath("/manageUser/editUser");
     revalidatePath("/productPage");
     return { success: true, message: "บันทึกข้อมูลเรียบร้อยแล้ว" };
   } catch {
