@@ -37,6 +37,7 @@ a {
 }
 
 .site-header__login,
+.site-header__edit,
 .site-header__logout {
   background: #ffffff;
   border: 1px solid #15803d;
@@ -53,6 +54,7 @@ a {
 }
 
 .site-header__login:hover,
+.site-header__edit:hover,
 .site-header__logout:hover:not(:disabled) {
   background: #15803d;
   color: #ffffff;
@@ -115,6 +117,7 @@ a {
   }
 
   .site-header__login,
+  .site-header__edit,
   .site-header__logout {
     padding: 6px 8px;
   }

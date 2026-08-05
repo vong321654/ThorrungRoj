@@ -1,49 +1,6 @@
-import { createAdminClient } from "@/app/api/util/supabase/admin";
-import { cookies } from "next/headers";
-import jwt, { type JwtPayload } from "jsonwebtoken";
+import { getCurrentUser } from "@/app/api/services/userService";
 import Link from "next/link";
 import LogoutButton from "./LogoutButton";
-
-type CurrentUser = {
-  name: string | null;
-  avatarUrl: string | null;
-};
-
-async function getCurrentUser(): Promise<CurrentUser | null> {
-  const token = (await cookies()).get("token")?.value;
-  const jwtSecret = process.env.JWT_SECRET;
-
-  if (!token || !jwtSecret) {
-    return null;
-  }
-
-  try {
-    const payload = jwt.verify(token, jwtSecret);
-    if (typeof payload === "string" || !("userId" in payload)) {
-      return null;
-    }
-
-    const userId = (payload as JwtPayload & { userId?: string | number }).userId;
-    if (!userId) {
-      return null;
-    }
-
-    const { data, error } = await createAdminClient()
-      .from("users")
-      .select("name, avatarUrl")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("HEADER USER ERROR:", error.message);
-      return null;
-    }
-
-    return data;
-  } catch {
-    return null;
-  }
-}
 
 export default async function Header() {
   const user = await getCurrentUser();
@@ -68,6 +25,9 @@ export default async function Header() {
               {initial}
             </span>
           )}
+          <Link className="site-header__edit" href="/editUser">
+            แก้ไขข้อมูลส่วนตัว
+          </Link>
           <LogoutButton />
         </div>
       )}

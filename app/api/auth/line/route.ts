@@ -1,73 +1,54 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/app/api/util/supabase/admin";
+import { findOrCreateUserFromLineProfile } from "@/app/api/services/userService";
 import jwt from "jsonwebtoken";
 
 export async function POST(req: Request) {
   try {
-    const { idToken, profile } = await req.json();
+    const { accessToken } = await req.json();
+    const lineClientId = process.env.LINE_CLIENT_ID;
 
-    if (!idToken) {
+    if (typeof accessToken !== "string" || !accessToken) {
       return NextResponse.json({ error: "No token" }, { status: 400 });
     }
+    if (!lineClientId) {
+      console.error("LINE LOGIN ERROR: LINE_CLIENT_ID is not configured");
+      return NextResponse.json({ error: "LINE login is not configured" }, { status: 500 });
+    }
 
-    // 🔐 Verify token กับ LINE
-    const verifyRes = await fetch("https://api.line.me/oauth2/v2.1/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        id_token: idToken,
-        client_id: process.env.LINE_CLIENT_ID!,
-      }),
-    });
+    // Verify the access token and make sure it belongs to this LINE Login channel.
+    const verifyUrl = new URL("https://api.line.me/oauth2/v2.1/verify");
+    verifyUrl.searchParams.set("access_token", accessToken);
+    const verifyRes = await fetch(verifyUrl, { cache: "no-store" });
 
     const verifyData = await verifyRes.json();
 
-    if (verifyData.error) {
+    if (
+      !verifyRes.ok ||
+      verifyData.client_id !== lineClientId ||
+      typeof verifyData.expires_in !== "number" ||
+      verifyData.expires_in <= 0
+    ) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const lineUserId = verifyData.sub;
+    // Retrieve trusted profile data from LINE instead of accepting it from the browser.
+    const profileRes = await fetch("https://api.line.me/v2/profile", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
 
-    // 💾 จัดการข้อมูลผู้ใช้ด้วย Supabase
-    const supabase = createAdminClient();
-
-    // 🔍 ตรวจสอบว่ามีผู้ใช้รายนี้อยู่แล้วหรือไม่ (เพื่อทำตามเงื่อนไข Skip if exists)
-    const { data: existingUser, error: fetchError } = await supabase
-      .from("users")
-      .select("*")
-      .eq("lineUserId", lineUserId)
-      .maybeSingle();
-
-    let user = existingUser;
-
-    if (fetchError) {
-      console.error("FETCH USER ERROR:", fetchError.message);
-      return NextResponse.json({ error: "Database error" }, { status: 500 });
+    if (!profileRes.ok) {
+      return NextResponse.json({ error: "Unable to retrieve LINE profile" }, { status: 401 });
     }
 
-    // ✨ ถ้ายังไม่มีผู้ใช้ ให้บันทึกข้อมูลใหม่
-    if (!user) {
-      const { data: newUser, error: insertError } = await supabase
-        .from("users")
-        .insert({
-          lineUserId,
-          name: profile.displayName,
-          avatarUrl: profile.pictureUrl,
-          email: verifyData.email || null,
-          isActive: true,
-        })
-        .select()
-        .single();
+    const profile = await profileRes.json();
+    const lineUserId = profile.userId;
 
-      if (insertError) {
-        console.error("INSERT USER ERROR:", insertError.message);
-        return NextResponse.json({ error: "Database error" }, { status: 500 });
-      }
-      user = newUser;
-      console.log("NEW USER CREATED:", user);
-    } else {
-      console.log("EXISTING USER LOGGED IN (SKIPPED UPDATE):", user);
+    if (typeof lineUserId !== "string" || !lineUserId) {
+      return NextResponse.json({ error: "Invalid LINE profile" }, { status: 401 });
     }
+
+    const user = await findOrCreateUserFromLineProfile(profile);
 
     // 🔐 สร้าง JWT
     const token = jwt.sign(

@@ -1,15 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import liff from "@line/liff";
+import { env } from "process";
 
-const LIFF_ID = "2009558098-JoPkdhsJ";
+const LIFF_ID = process.env.LINE_LIFF_ID || "";
 
 export default function LineLogin() {
+  const hasInitialized = useRef(false);
   const [hasLoggedOut] = useState(
     () => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("loggedOut")
   );
   useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
     async function initializeLogin() {
       try {
         await liff.init({ liffId: LIFF_ID });
@@ -21,12 +26,16 @@ export default function LineLogin() {
           return;
         }
 
-        const idToken = liff.getIDToken();
-        const profile = await liff.getProfile();
+        const accessToken = liff.getAccessToken();
+        if (!accessToken) {
+          console.error("LINE access token is unavailable");
+          return;
+        }
+
         const response = await fetch("/api/auth/line", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idToken, profile }),
+          body: JSON.stringify({ accessToken }),
         });
 
         if (!response.ok) {
