@@ -4,6 +4,17 @@ export type EditUserValidationErrors = Partial<
   Record<keyof UpdateUserPayload, string>
 >;
 
+export const ALLOWED_EMAIL_DOMAINS = [
+  "hotmail.com",
+  "hotmail.co.th",
+  "gmail.com",
+  "gmail.co.th",
+  "yohoo.com",
+  "yohoo.co.th",
+  "outlook.com",
+  "outllok.co.th",
+] as const;
+
 export function validateEditUserPayload(
   payload: UpdateUserPayload,
 ): EditUserValidationErrors {
@@ -19,10 +30,18 @@ export function validateEditUserPayload(
     errors.name = "ชื่อต้องไม่เกิน 100 ตัวอักษร";
   }
 
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    errors.email = "รูปแบบอีเมลไม่ถูกต้อง เช่น name@example.com";
-  } else if (email.length > 255) {
-    errors.email = "อีเมลต้องไม่เกิน 255 ตัวอักษร";
+  if (email) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = "รูปแบบอีเมลไม่ถูกต้อง เช่น name@gmail.com";
+    } else if (email.length > 255) {
+      errors.email = "อีเมลต้องไม่เกิน 255 ตัวอักษร";
+    } else {
+      const domain = email.slice(email.lastIndexOf("@") + 1).toLowerCase();
+
+      if (!ALLOWED_EMAIL_DOMAINS.some((allowed) => allowed === domain)) {
+        errors.email = `รองรับเฉพาะ ${ALLOWED_EMAIL_DOMAINS.join(", ")}`;
+      }
+    }
   }
 
   if (phone) {

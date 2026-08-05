@@ -1,5 +1,3 @@
-
-
 import { createAdminClient } from "@/app/api/util/supabase/admin";
 import type {
   CurrentUser,
