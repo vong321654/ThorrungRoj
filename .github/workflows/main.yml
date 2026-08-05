@@ -1,0 +1,67 @@
+name: Repository owner approval
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: owner-approval-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify-owner-approval:
+    name: Require repository owner approval
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check latest approval from repository owner
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const repositoryOwner = context.repo.owner.toLowerCase();
+            const pullRequest = context.payload.pull_request;
+
+            if (!pullRequest) {
+              core.setFailed("This workflow must run from a pull request event.");
+              return;
+            }
+
+            const reviews = await github.paginate(
+              github.rest.pulls.listReviews,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pullRequest.number,
+                per_page: 100,
+              },
+            );
+
+            const ownerReviews = reviews.filter(
+              (review) => review.user?.login?.toLowerCase() === repositoryOwner,
+            );
+            const latestOwnerReview = ownerReviews.at(-1);
+
+            if (!latestOwnerReview || latestOwnerReview.state !== "APPROVED") {
+              core.setFailed(
+                `Pull request #${pullRequest.number} requires approval from repository owner @${context.repo.owner}.`,
+              );
+              return;
+            }
+
+            if (latestOwnerReview.commit_id !== pullRequest.head.sha) {
+              core.setFailed(
+                `The approval from @${context.repo.owner} is stale. The repository owner must approve the latest commit.`,
+              );
+              return;
+            }
+
+            core.info(
+              `Latest commit approved by repository owner @${context.repo.owner}.`,
+            );
