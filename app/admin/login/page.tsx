@@ -3,13 +3,25 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import styles from "../../login/Login.module.css";
+import { loginWithEmail } from "./allFunc";
 
 export default function AdminLoginPage() {
   const [message, setMessage] = useState<string | null>(null);
+  const [adminEmail, setAdminEmail] = useState<string>("");
+  const [adminPassword, setAdminPassword] = useState<string>("");
 
   function handleAdminLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setMessage("ระบบเข้าสู่ระบบ Admin ยังไม่ได้เชื่อมต่อ backend");
+    loginWithEmail(
+      adminEmail,
+      adminPassword
+    )
+      .then(() => {
+        setMessage(null);
+        window.location.replace("/admin/adminPage");
+      })
+      .catch((error) => {
+        setMessage(error.message);
+      });
   }
 
   return (
@@ -38,6 +50,8 @@ export default function AdminLoginPage() {
               placeholder="admin@example.com"
               autoComplete="username"
               required
+              onChange={(e) => setAdminEmail(e.target.value)}
+              value={adminEmail}
             />
           </div>
 
@@ -49,8 +63,10 @@ export default function AdminLoginPage() {
               type="password"
               placeholder="กรอกรหัสผ่าน"
               autoComplete="current-password"
-              minLength={8}
+              minLength={6}
               required
+              onChange={(e) => setAdminPassword(e.target.value)}
+              value={adminPassword}
             />
           </div>
 
