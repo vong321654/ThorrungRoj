@@ -1,27 +1,31 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import styles from "../../login/Login.module.css";
 import { loginWithEmail } from "./allFunc";
 
 export default function AdminLoginPage() {
+  const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [adminEmail, setAdminEmail] = useState<string>("");
   const [adminPassword, setAdminPassword] = useState<string>("");
 
-  function handleAdminLogin(event: FormEvent<HTMLFormElement>) {
-    loginWithEmail(
-      adminEmail,
-      adminPassword
-    )
-      .then(() => {
-        setMessage(null);
-        window.location.replace("/admin/adminPage");
-      })
-      .catch((error) => {
-        setMessage(error.message);
-      });
+  async function handleAdminLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setMessage(null);
+
+    try {
+      await loginWithEmail(adminEmail, adminPassword);
+      router.replace("/admin/adminPage");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to sign in");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -70,7 +74,7 @@ export default function AdminLoginPage() {
             />
           </div>
 
-          <button className={styles.submitButton} type="submit">
+          <button className={styles.submitButton} type="submit" disabled={isSubmitting}>
             เข้าสู่ระบบ Admin
           </button>
         </form>
@@ -78,8 +82,6 @@ export default function AdminLoginPage() {
         <Link className={styles.userLoginLink} href="/login">
           ← กลับไปเข้าสู่ระบบสำหรับลูกค้า
         </Link>
-
-        <p className={styles.securityNote}>ห้ามเปิดเผยอีเมลและรหัสผ่านให้บุคคลอื่น</p>
       </section>
     </main>
   );
