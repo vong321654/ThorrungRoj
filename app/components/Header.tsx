@@ -1,9 +1,21 @@
+import { createClient } from "@/app/api/util/supabase/server";
 import { getCurrentUser } from "@/app/api/services/userService";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import LogoutButton from "./LogoutButton";
 
 export default async function Header() {
-  const user = await getCurrentUser();
+  const supabase = createClient(await cookies());
+  const [adminResult, user] = await Promise.all([
+    supabase.auth.getUser(),
+    getCurrentUser(),
+  ]);
+  const admin = adminResult.data.user;
+
+  if (admin?.app_metadata?.role === "admin") {
+    return null;
+  }
+
   const initial = user?.name?.trim().charAt(0).toUpperCase() || "U";
 
   return (
