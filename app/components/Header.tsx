@@ -47,7 +47,7 @@ export default function Header() {
     <header className="site-header">
       <div className="site-header__brand">ร้านแก๊สทอรุ่งโรจน์</div>
 
-      {user ? (
+      {user && (
         <div className="site-header__user" aria-label={`ผู้ใช้ ${user.name ?? "ผู้ใช้"}`}>
           <span className="site-header__user-name">{user.name || "ผู้ใช้"}</span>
           {user.avatarUrl ? (
@@ -67,10 +67,6 @@ export default function Header() {
           </Link>
           <LogoutButton />
         </div>
-      ) : (
-        <Link className="site-header__login" href="/login">
-          เข้าสู่ระบบ
-        </Link>
       )}
     </header>
   );
