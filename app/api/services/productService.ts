@@ -1,8 +1,11 @@
 import { createClient } from "@/app/api/util/supabase/server";
 import { cookies } from "next/headers";
+import { apiError, apiSuccess } from "../response";
+
+export type ProductPayload = Record<string, unknown>;
 
 //Get All Products
-export async function getAllProduct(){
+export async function getAllProduct() {
     const cookieStore = await cookies();
     const supabase = await createClient(cookieStore);
     try {
@@ -10,15 +13,14 @@ export async function getAllProduct(){
         if (error) {
             throw error;
         }
-        return data;
-    } catch (error) {
-        console.error("Error fetching products:", error);
-        throw new Error("Failed to fetch products");
+        return apiSuccess("Products retrieved successfully", data);
+    } catch {
+        return apiError("Failed to fetch products");
     }
 }
 
 //Get Product Item
-export async function getProductItems(id:string) {
+export async function getProductItems(id: string) {
     const cookieStore = await cookies();
     const supabase = await createClient(cookieStore);
     try {
@@ -26,15 +28,14 @@ export async function getProductItems(id:string) {
         if (error) {
             throw error;
         }
-        return data;
-    } catch (error) {
-        console.error("Error fetching products:", error);
-        throw new Error("Failed to fetch products");
+        return apiSuccess("Product retrieved successfully", data);
+    } catch {
+        return apiError("Failed to fetch product");
     }
 }
 
 //Update Product
-export async function updateProduct(id: string, data: any) {
+export async function updateProduct(id: string, data: ProductPayload) {
     const cookieStore = await cookies();
     const supabase = await createClient(cookieStore);
     try {
@@ -49,10 +50,9 @@ export async function updateProduct(id: string, data: any) {
             throw error;
         }
         
-        return updatedProduct;
-    } catch (error) {
-        console.error("Error updating product:", error);
-        throw new Error("Failed to update product");
+        return apiSuccess("Product updated successfully", updatedProduct);
+    } catch {
+        return apiError("Failed to update product");
     }
 }
 
@@ -65,15 +65,14 @@ export async function deleteProduct(id: string) {
         if (error) {
             throw error;
         }
-        return data;
-    } catch (error) {
-        console.error("Error deleting product:", error);
-        throw new Error("Failed to delete product");
+        return apiSuccess("Product deleted successfully", data);
+    } catch {
+        return apiError("Failed to delete product");
     }
 }
 
 //Add Product
-export async function addProduct(data: any) {
+export async function addProduct(data: ProductPayload) {
     const cookieStore = await cookies();
     const supabase = await createClient(cookieStore);
     try {
@@ -87,9 +86,8 @@ export async function addProduct(data: any) {
             throw error;
         }
         
-        return newProduct;
-    } catch (error) {
-        console.error("Error adding product:", error);
-        throw new Error("Failed to add product");
+        return apiSuccess("Product created successfully", newProduct);
+    } catch {
+        return apiError("Failed to add product");
     }
 }

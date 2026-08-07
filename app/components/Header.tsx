@@ -7,7 +7,9 @@ import type { CurrentUser } from "@/app/models/user";
 import LogoutButton from "./LogoutButton";
 
 type CurrentUserResponse = {
-  data: CurrentUser | null;
+  status: "success" | "error";
+  message: string;
+  results: CurrentUser | null;
 };
 
 export default function Header() {
@@ -27,10 +29,8 @@ export default function Header() {
         if (!response.ok) return;
 
         const result = (await response.json()) as CurrentUserResponse;
-        if (isMounted) setUser(result.data);
-      } catch (error) {
-        console.error("Failed to load current user:", error);
-      }
+        if (isMounted && result.status === "success") setUser(result.results);
+      } catch {}
     }
 
     void loadCurrentUser();

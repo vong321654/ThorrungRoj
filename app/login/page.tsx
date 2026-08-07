@@ -1,20 +1,31 @@
 "use client";
 
 import liff from "@line/liff";
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import styles from "./Login.module.css";
 
 const LIFF_ID = "2009558098-JoPkdhsJ";
+
+function subscribeToLocation() {
+  return () => {};
+}
+
+function getLoggedOutSnapshot() {
+  return new URLSearchParams(window.location.search).has("loggedOut");
+}
+
+function getServerLoggedOutSnapshot() {
+  return false;
+}
 
 export default function LoginPage() {
   const liffInitPromise = useRef<Promise<void> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [hasLoggedOut] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).has("loggedOut"),
+  const hasLoggedOut = useSyncExternalStore(
+    subscribeToLocation,
+    getLoggedOutSnapshot,
+    getServerLoggedOutSnapshot,
   );
 
   function initializeLiff() {
@@ -38,7 +49,7 @@ export default function LoginPage() {
 
     const result = await response.json().catch(() => null);
     if (!response.ok) {
-      throw new Error(result?.error || "ไม่สามารถเข้าสู่ระบบด้วย LINE ได้");
+      throw new Error(result?.message || "ไม่สามารถเข้าสู่ระบบด้วย LINE ได้");
     }
 
     sessionStorage.removeItem("lineLoginPending");

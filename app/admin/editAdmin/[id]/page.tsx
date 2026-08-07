@@ -3,8 +3,15 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { AdminData } from "@/app/models/admin";
-import { getAdminByEmployeeId, saveAdminChanges } from "../../adminPage/allFunc";
+import { AdminRole, isAdminRole, type AdminData } from "@/app/models/admin";
+import AdminForm, {
+  type AdminFormValues,
+} from "../../components/AdminForm";
+import {
+  getAdminByEmployeeId,
+  saveAdminChanges,
+} from "../../adminPage/allFunc";
+import styles from "../../../login/Login.module.css";
 
 export default function EditAdminPage() {
   const params = useParams<{ id: string }>();
@@ -19,17 +26,20 @@ export default function EditAdminPage() {
       try {
         setAdmin(await getAdminByEmployeeId(params.id));
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Unable to load employee data");
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to load employee data",
+        );
       } finally {
         setIsLoading(false);
       }
     }
 
-    if (params.id) loadAdmin();
+    if (params.id) void loadAdmin();
   }, [params.id]);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleSubmit(values: AdminFormValues) {
     if (!admin) return;
 
     setIsSaving(true);
@@ -37,44 +47,65 @@ export default function EditAdminPage() {
     try {
       await saveAdminChanges({
         id: admin.id,
-        name: admin.name?.trim() || null,
-        isActive: admin.isActive,
-        role: admin.role?.trim() || null,
+        name: values.name || null,
+        isActive: values.isActive,
+        role: values.role,
       });
-      router.push("/admin/adminPage");
+      router.replace("/admin/adminPage");
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to save employee data");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to save employee data",
+      );
     } finally {
       setIsSaving(false);
     }
   }
 
-  if (isLoading) return <main><p>Loading employee data...</p></main>;
-  if (!admin) return <main><p role="alert">{message ?? "Employee not found"}</p><Link href="/admin/adminPage">Back</Link></main>;
+  if (isLoading) {
+    return (
+      <main className={styles.page}>
+        <p>Loading employee data...</p>
+      </main>
+    );
+  }
+
+  if (!admin) {
+    return (
+      <main className={styles.page}>
+        <p role="alert">{message ?? "Employee not found"}</p>
+        <Link href="/admin/adminPage">Back</Link>
+      </main>
+    );
+  }
 
   return (
-    <main>
-      <Link href="/admin/adminPage">← Back to employees</Link>
-      <h1>Edit employee</h1>
-      <p>{admin.email ?? "No email"}</p>
-      <form onSubmit={handleSubmit}>
-        <p>
-          <label htmlFor="name">Name</label><br />
-          <input id="name" value={admin.name ?? ""} onChange={(event) => setAdmin({ ...admin, name: event.target.value })} maxLength={100} />
-        </p>
-        <p>
-          <label htmlFor="role">Role</label><br />
-          <input id="role" value={admin.role ?? ""} onChange={(event) => setAdmin({ ...admin, role: event.target.value })} maxLength={50} />
-        </p>
-        <p>
-          <label>
-            <input type="checkbox" checked={admin.isActive} onChange={(event) => setAdmin({ ...admin, isActive: event.target.checked })} /> Active
-          </label>
-        </p>
-        {message && <p role="alert">{message}</p>}
-        <button type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save changes"}</button>
-      </form>
+    <main className={styles.page}>
+      <section className={styles.card} aria-labelledby="edit-admin-title">
+        <Link className={styles.userLoginLink} href="/admin/adminPage">
+          ← Back to admins
+        </Link>
+
+        <header className={styles.heading}>
+          <h1 id="edit-admin-title">Edit employee</h1>
+          <p>Update this employee&apos;s profile, role, and status.</p>
+        </header>
+
+        <AdminForm
+          mode="edit"
+          initialValues={{
+            email: admin.email ?? "",
+            name: admin.name ?? "",
+            role: isAdminRole(admin.role) ? admin.role : AdminRole.Employee,
+            isActive: admin.isActive,
+          }}
+          isSubmitting={isSaving}
+          message={message}
+          onSubmit={handleSubmit}
+        />
+      </section>
     </main>
   );
 }

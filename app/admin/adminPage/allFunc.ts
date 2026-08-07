@@ -22,44 +22,46 @@ export async function getAdmin(): Promise<AdminData> {
   const result = (await response.json()) as {
     status: "success" | "error";
     message: string;
-    data: AdminData | null;
+    results: AdminData | null;
   };
 
   if (!response.ok || result.status === "error") {
     throw new Error(result.message);
   }
 
-  if (!result.data) {
+  if (!result.results) {
     throw new Error("No admin data found");
   }
 
-  return result.data;
+  return result.results;
 }
 export async function signOutAdmin() {
-  await signOut();
+  const result = await signOut();
+  if (result.status === "error") {
+    throw new Error(result.message);
+  }
   location.pathname = "/admin/login";
-  return;
 }
 export async function getAdminsList() {
   const result = await getAllAdmins();
   if (result.status === "error") {
     throw new Error(result.message);
   }
-  return result.data;
+  return result.results;
 }
 
 export async function getAdminByEmployeeId(id: string): Promise<AdminData> {
   const result = await getAdminById(id);
-  if (result.status === "error" || !result.data) {
+  if (result.status === "error" || !result.results) {
     throw new Error(result.message);
   }
-  return result.data;
+  return result.results;
 }
 
 export async function saveAdminChanges(input: UpdateAdminInput): Promise<AdminData> {
   const result = await updateAdmin(input);
-  if (result.status === "error" || !result.data) {
+  if (result.status === "error" || !result.results) {
     throw new Error(result.message);
   }
-  return result.data;
+  return result.results;
 }

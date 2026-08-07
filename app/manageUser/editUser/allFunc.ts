@@ -15,19 +15,29 @@ function optionalText(value: unknown, maxLength: number): string | null {
 }
 
 export async function getEditUserData(): Promise<User | null> {
-  const currentUser = await getCurrentUser();
+  const currentUserResult = await getCurrentUser();
 
+  if (currentUserResult.status === "error") {
+    throw new Error(currentUserResult.message);
+  }
+
+  const currentUser = currentUserResult.results;
   if (!currentUser) {
     return null;
   }
 
-  return getUserByLineUserId(currentUser.lineUserId);
+  const userResult = await getUserByLineUserId(currentUser.lineUserId);
+  if (userResult.status === "error") {
+    throw new Error(userResult.message);
+  }
+  return userResult.results;
 }
 
 export async function saveEditUserData(payload: UpdateUserPayload) {
-  const currentUser = await getCurrentUser();
+  const currentUserResult = await getCurrentUser();
+  const currentUser = currentUserResult.results;
 
-  if (!currentUser || !currentUser.isActive) {
+  if (currentUserResult.status === "error" || !currentUser || !currentUser.isActive) {
     return { success: false, message: "ไม่มีสิทธิ์แก้ไขข้อมูลผู้ใช้" };
   }
 
@@ -43,7 +53,15 @@ export async function saveEditUserData(payload: UpdateUserPayload) {
   const address = optionalText(payload?.address, 500);
 
   try {
-    await updateUser(currentUser.id, { name, email, phone, address });
+    const updateResult = await updateUser(currentUser.id, {
+      name,
+      email,
+      phone,
+      address,
+    });
+    if (updateResult.status === "error") {
+      throw new Error(updateResult.message);
+    }
     revalidatePath("/manageUser/editUser");
     revalidatePath("/productPage");
     return { success: true, message: "บันทึกข้อมูลเรียบร้อยแล้ว" };
