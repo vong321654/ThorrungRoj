@@ -1,17 +1,21 @@
-import {
-  getAdminSession,
-  signInWithEmail,
-} from "../../api/services/adminService";
+"use server";
+
+import { cookies } from "next/headers";
+import { createClient } from "@/app/api/util/supabase/server";
 
 export async function hasActiveAdminSession() {
-  const result = await getAdminSession();
-  return result.status === "success" && result.results !== null;
+  const supabase = createClient(await cookies());
+  const { data, error } = await supabase.auth.getUser();
+  return !error && data.user !== null;
 }
 
 export async function loginWithEmail(email: string, password: string) {
-  const result = await signInWithEmail({ email, password });
-  if (result.status === "error") {
-    throw new Error(result.message);
-  }
-  return result.results;
+  const supabase = createClient(await cookies());
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) throw new Error("Failed to sign in");
+  return data;
 }

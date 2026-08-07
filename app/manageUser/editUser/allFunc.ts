@@ -22,14 +22,13 @@ export async function getEditUserData(): Promise<User | null> {
   }
 
   const currentUser = currentUserResult.results;
-  if (!currentUser) {
-    return null;
-  }
+  if (!currentUser) return null;
 
   const userResult = await getUserByLineUserId(currentUser.lineUserId);
   if (userResult.status === "error") {
     throw new Error(userResult.message);
   }
+
   return userResult.results;
 }
 

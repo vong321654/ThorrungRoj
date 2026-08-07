@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getAdmin, signOutAdmin, getAdminsList } from "./allFunc";
 import { AdminRole, type AdminData } from "@/app/models/admin";
 import Link from "next/link";
 import styles from "./AdminPage.module.css";
 
 export default function AdminPage() {
+  const router = useRouter();
   const [adminData, setAdminData] = useState<AdminData | null>(null);
   const [employeesData, setEmployeesData] = useState<AdminData[] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -31,6 +33,8 @@ export default function AdminPage() {
   }, []);
   async function handleSignOut() {
     await signOutAdmin();
+    router.replace("/admin/login");
+    router.refresh();
   }
 
   return (
