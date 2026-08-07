@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/app/api/util/supabase/admin";
+import { apiError, apiSuccess } from "@/app/api/response";
 import type { AdminData } from "@/app/models/admin";
 import { headers } from "next/headers";
 
@@ -8,7 +9,7 @@ export async function GET() {
 
   if (!accessToken) {
     return Response.json(
-      { status: "error", message: "Missing access token", data: null },
+      apiError("Missing access token"),
       { status: 401 },
     );
   }
@@ -18,7 +19,7 @@ export async function GET() {
 
   if (authError || !authData.user) {
     return Response.json(
-      { status: "error", message: "Invalid session", data: null },
+      apiError("Invalid session"),
       { status: 401 },
     );
   }
@@ -31,7 +32,7 @@ export async function GET() {
 
   if (error) {
     return Response.json(
-      { status: "error", message: "Failed to get admin data", data: null },
+      apiError("Failed to get admin data"),
       { status: 500 },
     );
   }
@@ -49,9 +50,10 @@ export async function GET() {
     updatedAt: authData.user.updated_at ?? null,
   };
 
-  return Response.json({
-    status: "success",
-    message: data ? "Admin data retrieved successfully" : "No admin profile found",
-    data: adminData,
-  });
+  return Response.json(
+    apiSuccess(
+      data ? "Admin data retrieved successfully" : "No admin profile found",
+      adminData,
+    ),
+  );
 }

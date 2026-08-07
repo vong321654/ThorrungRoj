@@ -9,8 +9,11 @@ import type {
 } from "@/app/models/user";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
+import { apiError, apiSuccess, type ApiResult } from "../response";
 
-export async function getUserById(userId: UserId): Promise<CurrentUser | null> {
+export async function getUserById(
+  userId: UserId,
+): Promise<ApiResult<CurrentUser | null>> {
   const { data, error } = await createAdminClient()
     .from("users")
     .select("id, lineUserId, name, avatarUrl, isActive")
@@ -18,16 +21,17 @@ export async function getUserById(userId: UserId): Promise<CurrentUser | null> {
     .maybeSingle();
 
   if (error) {
-    console.error("GET USER BY ID ERROR:", error.message);
-    throw new Error("Failed to fetch user");
+    return apiError("Failed to fetch user");
   }
-  console.log("GET USER BY ID DATA:", data);
-  return data;
+  return apiSuccess(
+    data ? "User retrieved successfully" : "User not found",
+    data,
+  );
 }
 
 export async function getUserByLineUserId(
   lineUserId: string,
-): Promise<User | null> {
+): Promise<ApiResult<User | null>> {
   const { data, error } = await createAdminClient()
     .from("users")
     .select("*")
@@ -35,16 +39,18 @@ export async function getUserByLineUserId(
     .maybeSingle();
 
   if (error) {
-    console.error("GET USER BY LINE ID ERROR:", error.message);
-    throw new Error("Failed to fetch user");
+    return apiError("Failed to fetch user");
   }
 
-  return data;
+  return apiSuccess(
+    data ? "User retrieved successfully" : "User not found",
+    data,
+  );
 }
 
 export async function createUserFromLineProfile(
   profile: LineProfile,
-): Promise<User> {
+): Promise<ApiResult<User>> {
   const { data, error } = await createAdminClient()
     .from("users")
     .insert({
@@ -58,43 +64,47 @@ export async function createUserFromLineProfile(
     .single();
 
   if (error) {
-    console.error("CREATE USER ERROR:", error.message);
-    throw new Error("Failed to create user");
+    return apiError("Failed to create user");
   }
 
-  return data;
+  return apiSuccess("User created successfully", data);
 }
 
 export async function findOrCreateUserFromLineProfile(
   profile: LineProfile,
-): Promise<User> {
-  const existingUser = await getUserByLineUserId(profile.userId);
-  return existingUser ?? createUserFromLineProfile(profile);
+): Promise<ApiResult<User>> {
+  const existingUserResult = await getUserByLineUserId(profile.userId);
+  if (existingUserResult.status === "error") return existingUserResult;
+  if (existingUserResult.results) {
+    return apiSuccess("User retrieved successfully", existingUserResult.results);
+  }
+
+  return createUserFromLineProfile(profile);
 }
 
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+export async function getCurrentUser(): Promise<ApiResult<CurrentUser | null>> {
   const token = (await cookies()).get("token")?.value;
   const jwtSecret = process.env.JWT_SECRET;
 
-  if (!token || !jwtSecret) return null;
+  if (!token || !jwtSecret) return apiSuccess("No current user", null);
 
   try {
     const payload = jwt.verify(token, jwtSecret);
-    if (typeof payload === "string" || !("userId" in payload)) return null;
+    if (typeof payload === "string" || !("userId" in payload)) {
+      return apiSuccess("No current user", null);
+    }
 
     const userId = (payload as UserSessionPayload).userId;
-    if (userId === undefined) return null;
-    console.log("GET CURRENT USER PAYLOAD:", payload);
-    return await getUserById(userId);
-  } catch (error) {
-    console.error("GET CURRENT USER ERROR:", error);
-    return null;
+    if (userId === undefined) return apiSuccess("No current user", null);
+    return getUserById(userId);
+  } catch {
+    return apiSuccess("No current user", null);
   }
 }
 export async function updateUser(
   userId: UserId,
   payload: UpdateUserPayload,
-): Promise<User> {
+): Promise<ApiResult<User>> {
   const { data: user, error } = await createAdminClient()
     .from("users")
     .update({
@@ -106,9 +116,8 @@ export async function updateUser(
     .single();
 
   if (error) {
-    console.error("UPDATE USER ERROR:", error.message);
-    throw new Error("Failed to update user");
+    return apiError("Failed to update user");
   }
 
-  return user;
+  return apiSuccess("User updated successfully", user);
 }

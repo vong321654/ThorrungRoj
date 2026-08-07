@@ -2,21 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { getAdmin, signOutAdmin, getAdminsList } from "./allFunc";
-import type { AdminData } from "@/app/models/admin";
+import { AdminRole, type AdminData } from "@/app/models/admin";
 import Link from "next/link";
+import styles from "./AdminPage.module.css";
 
 export default function AdminPage() {
   const [adminData, setAdminData] = useState<AdminData | null>(null);
   const [employeesData, setEmployeesData] = useState<AdminData[] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [, setSelectedEmployee] = useState<AdminData | null>(null);
   async function fetchAdminData() {
     try {
       const data = await getAdmin();
         setAdminData(data);
         setErrorMessage(null);
-      if (data.role === "superAdmin") {
+      if (data.role === AdminRole.SuperAdmin) {
         setEmployeesData((await getAdminsList()) || []);
       }
     } catch (error) {
@@ -38,9 +38,14 @@ export default function AdminPage() {
       <h1>Hello {adminData?.role ?? "Admin"}</h1>
       {isLoading && <p>Loading admin data...</p>}
       {errorMessage && <p role="alert">{errorMessage}</p>}
-      {adminData?.role == "superAdmin" &&
+      {adminData?.role === AdminRole.SuperAdmin &&
 
         <div >
+          <div className={styles.toolbar}>
+            <Link className={styles.addButton} href="/admin/addAdmin">
+              Add admin
+            </Link>
+          </div>
           <table>
             <thead>
               <tr>
@@ -50,7 +55,7 @@ export default function AdminPage() {
                 <th>Is Active</th>
                 <th>Role</th>
                 <th>Updated At</th>
-                <th></th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -64,7 +69,6 @@ export default function AdminPage() {
                   <td>{emp.updatedAt}</td>
                   <td>
                     <Link href={`/admin/editAdmin/${emp.id}`}>Edit</Link>
-                    <button onClick={() => setSelectedEmployee(emp)}>Delete</button>
                   </td>
                 </tr>
               ))}

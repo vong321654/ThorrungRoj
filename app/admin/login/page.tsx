@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import styles from "../../login/Login.module.css";
-import { loginWithEmail } from "./allFunc";
+import { hasActiveAdminSession, loginWithEmail } from "./allFunc";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -12,6 +12,22 @@ export default function AdminLoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [adminEmail, setAdminEmail] = useState<string>("");
   const [adminPassword, setAdminPassword] = useState<string>("");
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function redirectAuthenticatedAdmin() {
+      const hasSession = await hasActiveAdminSession();
+      if (!isCancelled && hasSession) {
+        router.replace("/admin/adminPage");
+      }
+    }
+
+    void redirectAuthenticatedAdmin();
+    return () => {
+      isCancelled = true;
+    };
+  }, [router]);
 
   async function handleAdminLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -1,9 +1,15 @@
 import { createClient } from "../util/supabase/client";
-import type { UpdateAdminInput } from "../../models/admin";
+import {
+  AdminRole,
+  type AdminData,
+  type UpdateAdminInput,
+} from "../../models/admin";
 import type {
   AdminLoginCredentials,
   CreateAdminCredentials,
 } from "../../models/adminLogin";
+import type { User } from "@supabase/supabase-js";
+import { apiError, apiSuccess, type ApiResult } from "../response";
 const supabase = createClient();
 
 export async function signInWithEmail(admin: AdminLoginCredentials) {
@@ -12,32 +18,46 @@ export async function signInWithEmail(admin: AdminLoginCredentials) {
     password: admin.password,
   });
   if (error) {
-    console.error("SIGN IN ERROR:", error.message);
-    throw new Error("Failed to sign in");
+    return apiError("Failed to sign in");
   }
 
-  console.log("SIGN IN DATA:", data);
-  return {
-    status: "success",
-    message: "Signed in successfully",
-    data,
-  };
+  return apiSuccess("Signed in successfully", data);
+}
+
+export async function getAdminSession() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    return apiError("Failed to get admin session");
+  }
+
+  return apiSuccess("Admin session retrieved successfully", data.session);
 }
 
 export async function addAdmin(admin: CreateAdminCredentials) {
-  const { data, error } = await supabase.auth.admin.createUser({
-    email: admin.email,
-    password: admin.password,
-    email_confirm: admin.email_confirm,
-  });
-  if (error) {
-    throw new Error("Failed to add admin");
+  const sessionResult = await getAdminSession();
+  const accessToken = sessionResult.results?.access_token;
+  if (sessionResult.status === "error" || !accessToken) {
+    return apiError("No active admin session");
   }
-  return {
-    status: "success",
-    message: "Admin created successfully",
-    data,
-  };
+
+  const response = await fetch("/api/admin", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(admin),
+  });
+  const result = (await response.json().catch(() => null)) as ApiResult<{
+    user: User;
+    employee: AdminData;
+  }> | null;
+
+  if (!response.ok || !result) {
+    return apiError("Failed to add admin");
+  }
+
+  return result;
 }
 
 export async function updateAdmin(admin: UpdateAdminInput) {
@@ -56,17 +76,9 @@ export async function updateAdmin(admin: UpdateAdminInput) {
     )
     .single();
   if (error) {
-    return {
-      status: "error",
-      message: "Failed to update admin",
-      error: error,
-    };
+    return apiError("Failed to update admin");
   }
-  return {
-    status: "success",
-    message: "Admin updated successfully",
-    data: data,
-  };
+  return apiSuccess("Admin updated successfully", data);
 }
 
 export async function getAdminById(id: string) {
@@ -79,28 +91,16 @@ export async function getAdminById(id: string) {
     .maybeSingle();
 
   if (error || !data) {
-    return {
-      status: "error" as const,
-      message: "Admin not found",
-      data: null,
-    };
+    return apiError("Admin not found");
   }
 
-  return {
-    status: "success" as const,
-    message: "Admin retrieved successfully",
-    data,
-  };
+  return apiSuccess("Admin retrieved successfully", data);
 }
 
 export async function getCurrentAdmin() {
   const { data: authData, error } = await supabase.auth.getUser();
   if (error) {
-    return {
-      status: "error",
-      message: "Failed to get current admin",
-      error: error,
-    };
+    return apiError("Failed to get current admin");
   }
   const { data, error: adminError } = await supabase
     .from("employees")
@@ -110,36 +110,20 @@ export async function getCurrentAdmin() {
     .eq("authId", authData.user?.id)
     .single();
   if (adminError) {
-    return {
-      status: "error",
-      message: "Admin not found",
-      error: adminError,
-    };
+    return apiError("Admin not found");
   }
-  return {
-    status: "success",
-    message: "Current admin retrieved successfully",
-    data,
-  };
+  return apiSuccess("Current admin retrieved successfully", data);
 }
 
 export async function getAllAdmins() {
   const { data, error } = await supabase
     .from("employees")
     .select("*")
-    .neq("role", "superAdmin");
+    .neq("role", AdminRole.SuperAdmin);
   if (error) {
-    return {
-      status: "error",
-      message: "Failed to get all admins",
-      error: error,
-    };
+    return apiError("Failed to get all admins");
   }
-  return {
-    status: "success",
-    message: "All admins retrieved successfully",
-    data,
-  };
+  return apiSuccess("All admins retrieved successfully", data);
 }
 export async function deleteAdminById(id: string) {
   const { data, error } = await supabase
@@ -147,17 +131,9 @@ export async function deleteAdminById(id: string) {
     .update({ isActive: false, updatedAt: new Date().toISOString() })
     .eq("id", id);
   if (error) {
-    return {
-      status: "error",
-      message: "Failed to delete admin",
-      error: error,
-    };
+    return apiError("Failed to delete admin");
   }
-  return {
-    status: "success",
-    message: "Admin deleted successfully",
-     data,
-  };
+  return apiSuccess("Admin deleted successfully", data);
 }
 export async function getAdminByThaiID(thaiId: string) {
   const { data, error } = await supabase
@@ -165,21 +141,16 @@ export async function getAdminByThaiID(thaiId: string) {
     .select("*")
     .ilike("thaiId", `%${thaiId}%`);
   if (error) {
-    return {
-      status: "error",
-      message: "Failed to get admin by Thai ID",
-      error: error,
-    };
+    return apiError("Failed to get admin by Thai ID");
   }
-  return {
-    status: "success",
-    message: "Admin retrieved successfully",
-     data,
-  };
+  return apiSuccess("Admin retrieved successfully", data);
 }
 
 export async function signOut() {
-  supabase.auth.signOut({ scope: "local" });
-  location.pathname = "/admin/login";
-  return;
+  const { error } = await supabase.auth.signOut({ scope: "local" });
+  if (error) {
+    return apiError("Failed to sign out");
+  }
+
+  return apiSuccess("Signed out successfully", null);
 }

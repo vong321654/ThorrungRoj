@@ -16,8 +16,8 @@ export default function LogoutButton() {
       if (liff.isLoggedIn()) {
         liff.logout();
       }
-    } catch (error) {
-      console.error("Logout failed:", error);
+    } catch {
+      // The redirect below completes local logout even if LIFF cleanup fails.
     } finally {
       window.location.replace("/login?loggedOut=1");
     }
