@@ -8,15 +8,17 @@ import AdminForm, {
   type AdminFormValues,
 } from "../../components/AdminForm";
 import {
+  getAdmin,
   getAdminByEmployeeId,
   saveAdminChanges,
-} from "../../adminPage/allFunc";
+} from "../../allFunc";
 import styles from "../../../login/Login.module.css";
 
 export default function EditAdminPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [admin, setAdmin] = useState<AdminData | null>(null);
+  const [currentAdmin, setCurrentAdmin] = useState<AdminData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -24,7 +26,12 @@ export default function EditAdminPage() {
   useEffect(() => {
     async function loadAdmin() {
       try {
-        setAdmin(await getAdminByEmployeeId(params.id));
+        const [current, target] = await Promise.all([
+          getAdmin(),
+          getAdminByEmployeeId(params.id),
+        ]);
+        setCurrentAdmin(current);
+        setAdmin(target);
       } catch (error) {
         setMessage(
           error instanceof Error
@@ -45,13 +52,15 @@ export default function EditAdminPage() {
     setIsSaving(true);
     setMessage(null);
     try {
-      await saveAdminChanges({
+      const input = {
         id: admin.id,
         name: values.name || null,
-        isActive: values.isActive,
-        role: values.role,
-      });
-      router.replace("/admin/adminPage");
+        ...(currentAdmin?.id === admin.id
+          ? {}
+          : { isActive: values.isActive, role: values.role }),
+      };
+      await saveAdminChanges(input);
+      router.replace("/admin");
       router.refresh();
     } catch (error) {
       setMessage(
@@ -76,7 +85,7 @@ export default function EditAdminPage() {
     return (
       <main className={styles.page}>
         <p role="alert">{message ?? "Employee not found"}</p>
-        <Link href="/admin/adminPage">Back</Link>
+        <Link href="/admin">Back</Link>
       </main>
     );
   }
@@ -84,7 +93,7 @@ export default function EditAdminPage() {
   return (
     <main className={styles.page}>
       <section className={styles.card} aria-labelledby="edit-admin-title">
-        <Link className={styles.userLoginLink} href="/admin/adminPage">
+        <Link className={styles.userLoginLink} href="/admin">
           ← Back to admins
         </Link>
 
@@ -104,6 +113,7 @@ export default function EditAdminPage() {
           isSubmitting={isSaving}
           message={message}
           onSubmit={handleSubmit}
+          allowRoleAndStatus={currentAdmin?.id !== admin.id}
         />
       </section>
     </main>

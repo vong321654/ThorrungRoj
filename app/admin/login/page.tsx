@@ -19,7 +19,7 @@ export default function AdminLoginPage() {
     async function redirectAuthenticatedAdmin() {
       const hasSession = await hasActiveAdminSession();
       if (!isCancelled && hasSession) {
-        router.replace("/admin/adminPage");
+        router.replace("/admin");
       }
     }
 
@@ -36,7 +36,7 @@ export default function AdminLoginPage() {
 
     try {
       await loginWithEmail(adminEmail, adminPassword);
-      router.replace("/admin/adminPage");
+      router.replace("/admin");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Failed to sign in");
     } finally {

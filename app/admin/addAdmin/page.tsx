@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { addAdmin } from "@/app/api/services/adminService";
 import { AdminRole } from "@/app/models/admin";
 import AdminForm, {
   type AdminFormValues,
 } from "../components/AdminForm";
-import { getAdmin } from "../adminPage/allFunc";
+import { addAdmin, getAdmin } from "../allFunc";
 import styles from "../../login/Login.module.css";
 
 export default function AddAdminPage() {
@@ -24,7 +23,7 @@ export default function AddAdminPage() {
       try {
         const admin = await getAdmin();
         if (!isCancelled && admin.role !== AdminRole.SuperAdmin) {
-          router.replace("/admin/adminPage");
+          router.replace("/admin");
           return;
         }
       } catch {
@@ -45,7 +44,7 @@ export default function AddAdminPage() {
     setIsSubmitting(true);
 
     try {
-      const result = await addAdmin({
+      await addAdmin({
         email: values.email,
         password: values.password,
         email_confirm: values.emailConfirm,
@@ -54,11 +53,7 @@ export default function AddAdminPage() {
         isActive: values.isActive,
       });
 
-      if (result.status === "error") {
-        throw new Error(result.message);
-      }
-
-      router.replace("/admin/adminPage");
+      router.replace("/admin");
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Failed to add admin");
@@ -78,7 +73,7 @@ export default function AddAdminPage() {
   return (
     <main className={styles.page}>
       <section className={styles.card} aria-labelledby="add-admin-title">
-        <Link className={styles.userLoginLink} href="/admin/adminPage">
+        <Link className={styles.userLoginLink} href="/admin">
           ← Back to admins
         </Link>
 

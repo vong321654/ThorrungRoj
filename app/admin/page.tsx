@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getAdmin, signOutAdmin, getAdminsList } from "./allFunc";
+import { deleteAdmin, getAdmin, signOutAdmin, getAdminsList } from "./allFunc";
 import { AdminRole, type AdminData } from "@/app/models/admin";
 import Link from "next/link";
 import styles from "./AdminPage.module.css";
@@ -37,9 +37,20 @@ export default function AdminPage() {
     router.refresh();
   }
 
+  async function handleDelete(id: string) {
+    if (!window.confirm("Deactivate this admin account?")) return;
+    try {
+      await deleteAdmin(id);
+      await fetchAdminData();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to deactivate admin");
+    }
+  }
+
   return (
     <main>
       <h1>Hello {adminData?.role ?? "Admin"}</h1>
+      {adminData && <Link href={`/admin/editAdmin/${adminData.id}`}>Edit my account</Link>}
       {isLoading && <p>Loading admin data...</p>}
       {errorMessage && <p role="alert">{errorMessage}</p>}
       {adminData?.role === AdminRole.SuperAdmin &&
@@ -73,6 +84,11 @@ export default function AdminPage() {
                   <td>{emp.updatedAt}</td>
                   <td>
                     <Link href={`/admin/editAdmin/${emp.id}`}>Edit</Link>
+                    {adminData && emp.id !== adminData.id && (
+                      <button type="button" onClick={() => void handleDelete(emp.id)}>
+                        Deactivate
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
