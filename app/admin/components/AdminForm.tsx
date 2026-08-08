@@ -20,6 +20,7 @@ type AdminFormProps = {
   isSubmitting: boolean;
   message: string | null;
   onSubmit: (values: AdminFormValues) => Promise<void>;
+  allowRoleAndStatus?: boolean;
 };
 
 export default function AdminForm({
@@ -28,6 +29,7 @@ export default function AdminForm({
   isSubmitting,
   message,
   onSubmit,
+  allowRoleAndStatus = true,
 }: AdminFormProps) {
   const [email, setEmail] = useState(initialValues?.email ?? "");
   const [name, setName] = useState(initialValues?.name ?? "");
@@ -105,6 +107,7 @@ export default function AdminForm({
             id="admin-role"
             name="role"
             value={role}
+            disabled={!allowRoleAndStatus}
             onChange={(event) => setRole(event.target.value as AdminRole)}
           >
             <option value={AdminRole.SuperAdmin}>Super admin</option>
@@ -117,6 +120,7 @@ export default function AdminForm({
           <input
             type="checkbox"
             checked={isActive}
+            disabled={!allowRoleAndStatus}
             onChange={(event) => setIsActive(event.target.checked)}
           />{" "}
           Active
