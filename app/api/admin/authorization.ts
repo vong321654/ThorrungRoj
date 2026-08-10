@@ -5,6 +5,8 @@ export async function authenticateAdmin(request: Request) {
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return Response.json(apiError("Missing access token"), { status: 401 });
   const auth = await authenticateAdminService(token);
-  if (!auth) return Response.json(apiError("Invalid admin session"), { status: 403 });
+  if ("statusCode" in auth) {
+    return Response.json(apiError(auth.message), { status: auth.statusCode });
+  }
   return auth;
 }

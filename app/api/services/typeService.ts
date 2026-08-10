@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createClient } from "../util/supabase/server";
+import { createPublicClient } from "../util/supabase/public";
 import { apiError, apiSuccess } from "../response";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -14,15 +15,15 @@ function databaseError(message: string, error: { message?: string }) {
   return apiError(`${message}${detail}`);
 }
 
-export async function getAllProductType(client?: SupabaseClient) {
-  const supabase = await getSupabase(client);
+export async function getAllProductType() {
+  const supabase = createPublicClient();
   const { data, error } = await supabase.from("productsType").select("*").order("name");
   if (error) return databaseError("Failed to fetch product types", error);
   return apiSuccess("Product types retrieved successfully", data ?? []);
 }
 
 export async function getType() {
-  const supabase = await getSupabase();
+  const supabase = createPublicClient();
   const { data, error } = await supabase.from("productsType").select("id, name").order("name");
   if (error) return databaseError("Failed to fetch product types", error);
   return apiSuccess("Product types retrieved successfully", data ?? []);
@@ -62,7 +63,7 @@ export async function deleteProductType(id: number, client?: SupabaseClient) {
 }
 
 export async function getTypeById(id: number) {
-  const supabase = await getSupabase();
+  const supabase = createPublicClient();
   const { data, error } = await supabase.from("productsType").select("*").eq("id", id).maybeSingle();
   if (error) return databaseError("Failed to get product type", error);
   if (!data) return apiError("Product type not found");
