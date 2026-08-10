@@ -7,8 +7,8 @@ on:
     types: [submitted, dismissed]
 
 permissions:
-  contents: read
-  pull-requests: read
+  contents: write
+  pull-requests: write
 
 concurrency:
   group: owner-approval-${{ github.event.pull_request.number }}
@@ -21,28 +21,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out pull request source
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Remove console.log statements
-        shell: bash
-        run: |
-          mapfile -t files < <(
-            find . \
-              -path './.git' -prune -o \
-              -path './node_modules' -prune -o \
-              -type f \
-              \( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' \) \
-              -print
-          )
-
-          for file in "${files[@]}"; do
-            sed -i '/console\.log[[:space:]]*(/d' "$file"
-          done
-
-      - name: Check latest approval from repository owner
+      - name: Check owner approval or owner author
         uses: actions/github-script@v9
         with:
           script: |
@@ -51,6 +30,12 @@ jobs:
 
             if (!pullRequest) {
               core.setFailed("This workflow must run from a pull request event.");
+              return;
+            }
+
+            const author = pullRequest.user?.login?.toLowerCase();
+            if (author === repositoryOwner) {
+              core.info(`Pull request author is repository owner @${context.repo.owner}; approval is not required.`);
               return;
             }
 
@@ -86,3 +71,32 @@ jobs:
             core.info(
               `Latest commit approved by repository owner @${context.repo.owner}.`,
             );
+
+      - name: Enable squash auto-merge
+        if: success()
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pullRequest = context.payload.pull_request;
+            if (!pullRequest) {
+              core.setFailed("This workflow must run from a pull request event.");
+              return;
+            }
+
+            await github.graphql(`
+              mutation EnablePullRequestAutoMerge($input: EnablePullRequestAutoMergeInput!) {
+                enablePullRequestAutoMerge(input: $input) {
+                  pullRequest {
+                    number
+                    autoMergeRequest { mergeMethod }
+                  }
+                }
+              }
+            `, {
+              input: {
+                pullRequestId: pullRequest.node_id,
+                mergeMethod: "SQUASH",
+              },
+            });
+
+            core.info(`Squash auto-merge enabled for pull request #${pullRequest.number}.`);
