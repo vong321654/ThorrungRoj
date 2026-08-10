@@ -1,3 +1,4 @@
+import { createPublicClient } from "@/app/api/util/supabase/public";
 import { createClient } from "@/app/api/util/supabase/server";
 import { cookies } from "next/headers";
 import { apiError, apiSuccess } from "../response";
@@ -6,10 +7,13 @@ export type ProductPayload = Record<string, unknown>;
 
 //Get All Products
 export async function getAllProduct() {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = createPublicClient();
   try {
-    const { data, error } = await supabase.from("products").select("*");
+    const { data, error } = await supabase
+      .from("products")
+      .select(
+        "id name brandId size typeId unitId sellPrice exchangePrice refillPrice isActive",
+      );
     if (error) {
       throw error;
     }
@@ -21,8 +25,7 @@ export async function getAllProduct() {
 
 //Get Product Item
 export async function getProductItem(id: string) {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = createPublicClient();
   try {
     const { data, error } = await supabase
       .from("products")
@@ -96,4 +99,51 @@ export async function addProduct(data: ProductPayload) {
   } catch {
     return apiError("Failed to add product");
   }
+}
+
+//fillter
+export async function getFilteredProduct(data: ProductPayload) {
+  const supabase = createPublicClient();
+  const name = data.name;
+  const size = data.size;
+  const brand = data.brand ?? data.brandId;
+
+  if (name !== undefined && (typeof name !== "string" || !name.trim())) {
+    return apiError("Product name filter must be a non-empty string");
+  }
+
+  const parsedSize =
+    typeof size === "number"
+      ? size
+      : typeof size === "string"
+        ? Number(size)
+        : undefined;
+  if (
+    size !== undefined &&
+    (!Number.isFinite(parsedSize) || parsedSize! <= 0)
+  ) {
+    return apiError("Product size filter must be a positive number");
+  }
+
+  const parsedBrand =
+    typeof brand === "number"
+      ? brand
+      : typeof brand === "string"
+        ? Number(brand)
+        : undefined;
+  if (
+    brand !== undefined &&
+    (!Number.isInteger(parsedBrand) || parsedBrand! <= 0)
+  ) {
+    return apiError("Product brand filter must be a positive number");
+  }
+
+  let query = supabase.from("products").select("*");
+  if (typeof name === "string") query = query.ilike("name", `%${name.trim()}%`);
+  if (parsedSize !== undefined) query = query.eq("size", parsedSize);
+  if (parsedBrand !== undefined) query = query.eq("brandId", parsedBrand);
+
+  const { data: products, error } = await query;
+  if (error) return apiError("Failed to filter products");
+  return apiSuccess("Products retrieved successfully", products);
 }

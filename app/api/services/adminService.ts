@@ -11,17 +11,37 @@ export type AdminAuth = {
   admin: { id: string; role: AdminRole | null; isActive: boolean };
 };
 
-export async function authenticateAdmin(accessToken: string): Promise<AdminAuth | null> {
+export type AdminAuthFailure = {
+  message: string;
+  statusCode: 401 | 403 | 500;
+};
+
+export async function authenticateAdmin(
+  accessToken: string,
+): Promise<AdminAuth | AdminAuthFailure> {
   const supabase = createAdminClient();
   const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
-  if (authError || !authData.user) return null;
+  if (authError || !authData.user) {
+    return {
+      message: "Invalid or expired Supabase access token",
+      statusCode: 401,
+    };
+  }
 
   const { data: admin, error } = await supabase
     .from("employees")
     .select("id, role, isActive")
     .eq("authId", authData.user.id)
     .maybeSingle();
-  if (error || !admin?.isActive) return null;
+  if (error) {
+    return { message: "Failed to verify admin account", statusCode: 500 };
+  }
+  if (!admin) {
+    return { message: "Admin profile was not found", statusCode: 403 };
+  }
+  if (!admin.isActive) {
+    return { message: "Admin account is inactive", statusCode: 403 };
+  }
 
   return { supabase, admin: admin as AdminAuth["admin"] };
 }
