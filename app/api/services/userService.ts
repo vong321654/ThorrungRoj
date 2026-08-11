@@ -144,13 +144,23 @@ export async function syncUserFromSupabaseLineAuth(
   return apiSuccess("LINE user synchronized successfully", data);
 }
 
-export async function getCurrentUser(): Promise<ApiResult<CurrentUser | null>> {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-  const {
-    data: { user: authUser },
-    error: authError,
-  } = await supabase.auth.getUser();
+export async function getCurrentUser(
+  accessToken?: string,
+): Promise<ApiResult<CurrentUser | null>> {
+  let authUser: SupabaseAuthUser | null = null;
+  let authError: unknown = null;
+
+  if (accessToken) {
+    const result = await createAdminClient().auth.getUser(accessToken);
+    authUser = result.data.user;
+    authError = result.error;
+  } else {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+    const result = await supabase.auth.getUser();
+    authUser = result.data.user;
+    authError = result.error;
+  }
 
   if (authError || !authUser) return apiSuccess("No current user", null);
 
