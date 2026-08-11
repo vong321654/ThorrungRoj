@@ -35,6 +35,19 @@ function getServerLoggedOutSnapshot() {
   return false;
 }
 
+function isLineUser(user: {
+  app_metadata?: { provider?: string };
+  identities?: Array<{ provider?: string }>;
+}) {
+  return (
+    user.app_metadata?.provider === "line" ||
+    user.app_metadata?.provider === "custom:line-liff" ||
+    user.identities?.some(
+      (identity) => identity.provider === "line" || identity.provider === "custom:line-liff",
+    )
+  );
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +69,11 @@ export default function LoginPage() {
 
     async function redirectAuthenticatedUser() {
       const { data } = await supabase.auth.getUser();
+      if (data.user && !isLineUser(data.user)) {
+        await supabase.auth.signOut({ scope: "local" });
+        return;
+      }
+
       if (!isCancelled && data.user) {
         router.replace("/productPage");
       }

@@ -12,9 +12,11 @@ export default function PartCatalogView() {
   function handleSelect(part: Part) {
     cart.addItem({
       id: `part:${part.id}`,
+      productId: null,
       source: "part",
       name: part.name,
       price: part.price,
+      saleType: null,
     });
   }
 

@@ -42,12 +42,22 @@ export async function addProductType(name: string, client?: SupabaseClient, crea
   return apiSuccess("Product type added successfully", data);
 }
 
-export async function updateProductType(id: number, name: string, client?: SupabaseClient) {
+export async function updateProductType(
+  id: number,
+  name: string,
+  client?: SupabaseClient,
+  updatedBy?: string,
+) {
   if (!name.trim()) return apiError("Product type name is required");
+  if (!updatedBy) return apiError("Updater is required");
   const supabase = await getSupabase(client);
   const { data, error } = await supabase
     .from("productsType")
-    .update({ name: name.trim(), updatedAt: new Date().toISOString() })
+    .update({
+      name: name.trim(),
+      updatedBy,
+      updatedAt: new Date().toISOString(),
+    })
     .eq("id", id)
     .select()
     .single();

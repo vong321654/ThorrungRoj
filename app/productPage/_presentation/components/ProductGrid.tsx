@@ -5,12 +5,13 @@ import Grid from "@mui/material/Grid";
 import Skeleton from "@mui/material/Skeleton";
 import Typography from "@mui/material/Typography";
 import type { Product } from "@/app/productPage/_domain/entities";
+import type { SaleType } from "@/app/productPage/_shared/domain/cartItem";
 import ProductCard from "./ProductCard";
 
 type ProductGridProps = {
   products: Product[];
   isLoading: boolean;
-  onSelect: (product: Product) => void;
+  onSelect: (product: Product, saleType: SaleType) => void;
 };
 
 const SKELETON_COUNT = 10;

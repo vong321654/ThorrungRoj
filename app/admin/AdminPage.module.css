@@ -1,3 +1,92 @@
+.dashboard {
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: 32px 24px 48px;
+}
+
+.heading {
+  margin: 0;
+}
+
+.subtitle {
+  color: #52606d;
+  margin: 8px 0 28px;
+}
+
+.managementGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  margin-bottom: 36px;
+}
+
+.managementCard {
+  background: #fff;
+  border: 1px solid #dce5df;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgb(15 70 35 / 8%);
+  color: #17251c;
+  display: block;
+  min-height: 136px;
+  padding: 20px;
+  text-decoration: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.managementCard:hover {
+  border-color: #166534;
+  box-shadow: 0 6px 16px rgb(15 70 35 / 14%);
+  transform: translateY(-2px);
+}
+
+.managementCard h2 {
+  font-size: 1.15rem;
+  margin: 0 0 8px;
+}
+
+.managementCard p {
+  color: #52606d;
+  margin: 0;
+}
+
+.sectionTitle {
+  margin: 0 0 16px;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.adminTable {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.adminTable th,
+.adminTable td {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px;
+  text-align: left;
+}
+
+.adminTable th {
+  background: #f4f8f5;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.actions button {
+  background: none;
+  border: 0;
+  color: #166534;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
 .toolbar {
   display: flex;
   justify-content: flex-end;

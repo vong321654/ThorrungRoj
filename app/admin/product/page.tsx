@@ -24,7 +24,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import { AdminRole } from "@/app/models/admin";
 import { useRequireAdmin } from "../useRequireAdmin";
 import { deleteProduct, getBrandList, getProductList, getTypeList, getUnitList } from "./allFunc";
-import { PRODUCT_SALE_TYPES, type PRODUCT } from "@/app/models/product";
+import type { PRODUCT } from "@/app/models/product";
 import type { PRODUCTBAND, PRODUCTTYPE, PRODUCTUNIT } from "@/app/models/productsType";
 
 const ROWS_PER_PAGE = 10;
@@ -77,9 +77,6 @@ export default function ProductPage() {
   const brandName = (id: number) => brands.find((b) => b.id === id)?.name ?? "-";
   const typeName = (id: number) => types.find((t) => t.id === id)?.name ?? "-";
   const unitName = (id: number) => units.find((u) => u.id === id)?.unit ?? "-";
-  const saleTypeName = (value: PRODUCT["saleType"]) =>
-    PRODUCT_SALE_TYPES.find((option) => option.value === value)?.label ?? value;
-
   const filteredProducts = useMemo(() => {
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return products;
@@ -177,7 +174,6 @@ export default function ProductPage() {
               <TableCell align="left">ขนาด</TableCell>
               <TableCell align="left">ประเภท</TableCell>
               <TableCell align="left">หน่วย</TableCell>
-              <TableCell align="left">ประเภทการขาย</TableCell>
               <TableCell align="left">ราคาขาย</TableCell>
               <TableCell align="left">สถานะ</TableCell>
               <TableCell align="left">จัดการ</TableCell>
@@ -195,7 +191,6 @@ export default function ProductPage() {
                 <TableCell align="left">{product.size}</TableCell>
                 <TableCell align="left">{typeName(product.typeId)}</TableCell>
                 <TableCell align="left">{unitName(product.unitId)}</TableCell>
-                <TableCell align="left">{saleTypeName(product.saleType)}</TableCell>
                 <TableCell align="left">{product.sellPrice}</TableCell>
                 <TableCell align="left">{product.isActive === false ? "ปิดใช้งาน" : "ใช้งาน"}</TableCell>
                 <TableCell align="left">
@@ -212,7 +207,7 @@ export default function ProductPage() {
             ))}
             {pageItems.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} align="center">
+                <TableCell colSpan={8} align="center">
                   ไม่พบสินค้า
                 </TableCell>
               </TableRow>

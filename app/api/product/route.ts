@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     return Response.json(apiError("Invalid product payload"), { status: 400 });
   }
 
-  const result = await addProduct(body, auth.supabase);
+  const result = await addProduct(body, auth.supabase, auth.admin.id);
   return Response.json(result, { status: result.status === "success" ? 201 : 400 });
 }
 
@@ -74,7 +74,7 @@ export async function PATCH(request: Request) {
     return Response.json(apiError("Invalid product payload"), { status: 400 });
   }
 
-  const result = await updateProduct(id, body, auth.supabase);
+  const result = await updateProduct(id, body, auth.supabase, auth.admin.id);
   return Response.json(result, { status: result.status === "success" ? 200 : 400 });
 }
 

@@ -16,7 +16,7 @@ export async function getUserById(
 ): Promise<ApiResult<CurrentUser | null>> {
   const { data, error } = await createAdminClient()
     .from("users")
-    .select("id, lineUserId, name, avatarUrl, isActive")
+    .select("id, lineUserId, name, avatarUrl, address, isActive")
     .eq("id", userId)
     .maybeSingle();
 
@@ -166,7 +166,7 @@ export async function getCurrentUser(
 
   const { data, error } = await createAdminClient()
     .from("users")
-    .select("id, lineUserId, name, avatarUrl, isActive")
+    .select("id, lineUserId, name, avatarUrl, address, isActive")
     .eq("authId", authUser.id)
     .maybeSingle();
 

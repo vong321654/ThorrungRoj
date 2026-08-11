@@ -54,20 +54,43 @@ export default function AdminPage() {
   }
 
   return (
-    <main>
-      <h1>Hello {adminData?.role ?? "Admin"}</h1>
-      {adminData && <Link href={`/admin/editAdmin/${adminData.id}`}>Edit my account</Link>}
+    <main className={styles.dashboard}>
+      <h1 className={styles.heading}>จัดการระบบ</h1>
+      <p className={styles.subtitle}>เลือกส่วนงานที่ต้องการจัดการ</p>
+
+      <section className={styles.managementGrid} aria-label="เมนูจัดการระบบ">
+        <Link className={styles.managementCard} href="/admin/product">
+          <h2>สินค้า</h2>
+          <p>เพิ่ม แก้ไข และจัดการรายการสินค้า</p>
+        </Link>
+        <Link className={styles.managementCard} href="/admin/orders">
+          <h2>คำสั่งซื้อ</h2>
+          <p>ตรวจสอบคำสั่งซื้อและสถานะการชำระเงิน</p>
+        </Link>
+        <Link className={styles.managementCard} href="/admin/users">
+          <h2>ผู้ใช้</h2>
+          <p>ดูข้อมูลลูกค้าและสถานะบัญชี</p>
+        </Link>
+        <a className={styles.managementCard} href="#admins">
+          <h2>ผู้ดูแลระบบ</h2>
+          <p>จัดการสิทธิ์และบัญชีพนักงาน</p>
+        </a>
+      </section>
+
+      {adminData && <Link href={`/admin/editAdmin/${adminData.id}`}>แก้ไขบัญชีของฉัน</Link>}
       {isLoading && <p>Loading admin data...</p>}
       {errorMessage && <p role="alert">{errorMessage}</p>}
       {adminData?.role === AdminRole.SuperAdmin &&
 
-        <div >
+        <section id="admins">
+          <h2 className={styles.sectionTitle}>ผู้ดูแลระบบ</h2>
           <div className={styles.toolbar}>
             <Link className={styles.addButton} href="/admin/addAdmin">
               Add admin
             </Link>
           </div>
-          <table>
+          <div className={styles.tableWrap}>
+          <table className={styles.adminTable}>
             <thead>
               <tr>
                 <th>Email</th>
@@ -88,7 +111,7 @@ export default function AdminPage() {
                   <td>{emp.isActive ? "Yes" : "No"}</td>
                   <td>{emp.role}</td>
                   <td>{emp.updatedAt}</td>
-                  <td>
+                  <td className={styles.actions}>
                     <Link href={`/admin/editAdmin/${emp.id}`}>Edit</Link>
                     {adminData && emp.id !== adminData.id && (
                       <button type="button" onClick={() => void handleDelete(emp.id)}>
@@ -100,7 +123,8 @@ export default function AdminPage() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </section>
       }
 
       <button onClick={handleSignOut}>Sign out</button>

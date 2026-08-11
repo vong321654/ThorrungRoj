@@ -65,7 +65,7 @@ export async function PATCH(req: Request) {
     return Response.json(apiError("Brand id and name are required"), { status: 400 });
   }
 
-  const result = await updateBrand(id, name.trim(), auth.supabase);
+  const result = await updateBrand(id, name.trim(), auth.supabase, auth.admin.id);
   return Response.json(result, {
     status: result.status === "success" ? 200 : 500,
   });

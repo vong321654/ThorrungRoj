@@ -29,7 +29,9 @@ export class SupabaseProductRepository implements ProductRepository {
         brandId: product.brandId,
         brandLabel: brandLabels.get(product.brandId) ?? "ไม่ระบุยี่ห้อ",
         weightKg: product.size,
-        price: Number(product.sellPrice),
+        sellPrice: Number(product.sellPrice),
+        exchangePrice: Number(product.exchangePrice),
+        refillPrice: Number(product.refillPrice),
       }));
   }
 }
