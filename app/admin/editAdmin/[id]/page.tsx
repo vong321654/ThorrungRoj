@@ -51,13 +51,14 @@ export default function EditAdminPage() {
 
     setIsSaving(true);
     setMessage(null);
+    const canEditRoleAndStatus = currentAdmin?.role === AdminRole.SuperAdmin;
     try {
       const input = {
         id: admin.id,
         name: values.name || null,
-        ...(currentAdmin?.id === admin.id
-          ? {}
-          : { isActive: values.isActive, role: values.role }),
+        ...(canEditRoleAndStatus
+          ? { isActive: values.isActive, role: values.role }
+          : {}),
       };
       await saveAdminChanges(input);
       router.replace("/admin");
@@ -113,7 +114,7 @@ export default function EditAdminPage() {
           isSubmitting={isSaving}
           message={message}
           onSubmit={handleSubmit}
-          allowRoleAndStatus={currentAdmin?.id !== admin.id}
+          allowRoleAndStatus={currentAdmin?.role === AdminRole.SuperAdmin}
         />
       </section>
     </main>

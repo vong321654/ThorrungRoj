@@ -10,19 +10,25 @@ export function isAdminRole(value: unknown): value is AdminRole {
 
 export type AdminData = {
   id: string;
-  email: string | null;
-  name: string | null;
+  name: string;
+  email: string;
   avatarUrl: string | null;
   isActive: boolean;
-  role: AdminRole | null;
-  address?: string | null;
-  tel?: string | null;
-  thaiId?: string | null;
-  updatedAt: string | null;
+  role: AdminRole;
+  createdAt: string;
+  updatedAt: string;
+  authId: string | null;
+  address: string | null;
+  tel: string | null;
+  thaiId: string | null;
 };
 
 export type UpdateAdminInput = Partial<
-  Pick<AdminData, "name" | "avatarUrl" | "isActive" | "role">
+  Pick<
+    AdminData,
+    "avatarUrl" | "isActive" | "role" | "address" | "tel" | "thaiId"
+  >
 > & {
   id: string;
+  name?: string | null;
 };
