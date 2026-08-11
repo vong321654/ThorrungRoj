@@ -13,6 +13,19 @@ type CurrentUserResponse = {
   results: CurrentUser | null;
 };
 
+function isLineUser(user: {
+  app_metadata?: { provider?: string };
+  identities?: Array<{ provider?: string }>;
+}) {
+  return (
+    user.app_metadata?.provider === "line" ||
+    user.app_metadata?.provider === "custom:line-liff" ||
+    user.identities?.some(
+      (identity) => identity.provider === "line" || identity.provider === "custom:line-liff",
+    )
+  );
+}
+
 export default function Header() {
   const pathname = usePathname();
   const [user, setUser] = useState<CurrentUser | null>(null);
@@ -28,7 +41,16 @@ export default function Header() {
     async function loadCurrentUser() {
       try {
         const { data } = await supabase.auth.getSession();
-        const accessToken = data.session?.access_token;
+        const session = data.session;
+        if (session?.user && !isLineUser(session.user)) {
+          await supabase.auth.signOut({ scope: "local" });
+          if (isMounted) {
+            window.location.replace("/login?reason=line-required");
+          }
+          return;
+        }
+
+        const accessToken = session?.access_token;
         if (!accessToken) return;
 
         const response = await fetch("/api/users/me", {
@@ -75,6 +97,12 @@ export default function Header() {
           </Link>
           <LogoutButton />
         </div>
+      )}
+
+      {!user && (
+        <Link className="site-header__login" href="/login">
+          เข้าสู่ระบบ
+        </Link>
       )}
     </header>
   );

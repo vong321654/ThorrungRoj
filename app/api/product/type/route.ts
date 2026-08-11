@@ -57,7 +57,7 @@ export async function PATCH(request: Request) {
     return Response.json(apiError("Product type name is required"), { status: 400 });
   }
 
-  const result = await updateProductType(id, body.name, auth.supabase);
+  const result = await updateProductType(id, body.name, auth.supabase, auth.admin.id);
   return Response.json(result, { status: result.status === "success" ? 200 : 400 });
 }
 

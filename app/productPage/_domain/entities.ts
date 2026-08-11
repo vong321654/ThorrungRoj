@@ -3,7 +3,9 @@ export type Product = {
   brandId: number;
   brandLabel: string;
   weightKg: number;
-  price: number;
+  sellPrice: number;
+  exchangePrice: number;
+  refillPrice: number;
 };
 
 export type ProductFilterState = {

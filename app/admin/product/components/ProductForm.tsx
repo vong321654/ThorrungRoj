@@ -12,7 +12,6 @@ import {
   TextField,
 } from "@mui/material";
 import type { PRODUCTBAND, PRODUCTTYPE, PRODUCTUNIT } from "@/app/models/productsType";
-import { PRODUCT_SALE_TYPES, type ProductSaleType } from "@/app/models/product";
 
 export type ProductFormValues = {
   name: string;
@@ -20,7 +19,6 @@ export type ProductFormValues = {
   size: number | "";
   typeId: number | "";
   unitId: number | "";
-  saleType: ProductSaleType | "";
   sellPrice: string;
   exchangePrice: string;
   refillPrice: string;
@@ -53,7 +51,6 @@ export default function ProductForm({
   const [size, setSize] = useState<number | "">(initialValues?.size ?? "");
   const [typeId, setTypeId] = useState<number | "">(initialValues?.typeId ?? "");
   const [unitId, setUnitId] = useState<number | "">(initialValues?.unitId ?? "");
-  const [saleType, setSaleType] = useState<ProductSaleType | "">(initialValues?.saleType ?? "");
   const [sellPrice, setSellPrice] = useState(initialValues?.sellPrice ?? "");
   const [exchangePrice, setExchangePrice] = useState(initialValues?.exchangePrice ?? "");
   const [refillPrice, setRefillPrice] = useState(initialValues?.refillPrice ?? "");
@@ -70,7 +67,6 @@ export default function ProductForm({
       size === "" ||
       typeId === "" ||
       unitId === "" ||
-      saleType === "" ||
       !sellPrice.trim()
     ) {
       setValidationMessage("กรุณากรอกข้อมูลให้ครบถ้วน");
@@ -83,7 +79,6 @@ export default function ProductForm({
       size,
       typeId,
       unitId,
-      saleType,
       sellPrice: sellPrice.trim(),
       exchangePrice: exchangePrice.trim(),
       refillPrice: refillPrice.trim(),
@@ -160,21 +155,6 @@ export default function ProductForm({
           {units.map((unit) => (
             <MenuItem key={unit.id} value={unit.id}>
               {unit.unit}
-            </MenuItem>
-          ))}
-        </TextField>
-
-        <TextField
-          select
-          label="ประเภทการขาย"
-          value={saleType}
-          onChange={(event) => setSaleType(event.target.value as ProductSaleType)}
-          required
-          fullWidth
-        >
-          {PRODUCT_SALE_TYPES.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              {option.label}
             </MenuItem>
           ))}
         </TextField>

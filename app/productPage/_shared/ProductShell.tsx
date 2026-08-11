@@ -8,9 +8,11 @@ import CartDrawer from "./components/CartDrawer";
 import CategoryNavBar from "./components/CategoryNavBar";
 import ShopContactFooter from "./components/ShopContactFooter";
 import SiteTopBar from "./components/SiteTopBar";
+import { useRouter } from "next/navigation";
 
 function CartDrawerConnected() {
   const cart = useCart();
+  const router = useRouter();
   return (
     <CartDrawer
       open={cart.isCartOpen}
@@ -20,6 +22,10 @@ function CartDrawerConnected() {
       onRemove={cart.removeItem}
       onIncrease={cart.increaseQuantity}
       onDecrease={cart.decreaseQuantity}
+      onCheckout={() => {
+        cart.closeCart();
+        router.push("/productPage/checkout");
+      }}
     />
   );
 }

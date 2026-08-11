@@ -45,6 +45,8 @@ export default function CategoryNavBar() {
   const pathname = usePathname();
   const { cartCount, openCart } = useCart();
   const isPartsActive = pathname?.startsWith("/productPage/parts") ?? false;
+  const isOrdersActive = pathname?.startsWith("/productPage/orders") ?? false;
+  const isProductsActive = pathname === "/productPage";
 
   return (
     <Box
@@ -57,9 +59,9 @@ export default function CategoryNavBar() {
       }}
     >
       <Box sx={{ display: "flex" }}>
-        <NavTab href="/productPage" active={!isPartsActive} icon={<TankIcon color="#fff" />} label="รายการถังแก๊ส" />
+        <NavTab href="/productPage" active={isProductsActive} icon={<TankIcon color="#fff" />} label="รายการถังแก๊ส" />
         <NavTab href="/productPage/parts" active={isPartsActive} icon={<PartIcon color="#fff" />} label="อะไหล่แก๊ส" />
-        <NavTab href="/productPage" active={false} icon={<HomeIcon color="#fff" />} label="หน้าหลัก" />
+        <NavTab href="/productPage/orders" active={isOrdersActive} icon={<HomeIcon color="#fff" />} label="คำสั่งซื้อ" />
       </Box>
 
       <ButtonBase onClick={openCart} sx={navItemSx}>

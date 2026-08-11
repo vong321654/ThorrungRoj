@@ -58,12 +58,17 @@ export async function updateBrand(
   id: number,
   name: string,
   supabase: SupabaseClient,
+  updatedBy: string,
 ) {
   if (!id || !name.trim()) return apiError("Invalid brand id or name");
 
   const { data, error } = await supabase
     .from("productsBrand")
-    .update({ name: name.trim(), updatedAt: new Date().toISOString() })
+    .update({
+      name: name.trim(),
+      updatedBy,
+      updatedAt: new Date().toISOString(),
+    })
     .eq("id", id)
     .select()
     .single();

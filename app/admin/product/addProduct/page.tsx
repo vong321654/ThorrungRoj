@@ -55,8 +55,7 @@ export default function AddProductPage() {
       values.brandId === "" ||
       values.size === "" ||
       values.typeId === "" ||
-      values.unitId === "" ||
-      values.saleType === ""
+      values.unitId === ""
     ) {
       return;
     }
@@ -70,13 +69,10 @@ export default function AddProductPage() {
         size: values.size,
         typeId: values.typeId,
         unitId: values.unitId,
-        saleType: values.saleType,
         sellPrice: Number(values.sellPrice),
         exchangePrice: values.exchangePrice ? Number(values.exchangePrice) : 0,
         refillPrice: values.refillPrice ? Number(values.refillPrice) : 0,
         isActive: values.isActive,
-        createdBy: admin.id,
-        updatedBy: null,
       });
 
       router.replace("/admin/product");

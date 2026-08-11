@@ -16,10 +16,18 @@ type CartDrawerProps = {
   onRemove: (itemId: string) => void;
   onIncrease: (itemId: string) => void;
   onDecrease: (itemId: string) => void;
+  onCheckout: () => void;
 };
 
 function formatBaht(amount: number | null) {
   return amount !== null ? `${amount.toLocaleString("th-TH")} บาท` : "-- บาท";
+}
+
+function getSaleTypeLabel(saleType: CartLine["item"]["saleType"]) {
+  if (saleType === "sell") return "ซื้อถัง";
+  if (saleType === "exchange") return "เปลี่ยนถัง";
+  if (saleType === "refill") return "เติมแก๊ส";
+  return "ยังไม่พร้อมจำหน่าย";
 }
 
 export default function CartDrawer({
@@ -30,7 +38,21 @@ export default function CartDrawer({
   onRemove,
   onIncrease,
   onDecrease,
+  onCheckout,
 }: CartDrawerProps) {
+  const canCheckout =
+    lines.length > 0 &&
+    lines.every(
+      (line) =>
+        Number.isInteger(line.item.productId) &&
+        (line.item.productId ?? 0) > 0 &&
+        (line.item.saleType === "sell" ||
+          line.item.saleType === "exchange" ||
+          line.item.saleType === "refill") &&
+        typeof line.item.price === "number" &&
+        line.item.price > 0,
+    );
+
   return (
     <Drawer anchor="right" open={open} onClose={onClose}>
       <Box sx={{ width: 320, p: 2, display: "flex", flexDirection: "column", height: "100%" }}>
@@ -57,7 +79,7 @@ export default function CartDrawer({
                   </Button>
                 </Box>
                 <Typography variant="body2" color="text.secondary">
-                  {formatBaht(line.item.price)} / ชิ้น
+                  {getSaleTypeLabel(line.item.saleType)} · {formatBaht(line.item.price)} / ชิ้น
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
                   <IconButton
@@ -91,6 +113,20 @@ export default function CartDrawer({
           <Typography sx={{ fontWeight: 700 }}>รวมทั้งหมด</Typography>
           <Typography sx={{ fontWeight: 700 }}>{formatBaht(total)}</Typography>
         </Box>
+        <Button
+          variant="contained"
+          fullWidth
+          sx={{ mt: 2 }}
+          disabled={!canCheckout}
+          onClick={onCheckout}
+        >
+          ดำเนินการสั่งซื้อ
+        </Button>
+        {lines.length > 0 && !canCheckout && (
+          <Typography variant="caption" color="error" sx={{ mt: 1, textAlign: "center" }}>
+            กรุณานำสินค้าที่ไม่มีราคาหรือยังไม่เชื่อมกับฐานข้อมูลออกจากตะกร้า
+          </Typography>
+        )}
       </Box>
     </Drawer>
   );

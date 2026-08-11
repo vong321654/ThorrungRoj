@@ -20,7 +20,7 @@ export type User = {
 
 export type CurrentUser = Pick<
   User,
-  "id" | "lineUserId" | "name" | "avatarUrl" | "isActive"
+  "id" | "lineUserId" | "name" | "avatarUrl" | "address" | "isActive"
 >;
 
 export type UpdateUserPayload = Pick<User, "name" | "email" | "phone" | "address">;

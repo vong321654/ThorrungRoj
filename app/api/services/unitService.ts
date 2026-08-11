@@ -51,13 +51,18 @@ export async function updateProductUnit(
   id: number,
   name: string,
   supabase: SupabaseClient,
+  updatedBy: string,
 ) {
   if (!Number.isInteger(id) || id <= 0) return apiError("Invalid product unit id");
   if (!name.trim()) return apiError("Product unit name is required");
 
   const { data, error } = await supabase
     .from("productsUnit")
-    .update({ unit: name.trim(), updatedAt: new Date().toISOString() })
+    .update({
+      unit: name.trim(),
+      updatedBy,
+      updatedAt: new Date().toISOString(),
+    })
     .eq("id", id)
     .select()
     .single();
