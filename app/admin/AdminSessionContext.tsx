@@ -16,16 +16,6 @@ type AdminSessionContextValue = {
 
 const AdminSessionContext = createContext<AdminSessionContextValue | null>(null);
 
-function readCache(): AdminData | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as AdminData) : null;
-  } catch {
-    return null;
-  }
-}
-
 function writeCache(admin: AdminData | null) {
   if (typeof window === "undefined") return;
   try {
@@ -37,7 +27,9 @@ function writeCache(admin: AdminData | null) {
 }
 
 export function AdminSessionProvider({ children }: { children: React.ReactNode }) {
-  const [admin, setAdmin] = useState<AdminData | null>(() => readCache());
+  // Keep the first client render identical to the server render. Reading
+  // sessionStorage here would render cached admin-only UI before hydration.
+  const [admin, setAdmin] = useState<AdminData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasFetchedRef = useRef(false);

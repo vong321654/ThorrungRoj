@@ -131,7 +131,7 @@ CREATE TABLE public.debtRecords (
   recordedBy uuid,
   debtType USER-DEFINED NOT NULL,
   amount numeric NOT NULL,
-  paidAmount numeric NOT NULL DEFAULT 0,
+  productId bigint,
   note text,
   status USER-DEFINED NOT NULL DEFAULT 'pending'::"debtStatus",
   dueDate date,
@@ -140,8 +140,26 @@ CREATE TABLE public.debtRecords (
   CONSTRAINT debtRecords_pkey PRIMARY KEY (id),
   CONSTRAINT debtRecords_userId_fkey FOREIGN KEY (userId) REFERENCES public.users(id),
   CONSTRAINT debtRecords_orderId_fkey FOREIGN KEY (orderId) REFERENCES public.orders(id),
-  CONSTRAINT debtRecords_recordedBy_fkey FOREIGN KEY (recordedBy) REFERENCES public.employees(id)
+  CONSTRAINT debtRecords_recordedBy_fkey FOREIGN KEY (recordedBy) REFERENCES public.employees(id),
+  CONSTRAINT debtRecords_productId_fkey FOREIGN KEY (productId) REFERENCES public.products(id),
+  CONSTRAINT debtRecords_amount_positive CHECK (amount > 0::numeric),
+  CONSTRAINT debtRecords_product_required_for_cart CHECK (((debtType = 'money'::"debtType") AND (productId IS NULL)) OR ((debtType = 'cart'::"debtType") AND (productId IS NOT NULL)))
 );
+CREATE INDEX debtRecords_userId_debtType_status_idx ON public.debtRecords USING btree (userId, debtType, status);
+
+CREATE TABLE public.debtTransactions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  debtRecordId uuid NOT NULL,
+  transactionType text NOT NULL CHECK (transactionType = ANY (ARRAY['payment'::text, 'return'::text])),
+  amount numeric NOT NULL CHECK (amount > 0::numeric),
+  recordedBy uuid,
+  note text,
+  createdAt timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT debtTransactions_pkey PRIMARY KEY (id),
+  CONSTRAINT debtTransactions_debtRecordId_fkey FOREIGN KEY (debtRecordId) REFERENCES public.debtRecords(id),
+  CONSTRAINT debtTransactions_recordedBy_fkey FOREIGN KEY (recordedBy) REFERENCES public.employees(id)
+);
+CREATE INDEX debtTransactions_debtRecordId_createdAt_idx ON public.debtTransactions USING btree (debtRecordId, createdAt);
 CREATE TABLE public.deliveryTracking (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   orderId uuid NOT NULL UNIQUE,

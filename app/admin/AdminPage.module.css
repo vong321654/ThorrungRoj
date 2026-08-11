@@ -13,6 +13,30 @@
   margin: 8px 0 28px;
 }
 
+.statsGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+  margin-bottom: 28px;
+}
+
+.statCard {
+  background: linear-gradient(145deg, #f8fcf9, #ffffff);
+  border: 1px solid #dce5df;
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.statCard p {
+  color: #52606d;
+  margin: 0 0 8px;
+}
+
+.statCard strong {
+  color: #14532d;
+  font-size: 1.65rem;
+}
+
 .managementGrid {
   display: grid;
   gap: 16px;

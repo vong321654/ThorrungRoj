@@ -12,10 +12,11 @@ type AdminOrder = {
   users: { name: string; phone: string | null; shopName: string | null } | null;
 };
 
-type OrderPaymentStatus = "paid" | "pendingPayment" | "pendingCart";
+type OrderPaymentStatus = "awaitingPayment" | "paid" | "pendingPayment" | "pendingCart";
 type OrderStatus = "pending" | "preparing" | "delivering" | "delivered" | "cancelled";
 
 const PAYMENT_STATUS_LABELS: Record<OrderPaymentStatus, string> = {
+  awaitingPayment: "รอชำระเงิน",
   paid: "ชำระแล้ว",
   pendingPayment: "ค้างชำระ",
   pendingCart: "ค้างถัง",
@@ -33,7 +34,7 @@ function getOrderPaymentStatus(order: AdminOrder): OrderPaymentStatus {
   if (order.paymentStatus === "paid") return "paid";
   if (order.paymentMethod === "pendingPayment") return "pendingPayment";
   if (order.paymentMethod === "pendingCart") return "pendingCart";
-  return "pendingPayment";
+  return "awaitingPayment";
 }
 
 export default function AdminOrdersPage() {
