@@ -1,24 +1,19 @@
 export type PRODUCTTYPE = {
-  id?: number; //PK
+  id: number;
   name: string;
-  createdAt: Date;
-  updatedAt?: Date;
-  createdBy: string; //FK
-  updateBy?: string; //FK
+  createdAt: string;
+  updatedAt: string | null;
+  createdBy: string;
+  updatedBy: string | null;
 };
-export type PRODUCTBAND = {
-  id?: number; //PK
-  name: string;
-  createdAt: Date;
-  updatedAt?: Date;
-  createdBy: string; //FK
-  updateBy?: string; //FK
-};
+
+export type PRODUCTBAND = PRODUCTTYPE;
+
 export type PRODUCTUNIT = {
-  id?: number; //PK
-  name: string;
-  createdAt: Date;
-  updatedAt?: Date;
-  createdBy: string; //FK
-  updateBy?: string; //FK
+  id: number;
+  unit: string;
+  createdAt: string;
+  updatedAt: string | null;
+  createdBy: string;
+  updatedBy: string | null;
 };

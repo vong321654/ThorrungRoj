@@ -1,9 +1,9 @@
 export type UserId = string | number;
 
 export type User = {
-  id: UserId;
+  id: string;
   lineUserId: string;
-  name: string | null;
+  name: string;
   phone: string | null;
   email: string | null;
   address: string | null;
@@ -11,6 +11,11 @@ export type User = {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  authId: string | null;
+  lineDisplayName: string | null;
+  contactName: string | null;
+  shopName: string | null;
+  customerType: string;
 };
 
 export type CurrentUser = Pick<

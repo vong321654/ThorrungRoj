@@ -1,18 +1,19 @@
 export type PRODUCT = {
-  id: number; //PK
+  id: number;
   name: string;
-  brandId: number; //FK
-  size: number;
-  typeId: number; //FK
-  unitId: number; //FK
-  createdAt?: Date;
-  updatedAt?: Date;
-  createdBy?: string; //FK
-  updateBy?: string; //FK
-  sellPrice: string;
-  exchangePrice?: string;
-  refillPrice?: string;
-  isActive?: boolean;
+  brandId: number;
+  size: number | null;
+  typeId: number;
+  sellPrice: number;
+  unitId: number;
+  saleType: "sell" | "exchange" | "refill" | "return";
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+  exchangePrice: number;
+  refillPrice: number;
+  isActive: boolean;
 };
 
 export type PRODUCTINPUT = Omit<PRODUCT, "id" | "createdAt" | "updatedAt">;
