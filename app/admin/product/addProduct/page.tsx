@@ -71,11 +71,12 @@ export default function AddProductPage() {
         typeId: values.typeId,
         unitId: values.unitId,
         saleType: values.saleType,
-        sellPrice: values.sellPrice,
-        exchangePrice: values.exchangePrice || undefined,
-        refillPrice: values.refillPrice || undefined,
+        sellPrice: Number(values.sellPrice),
+        exchangePrice: values.exchangePrice ? Number(values.exchangePrice) : 0,
+        refillPrice: values.refillPrice ? Number(values.refillPrice) : 0,
         isActive: values.isActive,
         createdBy: admin.id,
+        updatedBy: null,
       });
 
       router.replace("/admin/product");

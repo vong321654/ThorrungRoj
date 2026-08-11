@@ -20,7 +20,10 @@ export class SupabaseProductRepository implements ProductRepository {
     const brandLabels = new Map(brandsResult.results.map((brand) => [brand.id, brand.name]));
 
     return productsResult.results
-      .filter((product) => product.isActive !== false)
+      .filter(
+        (product): product is PRODUCT & { size: number } =>
+          product.isActive !== false && product.size !== null,
+      )
       .map((product) => ({
         id: String(product.id),
         brandId: product.brandId,

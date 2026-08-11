@@ -90,11 +90,11 @@ export default function EditProductPage() {
         typeId: values.typeId,
         unitId: values.unitId,
         saleType: values.saleType,
-        sellPrice: values.sellPrice,
-        exchangePrice: values.exchangePrice || undefined,
-        refillPrice: values.refillPrice || undefined,
+        sellPrice: Number(values.sellPrice),
+        exchangePrice: values.exchangePrice ? Number(values.exchangePrice) : 0,
+        refillPrice: values.refillPrice ? Number(values.refillPrice) : 0,
         isActive: values.isActive,
-        updateBy: admin.id,
+        updatedBy: admin.id,
       });
       router.replace("/admin/product");
       router.refresh();
@@ -138,13 +138,16 @@ export default function EditProductPage() {
           initialValues={{
             name: product.name,
             brandId: product.brandId,
-            size: product.size,
+            size: product.size ?? "",
             typeId: product.typeId,
             unitId: product.unitId,
-            saleType: product.saleType,
-            sellPrice: product.sellPrice,
-            exchangePrice: product.exchangePrice ?? "",
-            refillPrice: product.refillPrice ?? "",
+            saleType:
+              product.saleType === "exchange" || product.saleType === "refill"
+                ? product.saleType
+                : "",
+            sellPrice: String(product.sellPrice),
+            exchangePrice: String(product.exchangePrice),
+            refillPrice: String(product.refillPrice),
             isActive: product.isActive ?? true,
           }}
           brands={brands}
