@@ -2,42 +2,20 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AdminRole } from "@/app/models/admin";
 import AdminForm, {
   type AdminFormValues,
 } from "../components/AdminForm";
-import { addAdmin, getAdmin } from "../allFunc";
+import { addAdmin } from "../allFunc";
+import { useRequireAdmin } from "../useRequireAdmin";
 import styles from "../../login/Login.module.css";
 
 export default function AddAdminPage() {
   const router = useRouter();
-  const [isCheckingAccess, setIsCheckingAccess] = useState(true);
+  const { isAllowed, isLoading: isCheckingAccess } = useRequireAdmin({ role: AdminRole.SuperAdmin });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    async function checkAccess() {
-      try {
-        const admin = await getAdmin();
-        if (!isCancelled && admin.role !== AdminRole.SuperAdmin) {
-          router.replace("/admin");
-          return;
-        }
-      } catch {
-        if (!isCancelled) router.replace("/admin/login");
-      } finally {
-        if (!isCancelled) setIsCheckingAccess(false);
-      }
-    }
-
-    void checkAccess();
-    return () => {
-      isCancelled = true;
-    };
-  }, [router]);
 
   async function handleSubmit(values: AdminFormValues) {
     setMessage(null);
@@ -62,7 +40,7 @@ export default function AddAdminPage() {
     }
   }
 
-  if (isCheckingAccess) {
+  if (isCheckingAccess || !isAllowed) {
     return (
       <main className={styles.page}>
         <p>Checking admin access...</p>

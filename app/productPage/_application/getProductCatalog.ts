@@ -8,7 +8,7 @@ export async function getProductCatalog(
   const products = await repository.listAllProducts();
 
   return products.filter((product) => {
-    const matchesBrand = filter.brand === "" || product.brand === filter.brand;
+    const matchesBrand = filter.brandId === "" || product.brandId === filter.brandId;
     const matchesWeight = filter.weightKg === "" || product.weightKg === filter.weightKg;
     return matchesBrand && matchesWeight;
   });

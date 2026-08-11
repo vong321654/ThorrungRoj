@@ -73,7 +73,7 @@ export async function updateBrand(
   return apiSuccess("Brand updated successfully", data);
 }
 
-async function deleteBrand(id: number, supabase: SupabaseClient) {
+export async function deleteBrand(id: number, supabase: SupabaseClient) {
   if (!id) {
     return apiError("Invalid brand id");
   }

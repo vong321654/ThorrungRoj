@@ -7,31 +7,25 @@ import { AdminRole, isAdminRole, type AdminData } from "@/app/models/admin";
 import AdminForm, {
   type AdminFormValues,
 } from "../../components/AdminForm";
-import {
-  getAdmin,
-  getAdminByEmployeeId,
-  saveAdminChanges,
-} from "../../allFunc";
+import { getAdminByEmployeeId, saveAdminChanges } from "../../allFunc";
+import { useRequireAdmin } from "../../useRequireAdmin";
 import styles from "../../../login/Login.module.css";
 
 export default function EditAdminPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { admin: currentAdmin, isLoading: isSessionLoading } = useRequireAdmin();
   const [admin, setAdmin] = useState<AdminData | null>(null);
-  const [currentAdmin, setCurrentAdmin] = useState<AdminData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadAdmin() {
+    if (isSessionLoading || !currentAdmin) return;
+
+    async function loadTarget() {
       try {
-        const [current, target] = await Promise.all([
-          getAdmin(),
-          getAdminByEmployeeId(params.id),
-        ]);
-        setCurrentAdmin(current);
-        setAdmin(target);
+        setAdmin(await getAdminByEmployeeId(params.id));
       } catch (error) {
         setMessage(
           error instanceof Error
@@ -43,8 +37,8 @@ export default function EditAdminPage() {
       }
     }
 
-    if (params.id) void loadAdmin();
-  }, [params.id]);
+    if (params.id) void loadTarget();
+  }, [params.id, isSessionLoading, currentAdmin]);
 
   async function handleSubmit(values: AdminFormValues) {
     if (!admin) return;

@@ -8,6 +8,7 @@ import {
   type ProductPayload,
 } from "@/app/api/services/productService";
 import { apiError } from "@/app/api/response";
+import { authenticateAdmin } from "../admin/authorization";
 
 function getQueryId(request: Request) {
   const idValue = new URL(request.url).searchParams.get("id");
@@ -47,16 +48,22 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await authenticateAdmin(request);
+  if (auth instanceof Response) return auth;
+
   const body = (await request.json().catch(() => null)) as ProductPayload | null;
   if (!body || typeof body !== "object") {
     return Response.json(apiError("Invalid product payload"), { status: 400 });
   }
 
-  const result = await addProduct(body);
+  const result = await addProduct(body, auth.supabase);
   return Response.json(result, { status: result.status === "success" ? 201 : 400 });
 }
 
 export async function PATCH(request: Request) {
+  const auth = await authenticateAdmin(request);
+  if (auth instanceof Response) return auth;
+
   const id = getQueryId(request);
   if (id === null) {
     return Response.json(apiError("Valid product id is required"), { status: 400 });
@@ -67,17 +74,20 @@ export async function PATCH(request: Request) {
     return Response.json(apiError("Invalid product payload"), { status: 400 });
   }
 
-  const result = await updateProduct(id, body);
+  const result = await updateProduct(id, body, auth.supabase);
   return Response.json(result, { status: result.status === "success" ? 200 : 400 });
 }
 
 export async function DELETE(request: Request) {
+  const auth = await authenticateAdmin(request);
+  if (auth instanceof Response) return auth;
+
   const id = getQueryId(request);
   if (id === null) {
     return Response.json(apiError("Valid product id is required"), { status: 400 });
   }
 
-  const result = await deleteProduct(id);
+  const result = await deleteProduct(id, auth.supabase);
   return Response.json(result, { status: result.status === "success" ? 200 : 400 });
 }
 

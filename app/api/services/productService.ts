@@ -1,104 +1,65 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createPublicClient } from "@/app/api/util/supabase/public";
-import { createClient } from "@/app/api/util/supabase/server";
-import { cookies } from "next/headers";
 import { apiError, apiSuccess } from "../response";
 
 export type ProductPayload = Record<string, unknown>;
 
+function databaseError(message: string, error: { message?: string }) {
+  const detail = process.env.NODE_ENV === "development" && error.message
+    ? `: ${error.message}`
+    : "";
+  return apiError(`${message}${detail}`);
+}
+
+const productFields =
+  "id, name, brandId, size, typeId, unitId, saleType, sellPrice, exchangePrice, refillPrice, isActive";
+
 //Get All Products
 export async function getAllProduct() {
   const supabase = createPublicClient();
-  try {
-    const { data, error } = await supabase
-      .from("products")
-      .select(
-        "id name brandId size typeId unitId sellPrice exchangePrice refillPrice isActive",
-      );
-    if (error) {
-      throw error;
-    }
-    return apiSuccess("Products retrieved successfully", data);
-  } catch {
-    return apiError("Failed to fetch products");
-  }
+  const { data, error } = await supabase.from("products").select(productFields);
+  if (error) return databaseError("Failed to fetch products", error);
+  return apiSuccess("Products retrieved successfully", data);
 }
 
 //Get Product Item
 export async function getProductItem(id: string) {
   const supabase = createPublicClient();
-  try {
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("id", id);
-    if (error) {
-      throw error;
-    }
-    return apiSuccess("Product retrieved successfully", data);
-  } catch {
-    return apiError("Failed to fetch product");
-  }
+  const { data, error } = await supabase.from("products").select("*").eq("id", id);
+  if (error) return databaseError("Failed to fetch product", error);
+  return apiSuccess("Product retrieved successfully", data);
 }
 
 //Update Product
-export async function updateProduct(id: string, data: ProductPayload) {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-  try {
-    const { data: updatedProduct, error } = await supabase
-      .from("products")
-      .update(data)
-      .eq("id", id)
-      .select()
-      .single();
+export async function updateProduct(id: string, data: ProductPayload, supabase: SupabaseClient) {
+  const { data: updatedProduct, error } = await supabase
+    .from("products")
+    .update(data)
+    .eq("id", id)
+    .select()
+    .single();
 
-    if (error) {
-      throw error;
-    }
-
-    return apiSuccess("Product updated successfully", updatedProduct);
-  } catch {
-    return apiError("Failed to update product");
-  }
+  if (error) return databaseError("Failed to update product", error);
+  return apiSuccess("Product updated successfully", updatedProduct);
 }
 
 //Delete Product
-export async function deleteProduct(id: string) {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-  try {
-    const { data, error } = await supabase
-      .from("products")
-      .delete()
-      .eq("id", id);
-    if (error) {
-      throw error;
-    }
-    return apiSuccess("Product deleted successfully", data);
-  } catch {
-    return apiError("Failed to delete product");
-  }
+export async function deleteProduct(id: string, supabase: SupabaseClient) {
+  const { data, error } = await supabase.from("products").delete().eq("id", id);
+  if (error) return databaseError("Failed to delete product", error);
+  return apiSuccess("Product deleted successfully", data);
 }
 
 //Add Product
-export async function addProduct(data: ProductPayload) {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-  try {
-    const { data: newProduct, error } = await supabase
-      .from("products")
-      .insert(data)
-      .select()
-      .single();
+export async function addProduct(data: ProductPayload, supabase: SupabaseClient) {
+  const { data: newProduct, error } = await supabase
+    .from("products")
+    .insert(data)
+    .select()
+    .single();
 
-    if (error) {
-      throw error;
-    }
-
-    return apiSuccess("Product created successfully", newProduct);
-  } catch {
-    return apiError("Failed to add product");
-  }
+  if (error) return databaseError("Failed to add product", error);
+  return apiSuccess("Product created successfully", newProduct);
 }
 
 //fillter
@@ -144,6 +105,6 @@ export async function getFilteredProduct(data: ProductPayload) {
   if (parsedBrand !== undefined) query = query.eq("brandId", parsedBrand);
 
   const { data: products, error } = await query;
-  if (error) return apiError("Failed to filter products");
+  if (error) return databaseError("Failed to filter products", error);
   return apiSuccess("Products retrieved successfully", products);
 }
