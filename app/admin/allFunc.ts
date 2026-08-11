@@ -5,6 +5,13 @@ import type { ApiResult } from "@/app/api/response";
 import type { AdminData, UpdateAdminInput } from "@/app/models/admin";
 import type { CreateAdminCredentials } from "@/app/models/adminLogin";
 
+export type DashboardStats = {
+  monthlySales: number;
+  monthlyUnitsSold: number;
+  outstandingMoney: number;
+  outstandingCarts: number;
+};
+
 const supabase = createClient();
 
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -27,6 +34,10 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T
 
 export function getAdmin() {
   return apiRequest<AdminData>("/api/admin/me");
+}
+
+export function getDashboardStats() {
+  return apiRequest<DashboardStats>("/api/admin/dashboard");
 }
 
 export function getAdminsList() {
