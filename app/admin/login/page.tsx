@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import styles from "../../login/Login.module.css";
 import { hasActiveAdminSession, loginWithEmail } from "./allFunc";
+import { useAdminSession } from "../AdminSessionContext";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { refresh } = useAdminSession();
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [adminEmail, setAdminEmail] = useState<string>("");
@@ -36,6 +38,7 @@ export default function AdminLoginPage() {
 
     try {
       await loginWithEmail(adminEmail, adminPassword);
+      await refresh();
       router.replace("/admin");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Failed to sign in");

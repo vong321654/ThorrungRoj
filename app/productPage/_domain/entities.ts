@@ -1,19 +1,17 @@
-export type ProductBrand = "ptt" | "worldGas" | "siamGas";
-
 export type Product = {
   id: string;
-  brand: ProductBrand;
+  brandId: number;
   brandLabel: string;
   weightKg: number;
   price: number;
 };
 
 export type ProductFilterState = {
-  brand: ProductBrand | "";
+  brandId: number | "";
   weightKg: number | "";
 };
 
 export const EMPTY_PRODUCT_FILTER: ProductFilterState = {
-  brand: "",
+  brandId: "",
   weightKg: "",
 };

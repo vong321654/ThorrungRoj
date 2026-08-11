@@ -1,5 +1,6 @@
 import {
   addBrand,
+  deleteBrand,
   getAllBrand,
   getBrandById,
   updateBrand,
@@ -70,4 +71,21 @@ export async function PATCH(req: Request) {
   });
 }
 
-export async function DELETE() {}
+export async function DELETE(req: Request) {
+  const auth = await authenticateAdmin(req);
+  if (auth instanceof Response) return auth;
+  if (!isSuperAdmin(auth)) {
+    return Response.json(apiError("Only a super admin can delete brands"), { status: 403 });
+  }
+
+  const idValue = new URL(req.url).searchParams.get("id");
+  const id = idValue !== null ? Number(idValue) : NaN;
+  if (!Number.isInteger(id) || id <= 0) {
+    return Response.json(apiError("Valid brand id is required"), { status: 400 });
+  }
+
+  const result = await deleteBrand(id, auth.supabase);
+  return Response.json(result, {
+    status: result.status === "success" ? 200 : 400,
+  });
+}

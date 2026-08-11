@@ -7,7 +7,7 @@ import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import type { Product } from "@/app/productPage/_domain/entities";
-import { BRAND_ACCENT_COLOR } from "../brandTheme";
+import { getBrandAccentColor } from "../brandTheme";
 import GasCylinderGlyph from "./GasCylinderGlyph";
 
 type ProductCardProps = {
@@ -16,7 +16,7 @@ type ProductCardProps = {
 };
 
 export default function ProductCard({ product, onSelect }: ProductCardProps) {
-  const accentColor = BRAND_ACCENT_COLOR[product.brand];
+  const accentColor = getBrandAccentColor(product.brandId);
 
   return (
     <Card variant="outlined" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>

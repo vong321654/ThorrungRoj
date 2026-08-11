@@ -17,7 +17,7 @@ type ProductFiltersProps = {
 export default function ProductFilters({ filter, options, onChange }: ProductFiltersProps) {
   function handleBrandChange(event: SelectChangeEvent) {
     const value = event.target.value;
-    onChange({ brand: value === "" ? "" : (value as ProductFilterState["brand"]) });
+    onChange({ brandId: value === "" ? "" : Number(value) });
   }
 
   function handleWeightChange(event: SelectChangeEvent) {
@@ -31,10 +31,14 @@ export default function ProductFilters({ filter, options, onChange }: ProductFil
         <Typography variant="caption" sx={{ mb: 0.5, fontWeight: 600 }}>
           ยี่ห้อถัง
         </Typography>
-        <Select displayEmpty value={filter.brand} onChange={handleBrandChange}>
+        <Select
+          displayEmpty
+          value={filter.brandId === "" ? "" : String(filter.brandId)}
+          onChange={handleBrandChange}
+        >
           <MenuItem value="">- เลือก -</MenuItem>
           {options.brands.map((brand) => (
-            <MenuItem key={brand.value} value={brand.value}>
+            <MenuItem key={brand.value} value={String(brand.value)}>
               {brand.label}
             </MenuItem>
           ))}

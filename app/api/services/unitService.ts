@@ -11,7 +11,7 @@ function databaseError(message: string, error: { message?: string }) {
 
 export async function getAllProductUnit() {
   const supabase = createPublicClient();
-  const { data, error } = await supabase.from("productsUnit").select("*").order("name");
+  const { data, error } = await supabase.from("productsUnit").select("*").order("unit");
   if (error) return databaseError("Failed to fetch product units", error);
   return apiSuccess("Product units retrieved successfully", data ?? []);
 }
@@ -40,7 +40,7 @@ export async function addProductUnit(
 
   const { data, error } = await supabase
     .from("productsUnit")
-    .insert({ name: name.trim(), createdBy })
+    .insert({ unit: name.trim(), createdBy })
     .select()
     .single();
   if (error) return databaseError("Failed to add product unit", error);
@@ -57,7 +57,7 @@ export async function updateProductUnit(
 
   const { data, error } = await supabase
     .from("productsUnit")
-    .update({ name: name.trim(), updatedAt: new Date().toISOString() })
+    .update({ unit: name.trim(), updatedAt: new Date().toISOString() })
     .eq("id", id)
     .select()
     .single();

@@ -2,37 +2,43 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { deleteAdmin, getAdmin, signOutAdmin, getAdminsList } from "./allFunc";
+import { deleteAdmin, getAdminsList } from "./allFunc";
+import { useAdminSession } from "./AdminSessionContext";
+import { useRequireAdmin } from "./useRequireAdmin";
 import { AdminRole, type AdminData } from "@/app/models/admin";
 import Link from "next/link";
 import styles from "./AdminPage.module.css";
 
 export default function AdminPage() {
   const router = useRouter();
-  const [adminData, setAdminData] = useState<AdminData | null>(null);
+  const { admin: adminData, isLoading: isSessionLoading } = useRequireAdmin();
+  const { signOut } = useAdminSession();
   const [employeesData, setEmployeesData] = useState<AdminData[] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  async function fetchAdminData() {
+
+  async function fetchEmployeesData() {
     try {
-      const data = await getAdmin();
-        setAdminData(data);
-        setErrorMessage(null);
-      if (data.role === AdminRole.SuperAdmin) {
-        setEmployeesData((await getAdminsList()) || []);
-      }
+      setEmployeesData((await getAdminsList()) || []);
+      setErrorMessage(null);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to fetch admin data");
-      setAdminData(null);
     } finally {
       setIsLoading(false);
     }
   }
+
   useEffect(() => {
-    void fetchAdminData();
-  }, []);
+    if (isSessionLoading) return;
+    if (adminData?.role === AdminRole.SuperAdmin) {
+      void fetchEmployeesData();
+    } else {
+      setIsLoading(false);
+    }
+  }, [isSessionLoading, adminData]);
+
   async function handleSignOut() {
-    await signOutAdmin();
+    await signOut();
     router.replace("/admin/login");
     router.refresh();
   }
@@ -41,7 +47,7 @@ export default function AdminPage() {
     if (!window.confirm("Deactivate this admin account?")) return;
     try {
       await deleteAdmin(id);
-      await fetchAdminData();
+      await fetchEmployeesData();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to deactivate admin");
     }
