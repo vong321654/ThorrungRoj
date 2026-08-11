@@ -1,10 +1,22 @@
 "use client";
 
-import liff from "@line/liff";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
+import { createClient } from "@/app/api/util/supabase/client";
 import styles from "./Login.module.css";
 
-const LIFF_ID = "2009558098-JoPkdhsJ";
+/*
+ * วิธีล็อกอินเดิม (ปิดใช้งานแล้ว)
+ *
+ * import liff from "@line/liff";
+ * const LIFF_ID = "2009558098-JoPkdhsJ";
+ * await liff.init({ liffId: LIFF_ID });
+ * if (!liff.isLoggedIn()) liff.login();
+ * const accessToken = liff.getAccessToken();
+ * await fetch("/api/auth/line", { method: "POST", body: JSON.stringify({ accessToken }) });
+ *
+ * วิธีนี้สร้าง custom JWT cookie เอง จึงไม่เกิด Supabase Auth session
+ * และ auth.uid() ใน RLS ไม่สามารถระบุผู้ใช้ LINE ได้
+ */
 
 function subscribeToLocation() {
   return () => {};
@@ -14,12 +26,15 @@ function getLoggedOutSnapshot() {
   return new URLSearchParams(window.location.search).has("loggedOut");
 }
 
+function getAuthErrorSnapshot() {
+  return new URLSearchParams(window.location.search).has("error");
+}
+
 function getServerLoggedOutSnapshot() {
   return false;
 }
 
 export default function LoginPage() {
-  const liffInitPromise = useRef<Promise<void> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const hasLoggedOut = useSyncExternalStore(
@@ -27,75 +42,29 @@ export default function LoginPage() {
     getLoggedOutSnapshot,
     getServerLoggedOutSnapshot,
   );
-
-  function initializeLiff() {
-    if (!liffInitPromise.current) {
-      liffInitPromise.current = liff.init({ liffId: LIFF_ID });
-    }
-    return liffInitPromise.current;
-  }
-
-  async function completeLineLogin() {
-    const accessToken = liff.getAccessToken();
-    if (!accessToken) {
-      throw new Error("ไม่พบ LINE access token กรุณาเข้าสู่ระบบอีกครั้ง");
-    }
-
-    const response = await fetch("/api/auth/line", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accessToken }),
-    });
-
-    const result = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(result?.message || "ไม่สามารถเข้าสู่ระบบด้วย LINE ได้");
-    }
-
-    sessionStorage.removeItem("lineLoginPending");
-    window.location.replace("/productPage");
-  }
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    async function resumeLineLogin() {
-      try {
-        await initializeLiff();
-        const isPending = sessionStorage.getItem("lineLoginPending") === "1";
-
-        if (!isCancelled && isPending && liff.isLoggedIn()) {
-          setIsLoading(true);
-          await completeLineLogin();
-        }
-      } catch (error) {
-        if (!isCancelled) {
-          setMessage(error instanceof Error ? error.message : "เริ่มต้น LINE Login ไม่สำเร็จ");
-          setIsLoading(false);
-        }
-      }
-    }
-
-    resumeLineLogin();
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
+  const hasAuthError = useSyncExternalStore(
+    subscribeToLocation,
+    getAuthErrorSnapshot,
+    getServerLoggedOutSnapshot,
+  );
 
   async function handleLineLogin() {
     setIsLoading(true);
     setMessage(null);
 
     try {
-      await initializeLiff();
+      // วิธีใหม่: ให้ Supabase Auth เริ่ม LINE OAuth และดูแล session
+      // เมื่อล็อกอินสำเร็จ LINE จะส่งกลับมาที่ /api/auth/line
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "custom:line-liff",
+        options: {
+          redirectTo: `${window.location.origin}/api/auth/line`,
+        },
+      });
 
-      if (!liff.isLoggedIn()) {
-        sessionStorage.setItem("lineLoginPending", "1");
-        liff.login();
-        return;
-      }
-
-      await completeLineLogin();
+      if (error) throw error;
+      if (data.url) window.location.assign(data.url);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ");
       setIsLoading(false);
@@ -113,6 +82,12 @@ export default function LoginPage() {
         {hasLoggedOut && (
           <p className={styles.successMessage} role="status">
             ออกจากระบบเรียบร้อยแล้ว
+          </p>
+        )}
+
+        {hasAuthError && !message && (
+          <p className={styles.message} role="alert">
+            เข้าสู่ระบบด้วย LINE ไม่สำเร็จ กรุณาลองอีกครั้ง
           </p>
         )}
 

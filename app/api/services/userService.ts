@@ -4,11 +4,11 @@ import type {
   LineProfile,
   User,
   UserId,
-  UserSessionPayload,
   UpdateUserPayload,
 } from "@/app/models/user";
+import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
+import { createClient } from "@/app/api/util/supabase/server";
 import { apiError, apiSuccess, type ApiResult } from "../response";
 
 export async function getUserById(
@@ -82,24 +82,86 @@ export async function findOrCreateUserFromLineProfile(
   return createUserFromLineProfile(profile);
 }
 
-export async function getCurrentUser(): Promise<ApiResult<CurrentUser | null>> {
-  const token = (await cookies()).get("token")?.value;
-  const jwtSecret = process.env.JWT_SECRET;
-
-  if (!token || !jwtSecret) return apiSuccess("No current user", null);
-
-  try {
-    const payload = jwt.verify(token, jwtSecret);
-    if (typeof payload === "string" || !("userId" in payload)) {
-      return apiSuccess("No current user", null);
-    }
-
-    const userId = (payload as UserSessionPayload).userId;
-    if (userId === undefined) return apiSuccess("No current user", null);
-    return getUserById(userId);
-  } catch {
-    return apiSuccess("No current user", null);
+function getStringMetadata(
+  metadata: Record<string, unknown>,
+  keys: string[],
+): string | null {
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
   }
+  return null;
+}
+
+export async function syncUserFromSupabaseLineAuth(
+  authUser: SupabaseAuthUser,
+): Promise<ApiResult<User>> {
+  const lineIdentity = authUser.identities?.find(
+    (identity) => identity.provider === "custom:line-liff",
+  ) ?? authUser.identities?.[0];
+  const metadata = {
+    ...authUser.user_metadata,
+    ...(lineIdentity?.identity_data ?? {}),
+  } as Record<string, unknown>;
+
+  const lineUserId = getStringMetadata(metadata, [
+    "sub",
+    "userId",
+    "user_id",
+    "provider_id",
+  ]);
+  if (!lineUserId) return apiError("LINE user id is missing from Supabase Auth");
+
+  const displayName = getStringMetadata(metadata, [
+    "name",
+    "displayName",
+    "full_name",
+  ]);
+  const avatarUrl = getStringMetadata(metadata, [
+    "picture",
+    "pictureUrl",
+    "avatar_url",
+  ]);
+
+  const { data, error } = await createAdminClient()
+    .from("users")
+    .upsert(
+      {
+        authId: authUser.id,
+        lineUserId,
+        name: displayName ?? "LINE User",
+        lineDisplayName: displayName,
+        avatarUrl,
+        isActive: true,
+        updatedAt: new Date().toISOString(),
+      },
+      { onConflict: "lineUserId" },
+    )
+    .select("*")
+    .single();
+
+  if (error) return apiError("Failed to sync LINE user");
+  return apiSuccess("LINE user synchronized successfully", data);
+}
+
+export async function getCurrentUser(): Promise<ApiResult<CurrentUser | null>> {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !authUser) return apiSuccess("No current user", null);
+
+  const { data, error } = await createAdminClient()
+    .from("users")
+    .select("id, lineUserId, name, avatarUrl, isActive")
+    .eq("authId", authUser.id)
+    .maybeSingle();
+
+  if (error) return apiError("Failed to fetch current user");
+  return apiSuccess(data ? "User retrieved successfully" : "User not found", data);
 }
 export async function updateUser(
   userId: UserId,

@@ -1,5 +1,3 @@
-import type { JwtPayload } from "jsonwebtoken";
-
 export type UserId = string | number;
 
 export type User = {
@@ -26,9 +24,4 @@ export type LineProfile = {
   userId: string;
   displayName?: string;
   pictureUrl?: string;
-};
-
-export type UserSessionPayload = JwtPayload & {
-  userId?: UserId;
-  lineUserId?: string;
 };
