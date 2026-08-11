@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/app/api/util/supabase/client";
 import styles from "./Login.module.css";
 
@@ -35,6 +36,7 @@ function getServerLoggedOutSnapshot() {
 }
 
 export default function LoginPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const hasLoggedOut = useSyncExternalStore(
@@ -47,6 +49,23 @@ export default function LoginPage() {
     getAuthErrorSnapshot,
     getServerLoggedOutSnapshot,
   );
+
+  useEffect(() => {
+    let isCancelled = false;
+    const supabase = createClient();
+
+    async function redirectAuthenticatedUser() {
+      const { data } = await supabase.auth.getUser();
+      if (!isCancelled && data.user) {
+        router.replace("/productPage");
+      }
+    }
+
+    void redirectAuthenticatedUser();
+    return () => {
+      isCancelled = true;
+    };
+  }, [router]);
 
   async function handleLineLogin() {
     setIsLoading(true);

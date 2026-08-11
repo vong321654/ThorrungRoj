@@ -34,12 +34,12 @@ export function getAdminsList() {
 }
 
 export function getAdminByEmployeeId(id: string) {
-  return apiRequest<AdminData>(`/api/admin/${id}`);
+  return apiRequest<AdminData>(`/api/admin?id=${encodeURIComponent(id)}`);
 }
 
 export function saveAdminChanges(input: UpdateAdminInput) {
   const { id, ...payload } = input;
-  return apiRequest<AdminData>(`/api/admin/${id}`, {
+  return apiRequest<AdminData>(`/api/admin?id=${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
@@ -53,7 +53,7 @@ export function addAdmin(input: CreateAdminCredentials) {
 }
 
 export function deleteAdmin(id: string) {
-  return apiRequest<{ id: string; isActive: boolean }>(`/api/admin/${id}`, {
+  return apiRequest<{ id: string; isActive: boolean }>(`/api/admin?id=${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
 }

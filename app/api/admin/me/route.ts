@@ -37,23 +37,24 @@ export async function GET() {
     );
   }
 
-  const adminData: AdminData = data ?? {
-    id: authData.user.id,
-    email: authData.user.email ?? null,
-    name: null,
-    avatarUrl: null,
-    isActive: true,
-    role: null,
-    address: null,
-    tel: null,
-    thaiId: null,
-    updatedAt: authData.user.updated_at ?? null,
-  };
+  if (!data) {
+    return Response.json(
+      apiError("Employee profile was not found"),
+      { status: 403 },
+    );
+  }
+
+  if (!data.isActive) {
+    return Response.json(
+      apiError("Employee account is inactive"),
+      { status: 403 },
+    );
+  }
 
   return Response.json(
     apiSuccess(
-      data ? "Admin data retrieved successfully" : "No admin profile found",
-      adminData,
+      "Admin data retrieved successfully",
+      data as AdminData,
     ),
   );
 }

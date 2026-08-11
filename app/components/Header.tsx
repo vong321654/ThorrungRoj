@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { CurrentUser } from "@/app/models/user";
 import LogoutButton from "./LogoutButton";
+import { createClient } from "@/app/api/util/supabase/client";
 
 type CurrentUserResponse = {
   status: "success" | "error";
@@ -22,10 +23,17 @@ export default function Header() {
     if (isAdminPath) return;
 
     let isMounted = true;
+    const supabase = createClient();
 
     async function loadCurrentUser() {
       try {
-        const response = await fetch("/api/users/me");
+        const { data } = await supabase.auth.getSession();
+        const accessToken = data.session?.access_token;
+        if (!accessToken) return;
+
+        const response = await fetch("/api/users/me", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
         if (!response.ok) return;
 
         const result = (await response.json()) as CurrentUserResponse;

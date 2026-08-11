@@ -7,7 +7,11 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 export const getSessionResponse = async (
   request: NextRequest,
-): Promise<{ response: NextResponse; user: User | null }> => {
+): Promise<{
+  response: NextResponse;
+  user: User | null;
+  signOut: () => Promise<NextResponse>;
+}> => {
   // Create an unmodified response
   let supabaseResponse = NextResponse.next({
     request: {
@@ -40,5 +44,12 @@ export const getSessionResponse = async (
     data: { user },
   } = await supabase.auth.getUser();
 
-  return { response: supabaseResponse, user };
+  return {
+    response: supabaseResponse,
+    user,
+    async signOut() {
+      await supabase.auth.signOut();
+      return supabaseResponse;
+    },
+  };
 };
