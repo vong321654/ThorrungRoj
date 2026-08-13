@@ -8,6 +8,7 @@ import {
 } from "../../services/typeService";
 import { authenticateAdmin } from "../../admin/authorization";
 import { isSuperAdmin } from "@/app/api/services/adminService";
+import type { NAMEPAYLOAD } from "@/app/models/api";
 
 function getQueryId(request: Request) {
   const idValue = new URL(request.url).searchParams.get("id");
@@ -52,7 +53,7 @@ export async function PATCH(request: Request) {
     return Response.json(apiError("Valid product type id is required"), { status: 400 });
   }
 
-  const body = (await request.json().catch(() => null)) as { name?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as NAMEPAYLOAD | null;
   if (!body || typeof body.name !== "string" || !body.name.trim()) {
     return Response.json(apiError("Product type name is required"), { status: 400 });
   }
@@ -89,9 +90,7 @@ export async function POST(request: Request) {
     });
   }
 
-  const body = (await request.json().catch(() => null)) as {
-    name?: unknown;
-  } | null;
+  const body = (await request.json().catch(() => null)) as NAMEPAYLOAD | null;
   if (!body || typeof body.name !== "string" || !body.name.trim()) {
     return Response.json(apiError("Product type name is required"), {
       status: 400,

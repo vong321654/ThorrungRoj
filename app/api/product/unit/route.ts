@@ -8,6 +8,7 @@ import {
   getUnitById,
   updateProductUnit,
 } from "../../services/unitService";
+import type { NAMEPAYLOAD } from "@/app/models/api";
 
 function getQueryId(request: Request) {
   const idValue = new URL(request.url).searchParams.get("id");
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
     return Response.json(apiError("Only a super admin can add product units"), { status: 403 });
   }
 
-  const body = (await request.json().catch(() => null)) as { name?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as NAMEPAYLOAD | null;
   if (!body || typeof body.name !== "string" || !body.name.trim()) {
     return Response.json(apiError("Product unit name is required"), { status: 400 });
   }
@@ -61,7 +62,7 @@ export async function PATCH(request: Request) {
     return Response.json(apiError("Valid product unit id is required"), { status: 400 });
   }
 
-  const body = (await request.json().catch(() => null)) as { name?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as NAMEPAYLOAD | null;
   if (!body || typeof body.name !== "string" || !body.name.trim()) {
     return Response.json(apiError("Product unit name is required"), { status: 400 });
   }

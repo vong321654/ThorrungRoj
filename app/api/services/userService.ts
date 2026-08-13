@@ -1,19 +1,20 @@
 import { createAdminClient } from "@/app/api/util/supabase/admin";
 import type {
-  CurrentUser,
-  LineProfile,
-  User,
-  UserId,
-  UpdateUserPayload,
+  CURRENTUSER,
+  LINEPROFILE,
+  USER,
+  USERID,
+  UPDATEUSERPAYLOAD,
 } from "@/app/models/user";
 import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { createClient } from "@/app/api/util/supabase/server";
-import { apiError, apiSuccess, type ApiResult } from "../response";
+import { apiError, apiSuccess } from "../response";
+import type { APIRESULT } from "@/app/models/api";
 
 export async function getUserById(
-  userId: UserId,
-): Promise<ApiResult<CurrentUser | null>> {
+  userId: USERID,
+): Promise<APIRESULT<CURRENTUSER | null>> {
   const { data, error } = await createAdminClient()
     .from("users")
     .select("id, lineUserId, name, avatarUrl, address, isActive")
@@ -31,7 +32,7 @@ export async function getUserById(
 
 export async function getUserByLineUserId(
   lineUserId: string,
-): Promise<ApiResult<User | null>> {
+): Promise<APIRESULT<USER | null>> {
   const { data, error } = await createAdminClient()
     .from("users")
     .select("*")
@@ -49,8 +50,8 @@ export async function getUserByLineUserId(
 }
 
 export async function createUserFromLineProfile(
-  profile: LineProfile,
-): Promise<ApiResult<User>> {
+  profile: LINEPROFILE,
+): Promise<APIRESULT<USER>> {
   const { data, error } = await createAdminClient()
     .from("users")
     .insert({
@@ -71,8 +72,8 @@ export async function createUserFromLineProfile(
 }
 
 export async function findOrCreateUserFromLineProfile(
-  profile: LineProfile,
-): Promise<ApiResult<User>> {
+  profile: LINEPROFILE,
+): Promise<APIRESULT<USER>> {
   const existingUserResult = await getUserByLineUserId(profile.userId);
   if (existingUserResult.status === "error") return existingUserResult;
   if (existingUserResult.results) {
@@ -95,7 +96,7 @@ function getStringMetadata(
 
 export async function syncUserFromSupabaseLineAuth(
   authUser: SupabaseAuthUser,
-): Promise<ApiResult<User>> {
+): Promise<APIRESULT<USER>> {
   const lineIdentity = authUser.identities?.find(
     (identity) => identity.provider === "custom:line-liff",
   ) ?? authUser.identities?.[0];
@@ -146,7 +147,7 @@ export async function syncUserFromSupabaseLineAuth(
 
 export async function getCurrentUser(
   accessToken?: string,
-): Promise<ApiResult<CurrentUser | null>> {
+): Promise<APIRESULT<CURRENTUSER | null>> {
   let authUser: SupabaseAuthUser | null = null;
   let authError: unknown = null;
 
@@ -174,9 +175,9 @@ export async function getCurrentUser(
   return apiSuccess(data ? "User retrieved successfully" : "User not found", data);
 }
 export async function updateUser(
-  userId: UserId,
-  payload: UpdateUserPayload,
-): Promise<ApiResult<User>> {
+  userId: USERID,
+  payload: UPDATEUSERPAYLOAD,
+): Promise<APIRESULT<USER>> {
   const { data: user, error } = await createAdminClient()
     .from("users")
     .update({

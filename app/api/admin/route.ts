@@ -1,5 +1,6 @@
 import { apiError } from "@/app/api/response";
-import type { CreateAdminCredentials } from "@/app/models/adminLogin";
+import type { CREATEADMINCREDENTIALS } from "@/app/models/adminLogin";
+import type { ADMINUPDATEPAYLOAD } from "@/app/models/admin";
 import {
   createAdmin,
   deleteAdmin,
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const auth = await authenticateAdmin(request);
   if (auth instanceof Response) return auth;
-  const body = (await request.json().catch(() => null)) as CreateAdminCredentials | null;
+  const body = (await request.json().catch(() => null)) as CREATEADMINCREDENTIALS | null;
   if (!body) return Response.json(apiError("Invalid admin credentials"), { status: 400 });
   const result = await createAdmin(auth, body);
   return Response.json(result, { status: result.status === "success" ? 201 : 400 });
@@ -35,7 +36,7 @@ export async function PATCH(request: Request) {
   if (auth instanceof Response) return auth;
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return Response.json(apiError("Missing admin id"), { status: 400 });
-  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const body = (await request.json().catch(() => null)) as ADMINUPDATEPAYLOAD | null;
   if (!body) return Response.json(apiError("Invalid admin payload"), { status: 400 });
   const result = await updateAdmin(auth, id, body);
   return Response.json(result, { status: result.status === "success" ? 200 : 400 });

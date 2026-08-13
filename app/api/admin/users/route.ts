@@ -1,5 +1,6 @@
 import { apiError, apiSuccess } from "@/app/api/response";
 import { AdminRole } from "@/app/models/admin";
+import type { ADMINUSERUPDATEPAYLOAD, ADMINUSERUPDATEVALUES } from "@/app/models/user";
 import { authenticateAdmin } from "../authorization";
 
 export async function GET(request: Request) {
@@ -22,12 +23,12 @@ export async function PATCH(request: Request) {
     return Response.json(apiError("Only a super admin can edit users"), { status: 403 });
   }
 
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const body = await request.json().catch(() => null) as ADMINUSERUPDATEPAYLOAD | null;
   if (!body || typeof body.id !== "string") {
     return Response.json(apiError("Invalid user update"), { status: 400 });
   }
 
-  const values: Record<string, string | boolean | null> = {};
+  const values: ADMINUSERUPDATEVALUES = {};
   for (const field of ["phone", "email", "address", "contactName", "shopName"] as const) {
     if (field in body) {
       if (body[field] !== null && typeof body[field] !== "string") {

@@ -8,13 +8,17 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Container from "@mui/material/Container";
 import Divider from "@mui/material/Divider";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
 import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { createClient } from "@/app/api/util/supabase/client";
 import type { ApiResult } from "@/app/api/response";
-import type { OrderRecord, PaymentMethod } from "@/app/models/order";
+import type { OrderRecord, PaymentMethod, TransferSlipRecord } from "@/app/models/order";
 
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   cash: "เงินสด",
@@ -39,6 +43,60 @@ export default function OrdersView() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const [uploadingPaymentId, setUploadingPaymentId] = useState<string | null>(null);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [viewingSlipId, setViewingSlipId] = useState<string | null>(null);
+
+  async function viewReceipt(slipId: string) {
+    setViewingSlipId(slipId);
+    setErrorMessage(null);
+    try {
+      const { data } = await createClient().auth.getSession();
+      const response = await fetch(`/api/images?type=receipt&slipId=${encodeURIComponent(slipId)}`, {
+        headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` },
+      });
+      const result = await response.json() as ApiResult<{ url: string }>;
+      if (!response.ok || result.status === "error") throw new Error(result.message);
+      setReceiptUrl(result.results.url);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "ไม่สามารถแสดงสลิปได้");
+    } finally {
+      setViewingSlipId(null);
+    }
+  }
+
+  async function uploadReceipt(paymentId: string, file: File | undefined) {
+    if (!file) return;
+    setUploadingPaymentId(paymentId);
+    setUploadMessage(null);
+    setErrorMessage(null);
+    try {
+      const { data } = await createClient().auth.getSession();
+      const form = new FormData();
+      form.set("type", "receipt");
+      form.set("paymentId", paymentId);
+      form.set("file", file);
+      const response = await fetch("/api/images", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` },
+        body: form,
+      });
+      const result = await response.json() as ApiResult<TransferSlipRecord & { paymentId: string }>;
+      if (!response.ok || result.status === "error") throw new Error(result.message);
+      setOrders((current) => current.map((order) => ({
+        ...order,
+        payments: order.payments?.map((payment) => payment.id === paymentId
+          ? { ...payment, transferSlips: [...(payment.transferSlips ?? []), result.results] }
+          : payment),
+      })));
+      setUploadMessage("ส่งสลิปเรียบร้อยแล้ว รอผู้ดูแลตรวจสอบ");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "ไม่สามารถอัปโหลดสลิปได้");
+    } finally {
+      setUploadingPaymentId(null);
+    }
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -88,6 +146,7 @@ export default function OrdersView() {
         </Alert>
       )}
       {errorMessage && <Alert severity="error" sx={{ mb: 2 }}>{errorMessage}</Alert>}
+      {uploadMessage && <Alert severity="success" sx={{ mb: 2 }}>{uploadMessage}</Alert>}
 
       {isLoading ? (
         <Stack spacing={2}>
@@ -130,10 +189,28 @@ export default function OrdersView() {
                 </Typography>
                 <Typography sx={{ fontWeight: 700 }}>{formatBaht(order.totalAmount)}</Typography>
               </Box>
+              {order.paymentMethod === "qrScan" && order.payments?.map((payment) => {
+                const hasSlip = (payment.transferSlips?.length ?? 0) > 0;
+                return <Box key={payment.id} sx={{ mt: 2 }}>
+                  <Button component="label" size="small" variant="outlined" disabled={uploadingPaymentId === payment.id}>
+                    {uploadingPaymentId === payment.id ? "กำลังอัปโหลด..." : hasSlip ? "แนบสลิปใหม่" : "แนบสลิปชำระเงิน"}
+                    <input hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void uploadReceipt(payment.id, event.currentTarget.files?.[0])} />
+                  </Button>
+                  {hasSlip && <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>ส่งสลิปแล้ว รอตรวจสอบ</Typography>}
+                  {payment.transferSlips?.map((slip) => <Button key={slip.id} size="small" sx={{ ml: 1 }} disabled={viewingSlipId === slip.id} onClick={() => void viewReceipt(slip.id)}>{viewingSlipId === slip.id ? "กำลังเปิด..." : "ดูสลิป"}</Button>)}
+                </Box>;
+              })}
             </Paper>
           ))}
         </Stack>
       )}
+      <Dialog open={!!receiptUrl} onClose={() => setReceiptUrl(null)} fullWidth maxWidth="sm">
+        <DialogTitle>สลิปการชำระเงิน</DialogTitle>
+        <DialogContent>
+          {receiptUrl && <Box component="img" src={receiptUrl} alt="สลิปการชำระเงิน" sx={{ display: "block", width: "100%", height: "auto" }} />}
+        </DialogContent>
+        <DialogActions><Button onClick={() => setReceiptUrl(null)}>ปิด</Button></DialogActions>
+      </Dialog>
     </Container>
   );
 }

@@ -5,9 +5,9 @@ import {
   getAllProduct,
   getProductItem,
   updateProduct,
-  type ProductPayload,
 } from "@/app/api/services/productService";
 import { apiError } from "@/app/api/response";
+import type { PRODUCTPAYLOAD } from "@/app/models/product";
 import { authenticateAdmin } from "../admin/authorization";
 
 function getQueryId(request: Request) {
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   const auth = await authenticateAdmin(request);
   if (auth instanceof Response) return auth;
 
-  const body = (await request.json().catch(() => null)) as ProductPayload | null;
+  const body = (await request.json().catch(() => null)) as PRODUCTPAYLOAD | null;
   if (!body || typeof body !== "object") {
     return Response.json(apiError("Invalid product payload"), { status: 400 });
   }
@@ -69,7 +69,7 @@ export async function PATCH(request: Request) {
     return Response.json(apiError("Valid product id is required"), { status: 400 });
   }
 
-  const body = (await request.json().catch(() => null)) as ProductPayload | null;
+  const body = (await request.json().catch(() => null)) as PRODUCTPAYLOAD | null;
   if (!body || typeof body !== "object") {
     return Response.json(apiError("Invalid product payload"), { status: 400 });
   }

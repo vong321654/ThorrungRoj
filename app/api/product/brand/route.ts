@@ -8,6 +8,7 @@ import {
 import { apiError } from "@/app/api/response";
 import { authenticateAdmin } from "../../admin/authorization";
 import { isSuperAdmin } from "@/app/api/services/adminService";
+import type { IDNAMEPAYLOAD, NAMEPAYLOAD } from "@/app/models/api";
 
 export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("id");
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
   }
 
   const queryName = new URL(req.url).searchParams.get("name");
-  const body = (await req.json().catch(() => null)) as { name?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as NAMEPAYLOAD | null;
   const name = queryName ?? (typeof body?.name === "string" ? body.name : null);
 
   if (!name?.trim()) {
@@ -55,10 +56,7 @@ export async function PATCH(req: Request) {
     return Response.json(apiError("Only a super admin can edit brands"), { status: 403 });
   }
 
-  const data = (await req.json().catch(() => null)) as {
-    id?: unknown;
-    name?: unknown;
-  } | null;
+  const data = (await req.json().catch(() => null)) as IDNAMEPAYLOAD | null;
   const id = typeof data?.id === "number" ? data.id : null;
   const name = typeof data?.name === "string" ? data.name : null;
   if (!id || !name?.trim()) {

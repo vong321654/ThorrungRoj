@@ -1,5 +1,4 @@
 import { createClient } from "@/app/api/util/supabase/client";
-import { cookies } from "next/headers";
 
 const supabase = createClient();
 

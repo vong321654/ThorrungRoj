@@ -1,9 +1,11 @@
 import { apiError, apiSuccess } from "@/app/api/response";
 import { AdminRole } from "@/app/models/admin";
+import type { ADMINORDERUPDATEPAYLOAD, ORDERUPDATEVALUES } from "@/app/models/order";
+import { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD } from "@/app/enums/order";
 import { authenticateAdmin } from "../authorization";
 
-const ORDER_PAYMENT_STATUSES = new Set(["awaitingPayment", "paid", "pendingPayment", "pendingCart"]);
-const ORDER_STATUSES = new Set(["pending", "preparing", "delivering", "delivered", "cancelled"]);
+const ORDER_PAYMENT_STATUSES = new Set<string>(Object.values(ORDERPAYMENTSTATUS));
+const ORDER_STATUSES = new Set<string>(Object.values(ORDERSTATUS));
 
 export async function GET(request: Request) {
   const auth = await authenticateAdmin(request);
@@ -25,11 +27,7 @@ export async function PATCH(request: Request) {
     return Response.json(apiError("Only admins can update order payment status"), { status: 403 });
   }
 
-  const body = await request.json().catch(() => null) as {
-    orderId?: unknown;
-    paymentStatus?: unknown;
-    orderStatus?: unknown;
-  } | null;
+  const body = await request.json().catch(() => null) as ADMINORDERUPDATEPAYLOAD | null;
   if (!body || typeof body.orderId !== "string") {
     return Response.json(apiError("Invalid order update"), { status: 400 });
   }
@@ -42,23 +40,23 @@ export async function PATCH(request: Request) {
   if (existingOrderError) return Response.json(apiError("Failed to load order"), { status: 500 });
   if (!existingOrder) return Response.json(apiError("Order not found"), { status: 404 });
 
-  const values: Record<string, string> = { updatedAt: new Date().toISOString() };
+  const values: ORDERUPDATEVALUES = { updatedAt: new Date().toISOString() };
   if (body.paymentStatus !== undefined) {
     if (!ORDER_PAYMENT_STATUSES.has(body.paymentStatus as string)) {
       return Response.json(apiError("Invalid order payment status"), { status: 400 });
     }
-    if (body.paymentStatus === "paid") {
-      values.paymentStatus = "paid";
-    } else if (body.paymentStatus === "awaitingPayment") {
-      if (existingOrder.paymentMethod === "pendingPayment" || existingOrder.paymentMethod === "pendingCart") {
+    if (body.paymentStatus === ORDERPAYMENTSTATUS.PAID) {
+      values.paymentStatus = ORDERPAYMENTSTATUS.PAID;
+    } else if (body.paymentStatus === ORDERPAYMENTSTATUS.AWAITING_PAYMENT) {
+      if (existingOrder.paymentMethod === PAYMENTMETHOD.PENDING_PAYMENT || existingOrder.paymentMethod === PAYMENTMETHOD.PENDING_CART) {
         return Response.json(apiError("A debt payment must be updated to paid instead"), { status: 400 });
       }
-      values.paymentStatus = "pending";
+      values.paymentStatus = ORDERPAYMENTSTATUS.PENDING;
     } else {
-      if (body.paymentStatus === "pendingPayment" && existingOrder.status !== "delivered") {
+      if (body.paymentStatus === ORDERPAYMENTSTATUS.PENDING_PAYMENT && existingOrder.status !== ORDERSTATUS.DELIVERED) {
         return Response.json(apiError("An order can be marked as unpaid only after delivery"), { status: 400 });
       }
-      values.paymentStatus = "pending";
+      values.paymentStatus = ORDERPAYMENTSTATUS.PENDING;
       values.paymentMethod = body.paymentStatus as string;
     }
   }
