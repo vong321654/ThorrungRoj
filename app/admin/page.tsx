@@ -90,7 +90,7 @@ export default function AdminPage() {
       <Box><Typography variant="h4" sx={{ fontWeight: 700 }}>Dashboard</Typography><Typography color="text.secondary">ภาพรวมการขายและยอดคงค้างของร้านในเดือนนี้</Typography></Box>
       <Stack direction="row" spacing={1}>
         {adminData && <Button component={Link} href={`/admin/editAdmin/${adminData.id}`}>แก้ไขบัญชี</Button>}
-        <Button variant="outlined" color="inherit" onClick={() => void handleSignOut}>ออกจากระบบ</Button>
+        <Button variant="outlined" color="inherit" onClick={() => handleSignOut()}>ออกจากระบบ</Button>
       </Stack>
     </Stack>
 
