@@ -1,4 +1,4 @@
-import { createOrder, getCustomerOrders } from "@/app/api/services/orderService";
+import { createOrder, getCustomerOrderById, getCustomerOrders } from "@/app/api/services/orderService";
 import { apiError } from "@/app/api/response";
 
 function getAccessToken(request: Request) {
@@ -6,6 +6,11 @@ function getAccessToken(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const id = new URL(request.url).searchParams.get("id");
+  if (id) {
+    const response = await getCustomerOrderById(getAccessToken(request), id);
+    return Response.json(response.result, { status: response.status });
+  }
   const response = await getCustomerOrders(getAccessToken(request));
   return Response.json(response.result, { status: response.status });
 }

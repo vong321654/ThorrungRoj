@@ -25,6 +25,7 @@ export default function AdminUsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const isSuperAdmin = admin?.role === AdminRole.SuperAdmin;
 
   useEffect(() => {
@@ -62,11 +63,32 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function deleteUser(user: Customer) {
+    if (!window.confirm(`ต้องการลบผู้ใช้ ${user.name} หรือไม่? บัญชีจะถูกปิดใช้งาน แต่ประวัติคำสั่งซื้อจะยังคงอยู่`)) return;
+
+    setDeletingUserId(user.id);
+    setError(null);
+    try {
+      const { data } = await createClient().auth.getSession();
+      const response = await fetch(`/api/admin/users?id=${encodeURIComponent(user.id)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` },
+      });
+      const result = await response.json() as ApiResult<Customer>;
+      if (!response.ok || result.status === "error") throw new Error(result.message);
+      setUsers((current) => current.map((item) => item.id === result.results.id ? result.results : item));
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "ไม่สามารถลบผู้ใช้ได้");
+    } finally {
+      setDeletingUserId(null);
+    }
+  }
+
   return <Box sx={{ p: 4 }}>
     <Button component={Link} href="/admin" sx={{ mb: 2 }}>← กลับหน้าจัดการระบบ</Button>
     <Typography variant="h5" sx={{ mb: 2 }}>ผู้ใช้</Typography>
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-    {isLoading ? <CircularProgress /> : !error && users.length === 0 ? <Paper sx={{ p: 3 }}>ยังไม่มีผู้ใช้</Paper> : <TableContainer component={Paper}><Table><TableHead><TableRow><TableCell>ชื่อ</TableCell><TableCell>ร้านค้า</TableCell><TableCell>โทรศัพท์</TableCell><TableCell>อีเมล</TableCell><TableCell>ประเภท</TableCell><TableCell>สถานะ</TableCell><TableCell>สมัครเมื่อ</TableCell>{isSuperAdmin && <TableCell>จัดการ</TableCell>}</TableRow></TableHead><TableBody>{users.map((user) => <TableRow key={user.id}><TableCell>{user.name}</TableCell><TableCell>{user.shopName || "-"}</TableCell><TableCell>{user.phone || "-"}</TableCell><TableCell>{user.email || "-"}</TableCell><TableCell>{user.customerType === "shop" ? "ร้านค้า" : "บุคคลทั่วไป"}</TableCell><TableCell>{user.isActive ? "ใช้งาน" : "ปิดใช้งาน"}</TableCell><TableCell>{new Date(user.createdAt).toLocaleDateString("th-TH")}</TableCell>{isSuperAdmin && <TableCell><Button size="small" onClick={() => setEditingUser(user)}>แก้ไข</Button></TableCell>}</TableRow>)}</TableBody></Table></TableContainer>}
+    {isLoading ? <CircularProgress /> : !error && users.length === 0 ? <Paper sx={{ p: 3 }}>ยังไม่มีผู้ใช้</Paper> : <TableContainer component={Paper}><Table><TableHead><TableRow><TableCell>ชื่อ</TableCell><TableCell>ร้านค้า</TableCell><TableCell>โทรศัพท์</TableCell><TableCell>อีเมล</TableCell><TableCell>ประเภท</TableCell><TableCell>สถานะ</TableCell><TableCell>สมัครเมื่อ</TableCell>{isSuperAdmin && <TableCell>จัดการ</TableCell>}</TableRow></TableHead><TableBody>{users.map((user) => <TableRow key={user.id}><TableCell>{user.name}</TableCell><TableCell>{user.shopName || "-"}</TableCell><TableCell>{user.phone || "-"}</TableCell><TableCell>{user.email || "-"}</TableCell><TableCell>{user.customerType === "shop" ? "ร้านค้า" : "บุคคลทั่วไป"}</TableCell><TableCell>{user.isActive ? "ใช้งาน" : "ปิดใช้งาน"}</TableCell><TableCell>{new Date(user.createdAt).toLocaleDateString("th-TH")}</TableCell>{isSuperAdmin && <TableCell><Button size="small" onClick={() => setEditingUser(user)}>แก้ไข</Button><Button size="small" color="error" disabled={!user.isActive || deletingUserId === user.id} onClick={() => void deleteUser(user)}>ลบผู้ใช้</Button></TableCell>}</TableRow>)}</TableBody></Table></TableContainer>}
 
     <Dialog open={!!editingUser} onClose={() => !isSaving && setEditingUser(null)} fullWidth maxWidth="sm">
       <DialogTitle>แก้ไขข้อมูลผู้ใช้</DialogTitle>

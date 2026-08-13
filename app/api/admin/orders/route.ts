@@ -3,6 +3,7 @@ import { AdminRole } from "@/app/models/admin";
 import type { ADMINORDERUPDATEPAYLOAD, ORDERUPDATEVALUES } from "@/app/models/order";
 import { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD } from "@/app/enums/order";
 import { authenticateAdmin } from "../authorization";
+import { fulfillOrderInventory } from "@/app/api/services/inventoryService";
 
 const ORDER_PAYMENT_STATUSES = new Set<string>(Object.values(ORDERPAYMENTSTATUS));
 const ORDER_STATUSES = new Set<string>(Object.values(ORDERSTATUS));
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await auth.supabase
     .from("orders")
-    .select("id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, createdAt, users(name, phone, shopName)")
+    .select("id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, createdAt, users(name, phone, shopName), payments(id, method, status, transferSlips(id, status, createdAt))")
     .order("createdAt", { ascending: false });
 
   if (error) return Response.json(apiError("Failed to fetch orders"), { status: 500 });
@@ -46,6 +47,9 @@ export async function PATCH(request: Request) {
       return Response.json(apiError("Invalid order payment status"), { status: 400 });
     }
     if (body.paymentStatus === ORDERPAYMENTSTATUS.PAID) {
+      if (existingOrder.paymentMethod === PAYMENTMETHOD.QR_SCAN) {
+        return Response.json(apiError("Verify the QR payment slip from the payment details page"), { status: 400 });
+      }
       values.paymentStatus = ORDERPAYMENTSTATUS.PAID;
     } else if (body.paymentStatus === ORDERPAYMENTSTATUS.AWAITING_PAYMENT) {
       if (existingOrder.paymentMethod === PAYMENTMETHOD.PENDING_PAYMENT || existingOrder.paymentMethod === PAYMENTMETHOD.PENDING_CART) {
@@ -68,6 +72,20 @@ export async function PATCH(request: Request) {
   }
   if (Object.keys(values).length === 1) {
     return Response.json(apiError("No order updates supplied"), { status: 400 });
+  }
+
+  if (
+    body.orderStatus === ORDERSTATUS.DELIVERED &&
+    existingOrder.status !== ORDERSTATUS.DELIVERED
+  ) {
+    const inventoryResult = await fulfillOrderInventory(
+      body.orderId,
+      auth.supabase,
+      auth.admin.id,
+    );
+    if (inventoryResult.result.status === "error") {
+      return Response.json(inventoryResult.result, { status: inventoryResult.status });
+    }
   }
 
   const { data, error } = await auth.supabase
