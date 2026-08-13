@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PRODUCTPAYLOAD } from "@/app/models/product";
 import { createPublicClient } from "@/app/api/util/supabase/public";
 import { apiError, apiSuccess } from "../response";
 
-export type ProductPayload = Record<string, unknown>;
+export type { PRODUCTPAYLOAD } from "@/app/models/product";
 
 const productWriteFields = [
   "name",
@@ -16,8 +17,8 @@ const productWriteFields = [
   "isActive",
 ] as const;
 
-function pickProductValues(data: ProductPayload) {
-  const values: ProductPayload = {};
+function pickProductValues(data: PRODUCTPAYLOAD) {
+  const values: PRODUCTPAYLOAD = {};
   for (const field of productWriteFields) {
     if (field in data) values[field] = data[field];
   }
@@ -53,7 +54,7 @@ export async function getProductItem(id: string) {
 //Update Product
 export async function updateProduct(
   id: string,
-  data: ProductPayload,
+  data: PRODUCTPAYLOAD,
   supabase: SupabaseClient,
   updatedBy: string,
 ) {
@@ -84,7 +85,7 @@ export async function deleteProduct(id: string, supabase: SupabaseClient) {
 
 //Add Product
 export async function addProduct(
-  data: ProductPayload,
+  data: PRODUCTPAYLOAD,
   supabase: SupabaseClient,
   createdBy: string,
 ) {
@@ -100,7 +101,7 @@ export async function addProduct(
 }
 
 //fillter
-export async function getFilteredProduct(data: ProductPayload) {
+export async function getFilteredProduct(data: PRODUCTPAYLOAD) {
   const supabase = createPublicClient();
   const name = data.name;
   const size = data.size;

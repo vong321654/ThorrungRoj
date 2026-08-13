@@ -20,3 +20,7 @@ export type PRODUCTINPUT = Omit<
   PRODUCT,
   "id" | "createdAt" | "createdBy" | "updatedAt" | "updatedBy"
 >;
+
+export type PRODUCTPAYLOAD = Record<string, unknown>;
+
+export type { PRODUCTPAYLOAD as ProductPayload };

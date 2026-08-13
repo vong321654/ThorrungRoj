@@ -1,21 +1,18 @@
-export type ApiSuccess<T> = {
-  status: "success";
-  message: string;
-  results: T;
-};
+import type { APIERROR, APISUCCESS } from "@/app/models/api";
 
-export type ApiError = {
-  status: "error";
-  message: string;
-  results: null;
-};
+export type {
+  APIERROR,
+  APIRESULT,
+  APISUCCESS,
+  APIERROR as ApiError,
+  APIRESULT as ApiResult,
+  APISUCCESS as ApiSuccess,
+} from "@/app/models/api";
 
-export type ApiResult<T> = ApiSuccess<T> | ApiError;
-
-export function apiSuccess<T>(message: string, results: T): ApiSuccess<T> {
+export function apiSuccess<T>(message: string, results: T): APISUCCESS<T> {
   return { status: "success", message, results };
 }
 
-export function apiError(message: string): ApiError {
+export function apiError(message: string): APIERROR {
   return { status: "error", message, results: null };
 }

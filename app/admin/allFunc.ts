@@ -4,13 +4,9 @@ import { createClient } from "@/app/api/util/supabase/client";
 import type { ApiResult } from "@/app/api/response";
 import type { AdminData, UpdateAdminInput } from "@/app/models/admin";
 import type { CreateAdminCredentials } from "@/app/models/adminLogin";
+import type { DashboardStats } from "@/app/models/dashboard";
 
-export type DashboardStats = {
-  monthlySales: number;
-  monthlyUnitsSold: number;
-  outstandingMoney: number;
-  outstandingCarts: number;
-};
+export type { DashboardStats } from "@/app/models/dashboard";
 
 const supabase = createClient();
 

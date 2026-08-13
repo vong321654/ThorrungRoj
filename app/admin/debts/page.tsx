@@ -83,7 +83,7 @@ export default function AdminDebtsPage() {
     setIsSaving(true);
     setError(null);
     try {
-      await request(`/api/admin/debts/${settlingDebt.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount: Number(settlementAmount) }) });
+      await request(`/api/admin/debts?id=${encodeURIComponent(settlingDebt.id)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount: Number(settlementAmount) }) });
       setSettlingDebt(null);
       setSettlementAmount("");
       await loadData();

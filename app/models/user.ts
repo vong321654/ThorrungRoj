@@ -1,6 +1,6 @@
-export type UserId = string | number;
+export type USERID = string | number;
 
-export type User = {
+export type USER = {
   id: string;
   lineUserId: string;
   name: string;
@@ -18,15 +18,20 @@ export type User = {
   customerType: string;
 };
 
-export type CurrentUser = Pick<
-  User,
+export type CURRENTUSER = Pick<
+  USER,
   "id" | "lineUserId" | "name" | "avatarUrl" | "address" | "isActive"
 >;
 
-export type UpdateUserPayload = Pick<User, "name" | "email" | "phone" | "address">;
+export type UPDATEUSERPAYLOAD = Pick<USER, "name" | "email" | "phone" | "address">;
 
-export type LineProfile = {
+export type ADMINUSERUPDATEPAYLOAD = Record<string, unknown>;
+export type ADMINUSERUPDATEVALUES = Record<string, string | boolean | null>;
+
+export type LINEPROFILE = {
   userId: string;
   displayName?: string;
   pictureUrl?: string;
 };
+
+export type { USERID as UserId, USER as User, CURRENTUSER as CurrentUser, UPDATEUSERPAYLOAD as UpdateUserPayload, ADMINUSERUPDATEPAYLOAD as AdminUserUpdatePayload, ADMINUSERUPDATEVALUES as AdminUserUpdateValues, LINEPROFILE as LineProfile };

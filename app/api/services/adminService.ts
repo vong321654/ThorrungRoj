@@ -1,24 +1,23 @@
 import { createAdminClient } from "@/app/api/util/supabase/admin";
-import { AdminRole, isAdminRole, type AdminData } from "@/app/models/admin";
-import type { CreateAdminCredentials } from "@/app/models/adminLogin";
+import {
+  AdminRole,
+  isAdminRole,
+  type ADMINAUTH,
+  type ADMINAUTHFAILURE,
+  type ADMINDATA,
+  type ADMINUPDATEPAYLOAD,
+} from "@/app/models/admin";
+import type { CREATEADMINCREDENTIALS } from "@/app/models/adminLogin";
 import { apiError, apiSuccess } from "../response";
 
 export const adminFields =
   "id, authId, email, name, avatarUrl, isActive, role, address, tel, thaiId, updatedAt";
 
-export type AdminAuth = {
-  supabase: ReturnType<typeof createAdminClient>;
-  admin: { id: string; role: AdminRole | null; isActive: boolean };
-};
-
-export type AdminAuthFailure = {
-  message: string;
-  statusCode: 401 | 403 | 500;
-};
+export type { ADMINAUTH, ADMINAUTHFAILURE } from "@/app/models/admin";
 
 export async function authenticateAdmin(
   accessToken: string,
-): Promise<AdminAuth | AdminAuthFailure> {
+): Promise<ADMINAUTH | ADMINAUTHFAILURE> {
   const supabase = createAdminClient();
   const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
   if (authError || !authData.user) {
@@ -43,21 +42,21 @@ export async function authenticateAdmin(
     return { message: "Admin account is inactive", statusCode: 403 };
   }
 
-  return { supabase, admin: admin as AdminAuth["admin"] };
+  return { supabase, admin: admin as ADMINAUTH["admin"] };
 }
 
-export function isSuperAdmin(auth: AdminAuth) {
+export function isSuperAdmin(auth: ADMINAUTH) {
   return auth.admin.role === AdminRole.SuperAdmin;
 }
 
-export async function getAllAdmins(auth: AdminAuth) {
+export async function getAllAdmins(auth: ADMINAUTH) {
   if (!isSuperAdmin(auth)) return apiError("Only a super admin can view all admins");
   const { data, error } = await auth.supabase.from("employees").select(adminFields);
   if (error) return apiError("Failed to fetch admins");
-  return apiSuccess("Admins retrieved successfully", data as AdminData[]);
+  return apiSuccess("Admins retrieved successfully", data as ADMINDATA[]);
 }
 
-export async function createAdmin(auth: AdminAuth, input: CreateAdminCredentials) {
+export async function createAdmin(auth: ADMINAUTH, input: CREATEADMINCREDENTIALS) {
   if (!isSuperAdmin(auth)) return apiError("Only a super admin can add admins");
   if (!input.email.trim() || input.password.length < 6 || !isAdminRole(input.role)) {
     return apiError("Invalid admin credentials");
@@ -90,14 +89,14 @@ export async function createAdmin(auth: AdminAuth, input: CreateAdminCredentials
   return apiSuccess("Admin created successfully", { user: userData.user, employee });
 }
 
-export async function getAdminById(auth: AdminAuth, id: string) {
+export async function getAdminById(auth: ADMINAUTH, id: string) {
   if (!isSuperAdmin(auth) && auth.admin.id !== id) return apiError("You can only view your own account");
   const { data, error } = await auth.supabase.from("employees").select(adminFields).eq("id", id).maybeSingle();
   if (error || !data) return apiError("Admin not found");
-  return apiSuccess("Admin retrieved successfully", data as AdminData);
+  return apiSuccess("Admin retrieved successfully", data as ADMINDATA);
 }
 
-export async function updateAdmin(auth: AdminAuth, id: string, input: Record<string, unknown>) {
+export async function updateAdmin(auth: ADMINAUTH, id: string, input: ADMINUPDATEPAYLOAD) {
   const superAdmin = isSuperAdmin(auth);
   if (!superAdmin && auth.admin.id !== id) return apiError("You can only edit your own account");
 
@@ -126,10 +125,10 @@ export async function updateAdmin(auth: AdminAuth, id: string, input: Record<str
   values.updatedAt = new Date().toISOString();
   const { data, error } = await auth.supabase.from("employees").update(values).eq("id", id).select(adminFields).single();
   if (error) return apiError("Failed to update admin");
-  return apiSuccess("Admin updated successfully", data as AdminData);
+  return apiSuccess("Admin updated successfully", data as ADMINDATA);
 }
 
-export async function deleteAdmin(auth: AdminAuth, id: string) {
+export async function deleteAdmin(auth: ADMINAUTH, id: string) {
   if (!isSuperAdmin(auth)) return apiError("Only a super admin can delete admins");
   if (auth.admin.id === id) return apiError("You cannot delete your own account");
   const { data, error } = await auth.supabase

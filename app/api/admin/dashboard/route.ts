@@ -1,12 +1,10 @@
 import { apiError, apiSuccess } from "@/app/api/response";
+import type { DASHBOARDSTATS } from "@/app/models/dashboard";
+import { DEBTCHOICE } from "@/app/enums/debt";
+import { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD } from "@/app/enums/order";
 import { authenticateAdmin } from "../authorization";
 
-export type DashboardStats = {
-  monthlySales: number;
-  monthlyUnitsSold: number;
-  outstandingMoney: number;
-  outstandingCarts: number;
-};
+export type { DASHBOARDSTATS } from "@/app/models/dashboard";
 
 export async function GET(request: Request) {
   const auth = await authenticateAdmin(request);
@@ -19,14 +17,14 @@ export async function GET(request: Request) {
       .from("orders")
       .select("totalAmount, orderItems(quantity)")
       .gte("createdAt", monthStart)
-      .neq("status", "cancelled"),
+      .neq("status", ORDERSTATUS.CANCELLED),
     auth.supabase
       .from("debtRecords")
       .select("debtType, amount, debtTransactions(amount)"),
     auth.supabase
       .from("orders")
       .select("totalAmount, paymentMethod, paymentStatus, status, orderItems(quantity), debtRecords(id)")
-      .in("paymentMethod", ["pendingPayment", "pendingCart"]),
+      .in("paymentMethod", [PAYMENTMETHOD.PENDING_PAYMENT, PAYMENTMETHOD.PENDING_CART]),
   ]);
 
   if (ordersResult.error || debtsResult.error || debtOrdersResult.error) {
@@ -51,8 +49,8 @@ export async function GET(request: Request) {
         0,
       );
       const outstanding = Math.max(0, Number(debt.amount) - settled);
-      if (debt.debtType === "money") totals.outstandingMoney += outstanding;
-      if (debt.debtType === "cart") totals.outstandingCarts += outstanding;
+      if (debt.debtType === DEBTCHOICE.MONEY) totals.outstandingMoney += outstanding;
+      if (debt.debtType === DEBTCHOICE.CART) totals.outstandingCarts += outstanding;
       return totals;
     },
     { outstandingMoney: 0, outstandingCarts: 0 },
@@ -60,9 +58,9 @@ export async function GET(request: Request) {
   const unrecordedOrderDebts = (debtOrdersResult.data ?? []).reduce(
     (totals, order) => {
       const hasDebtRecord = (order.debtRecords ?? []).length > 0;
-      if (hasDebtRecord || order.paymentStatus === "paid" || order.status === "cancelled") return totals;
-      if (order.paymentMethod === "pendingPayment") totals.outstandingMoney += Number(order.totalAmount);
-      if (order.paymentMethod === "pendingCart") {
+      if (hasDebtRecord || order.paymentStatus === ORDERPAYMENTSTATUS.PAID || order.status === ORDERSTATUS.CANCELLED) return totals;
+      if (order.paymentMethod === PAYMENTMETHOD.PENDING_PAYMENT) totals.outstandingMoney += Number(order.totalAmount);
+      if (order.paymentMethod === PAYMENTMETHOD.PENDING_CART) {
         totals.outstandingCarts += (order.orderItems ?? []).reduce(
           (sum, item) => sum + Number(item.quantity),
           0,
@@ -78,5 +76,5 @@ export async function GET(request: Request) {
     monthlyUnitsSold,
     outstandingMoney: debtBalances.outstandingMoney + unrecordedOrderDebts.outstandingMoney,
     outstandingCarts: debtBalances.outstandingCarts + unrecordedOrderDebts.outstandingCarts,
-  } satisfies DashboardStats));
+  } satisfies DASHBOARDSTATS));
 }

@@ -1,41 +1,22 @@
 import type { User as AuthUser } from "@supabase/supabase-js";
 import { createAdminClient } from "@/app/api/util/supabase/admin";
-import { apiError, apiSuccess, type ApiResult } from "@/app/api/response";
+import { apiError, apiSuccess } from "@/app/api/response";
+import type { SERVICERESULT } from "@/app/models/api";
 import type {
-  CheckoutItemInput,
-  CheckoutPayload,
-  OrderRecord,
-  PaymentMethod,
+  CHECKOUTITEMINPUT,
+  CHECKOUTPAYLOAD,
+  CUSTOMERORDERPROFILE,
+  ORDERPAYMENTRECORD,
+  ORDERRECORD,
+  PRODUCTPRICINGROW,
 } from "@/app/models/order";
 import type { SaleType } from "@/app/productPage/_shared/domain/cartItem";
+import { PAYMENTMETHOD, SALETYPE } from "@/app/enums/order";
 
-type ServiceResult<T> = {
-  result: ApiResult<T>;
-  status: number;
-};
+const SALE_TYPES = new Set<SaleType>([SALETYPE.SELL, SALETYPE.EXCHANGE, SALETYPE.REFILL]);
+const PAYMENT_METHODS = new Set<PAYMENTMETHOD>([PAYMENTMETHOD.CASH, PAYMENTMETHOD.QR_SCAN]);
 
-type Customer = {
-  id: string;
-  address: string | null;
-  isActive: boolean;
-};
-
-type ProductRow = {
-  id: number;
-  name: string;
-  sellPrice: number | string;
-  exchangePrice: number | string | null;
-  refillPrice: number | string | null;
-  isActive: boolean;
-};
-
-const SALE_TYPES = new Set<SaleType>(["sell", "exchange", "refill"]);
-const PAYMENT_METHODS = new Set<PaymentMethod>([
-  "cash",
-  "qrScan",
-]);
-
-function failure<T>(message: string, status: number): ServiceResult<T> {
+function failure<T>(message: string, status: number): SERVICERESULT<T> {
   return { result: apiError(message), status };
 }
 
@@ -50,13 +31,13 @@ function isLineUser(user: AuthUser) {
 }
 
 async function authenticateCustomer(accessToken: string | null) {
-  if (!accessToken) return failure<Customer>("Missing access token", 401);
+  if (!accessToken) return failure<CUSTOMERORDERPROFILE>("Missing access token", 401);
 
   const supabase = createAdminClient();
   const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
-  if (authError || !authData.user) return failure<Customer>("Invalid session", 401);
+  if (authError || !authData.user) return failure<CUSTOMERORDERPROFILE>("Invalid session", 401);
   if (!isLineUser(authData.user)) {
-    return failure<Customer>("Please sign in with LINE to place an order", 403);
+    return failure<CUSTOMERORDERPROFILE>("Please sign in with LINE to place an order", 403);
   }
 
   const { data: customer, error } = await supabase
@@ -65,19 +46,19 @@ async function authenticateCustomer(accessToken: string | null) {
     .eq("authId", authData.user.id)
     .maybeSingle();
 
-  if (error) return failure<Customer>("Failed to load customer data", 500);
-  if (!customer) return failure<Customer>("Customer profile was not found", 403);
-  if (!customer.isActive) return failure<Customer>("Customer account is inactive", 403);
+  if (error) return failure<CUSTOMERORDERPROFILE>("Failed to load customer data", 500);
+  if (!customer) return failure<CUSTOMERORDERPROFILE>("Customer profile was not found", 403);
+  if (!customer.isActive) return failure<CUSTOMERORDERPROFILE>("Customer account is inactive", 403);
 
   return {
-    result: apiSuccess("Customer authenticated", customer as Customer),
+    result: apiSuccess("Customer authenticated", customer as CUSTOMERORDERPROFILE),
     status: 200,
   };
 }
 
-function parseCheckoutPayload(value: unknown): CheckoutPayload | null {
+function parseCheckoutPayload(value: unknown): CHECKOUTPAYLOAD | null {
   if (!value || typeof value !== "object") return null;
-  const payload = value as Partial<CheckoutPayload>;
+  const payload = value as Partial<CHECKOUTPAYLOAD>;
   if (!Array.isArray(payload.items) || payload.items.length === 0 || payload.items.length > 50) {
     return null;
   }
@@ -85,10 +66,10 @@ function parseCheckoutPayload(value: unknown): CheckoutPayload | null {
     return null;
   }
 
-  const items: CheckoutItemInput[] = [];
+  const items: CHECKOUTITEMINPUT[] = [];
   for (const item of payload.items) {
     if (!item || typeof item !== "object") return null;
-    const candidate = item as Partial<CheckoutItemInput>;
+    const candidate = item as Partial<CHECKOUTITEMINPUT>;
     if (
       !Number.isInteger(candidate.productId) ||
       (candidate.productId ?? 0) <= 0 ||
@@ -100,12 +81,12 @@ function parseCheckoutPayload(value: unknown): CheckoutPayload | null {
     ) {
       return null;
     }
-    items.push(candidate as CheckoutItemInput);
+    items.push(candidate as CHECKOUTITEMINPUT);
   }
 
   return {
     items,
-    paymentMethod: payload.paymentMethod as PaymentMethod,
+    paymentMethod: payload.paymentMethod as PAYMENTMETHOD,
     ...(typeof payload.deliveryAddress === "string"
       ? { deliveryAddress: payload.deliveryAddress.trim() }
       : {}),
@@ -113,7 +94,7 @@ function parseCheckoutPayload(value: unknown): CheckoutPayload | null {
   };
 }
 
-function getUnitPrice(product: ProductRow, saleType: SaleType) {
+function getUnitPrice(product: PRODUCTPRICINGROW, saleType: SaleType) {
   if (saleType === "exchange") return Number(product.exchangePrice);
   if (saleType === "refill") return Number(product.refillPrice);
   return Number(product.sellPrice);
@@ -122,21 +103,21 @@ function getUnitPrice(product: ProductRow, saleType: SaleType) {
 export async function createOrder(
   accessToken: string | null,
   rawPayload: unknown,
-): Promise<ServiceResult<OrderRecord>> {
+): Promise<SERVICERESULT<ORDERRECORD>> {
   const auth = await authenticateCustomer(accessToken);
   if (auth.result.status === "error") {
-    return failure<OrderRecord>(auth.result.message, auth.status);
+    return failure<ORDERRECORD>(auth.result.message, auth.status);
   }
 
   const payload = parseCheckoutPayload(rawPayload);
-  if (!payload) return failure<OrderRecord>("Invalid checkout payload", 400);
+  if (!payload) return failure<ORDERRECORD>("Invalid checkout payload", 400);
 
-  const combinedItems = new Map<string, CheckoutItemInput>();
+  const combinedItems = new Map<string, CHECKOUTITEMINPUT>();
   for (const item of payload.items) {
     const key = `${item.productId}:${item.saleType}`;
     const current = combinedItems.get(key);
     const quantity = (current?.quantity ?? 0) + item.quantity;
-    if (quantity > 100) return failure<OrderRecord>("Product quantity is too large", 400);
+    if (quantity > 100) return failure<ORDERRECORD>("Product quantity is too large", 400);
     combinedItems.set(key, { ...item, quantity });
   }
 
@@ -148,13 +129,13 @@ export async function createOrder(
     .select("id, name, sellPrice, exchangePrice, refillPrice, isActive")
     .in("id", productIds);
 
-  if (productsError) return failure<OrderRecord>("Failed to validate products", 500);
+  if (productsError) return failure<ORDERRECORD>("Failed to validate products", 500);
   if (!products || products.length !== productIds.length) {
-    return failure<OrderRecord>("One or more products were not found", 400);
+    return failure<ORDERRECORD>("One or more products were not found", 400);
   }
 
   const productsById = new Map(
-    (products as ProductRow[]).map((product) => [Number(product.id), product]),
+    (products as PRODUCTPRICINGROW[]).map((product) => [Number(product.id), product]),
   );
   const orderItems = items.map((item) => {
     const product = productsById.get(item.productId);
@@ -171,7 +152,7 @@ export async function createOrder(
   });
 
   if (orderItems.some((item) => item === null)) {
-    return failure<OrderRecord>("A product is inactive or has no price for the selected sale type", 400);
+    return failure<ORDERRECORD>("A product is inactive or has no price for the selected sale type", 400);
   }
 
   const validOrderItems = orderItems.filter((item) => item !== null);
@@ -181,7 +162,7 @@ export async function createOrder(
   );
   const customer = auth.result.results;
   const deliveryAddress = payload.deliveryAddress || customer.address;
-  if (!deliveryAddress) return failure<OrderRecord>("Delivery address is required", 400);
+  if (!deliveryAddress) return failure<ORDERRECORD>("Delivery address is required", 400);
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
@@ -197,7 +178,7 @@ export async function createOrder(
     )
     .single();
 
-  if (orderError || !order) return failure<OrderRecord>("Failed to create order", 500);
+  if (orderError || !order) return failure<ORDERRECORD>("Failed to create order", 500);
 
   const { data: insertedItems, error: itemsError } = await supabase
     .from("orderItems")
@@ -206,7 +187,22 @@ export async function createOrder(
 
   if (itemsError || !insertedItems) {
     await supabase.from("orders").delete().eq("id", order.id);
-    return failure<OrderRecord>("Failed to create order items", 500);
+    return failure<ORDERRECORD>("Failed to create order items", 500);
+  }
+
+  let payment: ORDERPAYMENTRECORD | null = null;
+  if (payload.paymentMethod === PAYMENTMETHOD.QR_SCAN) {
+    const { data, error: paymentError } = await supabase
+      .from("payments")
+      .insert({ orderId: order.id, amount: totalAmount, method: PAYMENTMETHOD.QR_SCAN })
+      .select("id, method, status")
+      .single();
+    if (paymentError || !data) {
+      await supabase.from("orderItems").delete().eq("orderId", order.id);
+      await supabase.from("orders").delete().eq("id", order.id);
+      return failure<ORDERRECORD>("Failed to create payment record", 500);
+    }
+    payment = data as ORDERPAYMENTRECORD;
   }
 
   return {
@@ -219,29 +215,30 @@ export async function createOrder(
         unitPrice: Number(item.unitPrice),
         totalPrice: Number(item.totalPrice ?? Number(item.unitPrice) * item.quantity),
       })),
-    } as OrderRecord),
+      payments: payment ? [payment] : [],
+    } as ORDERRECORD),
     status: 201,
   };
 }
 
 export async function getCustomerOrders(
   accessToken: string | null,
-): Promise<ServiceResult<OrderRecord[]>> {
+): Promise<SERVICERESULT<ORDERRECORD[]>> {
   const auth = await authenticateCustomer(accessToken);
   if (auth.result.status === "error") {
-    return failure<OrderRecord[]>(auth.result.message, auth.status);
+    return failure<ORDERRECORD[]>(auth.result.message, auth.status);
   }
 
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, note, createdAt, orderItems(id, productId, productNameSnapshot, quantity, unitPrice, totalPrice, saleType)",
+      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, note, createdAt, orderItems(id, productId, productNameSnapshot, quantity, unitPrice, totalPrice, saleType), payments(id, method, status, transferSlips(id, status, createdAt))",
     )
     .eq("userId", auth.result.results.id)
     .order("createdAt", { ascending: false });
 
-  if (error) return failure<OrderRecord[]>("Failed to fetch orders", 500);
+  if (error) return failure<ORDERRECORD[]>("Failed to fetch orders", 500);
 
   const orders = (data ?? []).map((order) => ({
     ...order,
@@ -252,7 +249,7 @@ export async function getCustomerOrders(
       unitPrice: Number(item.unitPrice),
       totalPrice: Number(item.totalPrice ?? Number(item.unitPrice) * item.quantity),
     })),
-  })) as OrderRecord[];
+  })) as ORDERRECORD[];
 
   return {
     result: apiSuccess("Orders retrieved successfully", orders),
