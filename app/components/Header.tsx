@@ -99,11 +99,6 @@ export default function Header() {
         </div>
       )}
 
-      {!user && (
-        <Link className="site-header__login" href="/login">
-          เข้าสู่ระบบ
-        </Link>
-      )}
     </header>
   );
 }

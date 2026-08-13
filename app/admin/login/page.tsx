@@ -98,9 +98,6 @@ export default function AdminLoginPage() {
           </button>
         </form>
 
-        <Link className={styles.userLoginLink} href="/login">
-          ← กลับไปเข้าสู่ระบบสำหรับลูกค้า
-        </Link>
       </section>
     </main>
   );

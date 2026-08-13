@@ -31,7 +31,7 @@ type NavTabProps = {
 function NavTab({ href, active, icon, label }: NavTabProps) {
   return (
     <Link href={href} style={{ textDecoration: "none" }}>
-      <ButtonBase component="span" sx={{ ...navItemSx, bgcolor: active ? "rgba(255,255,255,0.18)" : "transparent" }}>
+      <ButtonBase component="span" sx={{ ...navItemSx, bgcolor: active ? "rgb(2, 0, 0)" : "transparent" }}>
         {icon}
         <Typography variant="caption" sx={{ color: "inherit", fontWeight: active ? 700 : 600 }}>
           {label}
