@@ -9,6 +9,7 @@ import CategoryNavBar from "./components/CategoryNavBar";
 import ShopContactFooter from "./components/ShopContactFooter";
 import SiteTopBar from "./components/SiteTopBar";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/app/api/util/supabase/client";
 
 function CartDrawerConnected() {
   const cart = useCart();
@@ -22,9 +23,11 @@ function CartDrawerConnected() {
       onRemove={cart.removeItem}
       onIncrease={cart.increaseQuantity}
       onDecrease={cart.decreaseQuantity}
-      onCheckout={() => {
+      onCheckout={async () => {
         cart.closeCart();
-        router.push("/productPage/checkout");
+        const supabase = createClient();
+        const { data } = await supabase.auth.getSession();
+        router.push(data.session ? "/productPage/checkout" : "/login");
       }}
     />
   );

@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import type { Part } from "@/app/productPage/parts/_domain/entities";
 import { getPartCatalog } from "@/app/productPage/parts/_application/getPartCatalog";
-import { MockPartRepository } from "@/app/productPage/parts/_infrastructure/mockPartRepository";
+import { SupabasePartRepository } from "@/app/productPage/parts/_infrastructure/supabasePartRepository";
 
-const partRepository = new MockPartRepository();
+const partRepository = new SupabasePartRepository();
 
 export function usePartCatalog() {
   const [parts, setParts] = useState<Part[]>([]);

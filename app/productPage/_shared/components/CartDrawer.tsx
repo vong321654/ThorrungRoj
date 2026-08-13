@@ -23,10 +23,11 @@ function formatBaht(amount: number | null) {
   return amount !== null ? `${amount.toLocaleString("th-TH")} บาท` : "-- บาท";
 }
 
-function getSaleTypeLabel(saleType: CartLine["item"]["saleType"]) {
-  if (saleType === "sell") return "ซื้อถัง";
-  if (saleType === "exchange") return "เปลี่ยนถัง";
-  if (saleType === "refill") return "เติมแก๊ส";
+function getSaleTypeLabel(item: CartLine["item"]) {
+  if (item.source === "part") return "อะไหล่";
+  if (item.saleType === "sell") return "ซื้อถัง";
+  if (item.saleType === "exchange") return "เปลี่ยนถัง";
+  if (item.saleType === "refill") return "เติมแก๊ส";
   return "ยังไม่พร้อมจำหน่าย";
 }
 
@@ -79,7 +80,7 @@ export default function CartDrawer({
                   </Button>
                 </Box>
                 <Typography variant="body2" color="text.secondary">
-                  {getSaleTypeLabel(line.item.saleType)} · {formatBaht(line.item.price)} / ชิ้น
+                  {getSaleTypeLabel(line.item)} · {formatBaht(line.item.price)} / ชิ้น
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
                   <IconButton

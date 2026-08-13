@@ -4,6 +4,8 @@ import type { ApiResult } from "@/app/api/response";
 import type { PRODUCT } from "@/app/models/product";
 import type { PRODUCTBAND } from "@/app/models/productsType";
 
+const TANK_TYPE_ID = 14; // "ถังแก๊ส" ใน types
+
 export class SupabaseProductRepository implements ProductRepository {
   async listAllProducts(): Promise<Product[]> {
     const [productsResponse, brandsResponse] = await Promise.all([
@@ -22,7 +24,9 @@ export class SupabaseProductRepository implements ProductRepository {
     return productsResult.results
       .filter(
         (product): product is PRODUCT & { size: number } =>
-          product.isActive !== false && product.size !== null,
+          product.isActive !== false &&
+          product.typeId === TANK_TYPE_ID &&
+          product.size !== null,
       )
       .map((product) => ({
         id: String(product.id),
