@@ -6,6 +6,7 @@ export type Product = {
   sellPrice: number;
   exchangePrice: number;
   refillPrice: number;
+  availableQuantity?: number;
 };
 
 export type ProductFilterState = {

@@ -69,3 +69,27 @@ export async function PATCH(request: Request) {
   if (!data) return Response.json(apiError("User not found"), { status: 404 });
   return Response.json(apiSuccess("User updated successfully", data));
 }
+
+export async function DELETE(request: Request) {
+  const auth = await authenticateAdmin(request);
+  if (auth instanceof Response) return auth;
+  if (auth.admin.role !== AdminRole.SuperAdmin) {
+    return Response.json(apiError("Only a super admin can delete users"), { status: 403 });
+  }
+
+  const id = new URL(request.url).searchParams.get("id");
+  if (!id?.trim()) return Response.json(apiError("User id is required"), { status: 400 });
+
+  // Keep customer history (orders, payments, and debts) intact while preventing
+  // the account from being used again.
+  const { data, error } = await auth.supabase
+    .from("users")
+    .update({ isActive: false, updatedAt: new Date().toISOString() })
+    .eq("id", id)
+    .select("id, name, phone, email, address, contactName, shopName, customerType, isActive, createdAt")
+    .maybeSingle();
+
+  if (error) return Response.json(apiError("Failed to delete user"), { status: 500 });
+  if (!data) return Response.json(apiError("User not found"), { status: 404 });
+  return Response.json(apiSuccess("User deactivated successfully", data));
+}

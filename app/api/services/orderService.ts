@@ -256,3 +256,40 @@ export async function getCustomerOrders(
     status: 200,
   };
 }
+
+export async function getCustomerOrderById(
+  accessToken: string | null,
+  orderId: string,
+): Promise<SERVICERESULT<ORDERRECORD>> {
+  const auth = await authenticateCustomer(accessToken);
+  if (auth.result.status === "error") return failure<ORDERRECORD>(auth.result.message, auth.status);
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("orders")
+    .select(
+      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, note, createdAt, updatedAt, orderItems(id, productId, productNameSnapshot, quantity, unitPrice, totalPrice, saleType), payments(id, method, status, verifiedAt, transferSlips(id, status, rejectReason, createdAt)), debtRecords(debtType, amount, status, debtTransactions(amount))",
+    )
+    .eq("id", orderId)
+    .eq("userId", auth.result.results.id)
+    .maybeSingle();
+  if (error) return failure<ORDERRECORD>("Failed to load order details", 500);
+  if (!data) return failure<ORDERRECORD>("Order not found", 404);
+
+  return {
+    result: apiSuccess("Order details retrieved successfully", {
+      ...data,
+      totalAmount: Number(data.totalAmount),
+      orderItems: (data.orderItems ?? []).map((item) => ({
+        ...item,
+        productId: Number(item.productId),
+        unitPrice: Number(item.unitPrice),
+        totalPrice: Number(item.totalPrice ?? Number(item.unitPrice) * item.quantity),
+      })),
+      outstandingAmount: (data.debtRecords ?? [])
+        .filter((debt) => debt.debtType === "money" && debt.status !== "paid")
+        .reduce((total, debt) => total + Math.max(0, Number(debt.amount) - (debt.debtTransactions ?? []).reduce((paid, transaction) => paid + Number(transaction.amount), 0)), 0),
+    } as ORDERRECORD),
+    status: 200,
+  };
+}

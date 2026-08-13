@@ -4,13 +4,16 @@ import type { ApiResult } from "@/app/api/response";
 import type { PRODUCT } from "@/app/models/product";
 import type { PRODUCTBAND } from "@/app/models/productsType";
 
+type InventoryItem = { productId: number | string; stockStatus: string; quantityAvailable: number | string | null };
+
 const TANK_TYPE_ID = 14; // "ถังแก๊ส" ใน types
 
 export class SupabaseProductRepository implements ProductRepository {
   async listAllProducts(): Promise<Product[]> {
-    const [productsResponse, brandsResponse] = await Promise.all([
+    const [productsResponse, brandsResponse, inventoryResponse] = await Promise.all([
       fetch("/api/product"),
       fetch("/api/product/brand"),
+      fetch("/api/inventory"),
     ]);
 
     const productsResult = (await productsResponse.json()) as ApiResult<PRODUCT[]>;
@@ -18,8 +21,16 @@ export class SupabaseProductRepository implements ProductRepository {
 
     const brandsResult = (await brandsResponse.json()) as ApiResult<PRODUCTBAND[]>;
     if (brandsResult.status === "error") throw new Error(brandsResult.message);
+    const inventoryResult = (await inventoryResponse.json()) as ApiResult<InventoryItem[]>;
+    if (inventoryResult.status === "error") throw new Error(inventoryResult.message);
 
     const brandLabels = new Map(brandsResult.results.map((brand) => [brand.id, brand.name]));
+    const availableByProduct = new Map<number, number>();
+    for (const item of inventoryResult.results) {
+      if (item.stockStatus !== "full") continue;
+      const productId = Number(item.productId);
+      availableByProduct.set(productId, (availableByProduct.get(productId) ?? 0) + Number(item.quantityAvailable ?? 0));
+    }
 
     return productsResult.results
       .filter(
@@ -36,6 +47,7 @@ export class SupabaseProductRepository implements ProductRepository {
         sellPrice: Number(product.sellPrice),
         exchangePrice: Number(product.exchangePrice),
         refillPrice: Number(product.refillPrice),
+        availableQuantity: availableByProduct.get(product.id) ?? 0,
       }));
   }
 }

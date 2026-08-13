@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -189,6 +190,7 @@ export default function OrdersView() {
                 </Typography>
                 <Typography sx={{ fontWeight: 700 }}>{formatBaht(order.totalAmount)}</Typography>
               </Box>
+              <Button component={Link} href={`/productPage/orders/${order.id}`} size="small" sx={{ mt: 1.5 }}>ดูรายละเอียดและสถานะ</Button>
               {order.paymentMethod === "qrScan" && order.payments?.map((payment) => {
                 const hasSlip = (payment.transferSlips?.length ?? 0) > 0;
                 return <Box key={payment.id} sx={{ mt: 2 }}>

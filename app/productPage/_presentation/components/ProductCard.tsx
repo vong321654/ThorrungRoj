@@ -27,6 +27,7 @@ const SALE_TYPE_OPTIONS: Array<{ value: SaleType; label: string }> = [
 
 export default function ProductCard({ product, onSelect }: ProductCardProps) {
   const accentColor = getBrandAccentColor(product.brandId);
+  const availableQuantity = product.availableQuantity ?? 0;
   const [saleType, setSaleType] = useState<SaleType>("sell");
   const selectedPrice =
     saleType === "sell"
@@ -64,6 +65,9 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
           ราคา : {selectedPrice.toLocaleString("th-TH")} บาท
         </Typography>
+        <Typography variant="body2" color={availableQuantity > 0 ? "success.main" : "error.main"} sx={{ mt: 0.5, fontWeight: 600 }}>
+          คงเหลือ: {availableQuantity.toLocaleString("th-TH")} ถัง
+        </Typography>
       </CardContent>
       <CardActions sx={{ justifyContent: "center", pb: 2 }}>
         <Button
@@ -72,7 +76,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
           size="small"
           sx={{ borderRadius: 5, px: 3 }}
           onClick={() => onSelect(product, saleType)}
-          disabled={!Number.isFinite(selectedPrice) || selectedPrice <= 0}
+          disabled={!Number.isFinite(selectedPrice) || selectedPrice <= 0 || availableQuantity <= 0}
         >
           เลือก
         </Button>

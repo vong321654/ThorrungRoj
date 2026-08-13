@@ -53,6 +53,7 @@ export type ORDERRECORD = {
   createdAt: string;
   orderItems?: ORDERITEMRECORD[];
   payments?: ORDERPAYMENTRECORD[];
+  outstandingAmount?: number;
 };
 
 export type CUSTOMERORDERPROFILE = {

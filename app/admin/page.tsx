@@ -20,6 +20,7 @@ function formatNumber(value: number) {
 
 const managementItems = [
   ["/admin/product", "สินค้า", "เพิ่ม แก้ไข และจัดการรายการสินค้า"],
+  ["/admin/inventory", "คลังสินค้า", "ตรวจสอบ เพิ่ม และลบรายการสต็อก"],
   ["/admin/orders", "คำสั่งซื้อ", "ตรวจสอบคำสั่งซื้อและสถานะการชำระเงิน"],
   ["/admin/debts", "หนี้ค้าง", "บันทึกค้างเงิน ค้างถัง และรับชำระหรือคืนถัง"],
   ["/admin/users", "ผู้ใช้", "ดูข้อมูลลูกค้าและสถานะบัญชี"],
@@ -102,7 +103,7 @@ export default function AdminPage() {
     </Box>
 
     {adminData?.role === AdminRole.SuperAdmin && <Box component="section" id="admins">
-      <Stack direction="row" sx={{ mb: 2, justifyContent: "space-between", alignItems: "center" }}><Typography variant="h5" sx={{ fontWeight: 700 }}>ผู้ดูแลระบบ</Typography><Button component={Link} href="/admin/addAdmin" variant="contained">เพิ่มผู้ดูแลระบบ</Button></Stack>
+      <Stack direction="row" sx={{ mb: 2, justifyContent: "space-between", alignItems: "center" }}><Typography variant="h5" sx={{ fontWeight: 700 }}>ผู้ดูแลระบบ</Typography><Button component={Link} href="/admin/addAdmin" variant="contained">เพิ่มพนักงานใหม่</Button></Stack>
       {isLoadingAdmins ? <CircularProgress /> : <TableContainer component={Paper}><Table><TableHead><TableRow><TableCell>Email</TableCell><TableCell>ชื่อ</TableCell><TableCell>สถานะ</TableCell><TableCell>บทบาท</TableCell><TableCell>อัปเดตล่าสุด</TableCell><TableCell>จัดการ</TableCell></TableRow></TableHead><TableBody>{employeesData?.map((employee) => <TableRow key={employee.id}><TableCell>{employee.email}</TableCell><TableCell>{employee.name}</TableCell><TableCell>{employee.isActive ? "ใช้งาน" : "ปิดใช้งาน"}</TableCell><TableCell>{employee.role}</TableCell><TableCell>{employee.updatedAt}</TableCell><TableCell><Stack direction="row" spacing={1}><Button component={Link} href={`/admin/editAdmin/${employee.id}`} size="small">แก้ไข</Button>{adminData.id !== employee.id && <Button size="small" color="warning" onClick={() => void handleDelete(employee.id)}>ปิดใช้งาน</Button>}</Stack></TableCell></TableRow>)}</TableBody></Table></TableContainer>}
     </Box>}
   </Box>;
