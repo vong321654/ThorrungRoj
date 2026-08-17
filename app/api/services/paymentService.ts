@@ -63,13 +63,11 @@ export async function verifyQrPayment(
   paymentId: string,
   slipId: string,
   supabase: SupabaseClient,
-  adminId: string,
 ): Promise<SERVICERESULT<unknown>> {
   const { data, error } = await supabase
-    .rpc("verify_qr_payment", {
+    .rpc("verify_qr_payment_as_admin", {
       p_payment_id: paymentId,
       p_slip_id: slipId,
-      p_admin_id: adminId,
     })
     .single();
 
@@ -82,13 +80,11 @@ export async function rejectQrSlip(
   slipId: string,
   reason: string,
   supabase: SupabaseClient,
-  adminId: string,
 ): Promise<SERVICERESULT<unknown>> {
-  const { data, error } = await supabase.rpc("reject_qr_payment_slip", {
+  const { data, error } = await supabase.rpc("reject_qr_payment_slip_as_admin", {
     p_payment_id: paymentId,
     p_slip_id: slipId,
     p_reason: reason,
-    p_admin_id: adminId,
   }).single();
   if (error || !data) return failure("Unable to reject QR payment slip", 400);
   return { result: apiSuccess("QR payment slip rejected", data), status: 200 };
@@ -100,14 +96,12 @@ export async function recordPartialQrPayment(
   amount: number,
   note: string | null,
   supabase: SupabaseClient,
-  adminId: string,
 ): Promise<SERVICERESULT<unknown>> {
-  const { data, error } = await supabase.rpc("record_partial_qr_payment", {
+  const { data, error } = await supabase.rpc("record_partial_qr_payment_as_admin", {
     p_payment_id: paymentId,
     p_slip_id: slipId,
     p_paid_amount: amount,
     p_note: note,
-    p_admin_id: adminId,
   }).single();
   if (error || !data) return failure("Unable to record partial payment", 400);
   return { result: apiSuccess("Partial payment and debt recorded successfully", data), status: 200 };

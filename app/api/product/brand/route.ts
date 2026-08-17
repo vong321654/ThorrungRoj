@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     return Response.json(apiError("Brand name is required"), { status: 400 });
   }
 
-  const result = await addBrand(name.trim(), auth.supabase, auth.admin.id);
+  const result = await addBrand(name.trim(), auth.adminSupabase, auth.admin.id);
   return Response.json(result, {
     status: result.status === "success" ? 201 : 500,
   });
@@ -63,7 +63,7 @@ export async function PATCH(req: Request) {
     return Response.json(apiError("Brand id and name are required"), { status: 400 });
   }
 
-  const result = await updateBrand(id, name.trim(), auth.supabase, auth.admin.id);
+  const result = await updateBrand(id, name.trim(), auth.adminSupabase, auth.admin.id);
   return Response.json(result, {
     status: result.status === "success" ? 200 : 500,
   });
@@ -82,7 +82,7 @@ export async function DELETE(req: Request) {
     return Response.json(apiError("Valid brand id is required"), { status: 400 });
   }
 
-  const result = await deleteBrand(id, auth.supabase);
+  const result = await deleteBrand(id, auth.adminSupabase);
   return Response.json(result, {
     status: result.status === "success" ? 200 : 400,
   });

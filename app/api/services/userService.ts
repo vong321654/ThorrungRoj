@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/app/api/util/supabase/admin";
+import { createAuthenticatedClient } from "@/app/api/util/supabase/authenticated";
 import type {
   CURRENTUSER,
   LINEPROFILE,
@@ -15,7 +16,8 @@ import type { APIRESULT } from "@/app/models/api";
 export async function getUserById(
   userId: USERID,
 ): Promise<APIRESULT<CURRENTUSER | null>> {
-  const { data, error } = await createAdminClient()
+  const cookieStore = await cookies();
+  const { data, error } = await createClient(cookieStore)
     .from("users")
     .select("id, lineUserId, name, avatarUrl, address, isActive")
     .eq("id", userId)
@@ -33,7 +35,8 @@ export async function getUserById(
 export async function getUserByLineUserId(
   lineUserId: string,
 ): Promise<APIRESULT<USER | null>> {
-  const { data, error } = await createAdminClient()
+  const cookieStore = await cookies();
+  const { data, error } = await createClient(cookieStore)
     .from("users")
     .select("*")
     .eq("lineUserId", lineUserId)
@@ -52,6 +55,7 @@ export async function getUserByLineUserId(
 export async function createUserFromLineProfile(
   profile: LINEPROFILE,
 ): Promise<APIRESULT<USER>> {
+  // Legacy sync helper: it runs only on the server during LINE account setup.
   const { data, error } = await createAdminClient()
     .from("users")
     .insert({
@@ -124,6 +128,8 @@ export async function syncUserFromSupabaseLineAuth(
     "avatar_url",
   ]);
 
+  // OAuth callback runs on the server while the customer record may not yet
+  // exist, so this narrowly scoped provisioning operation remains privileged.
   const { data, error } = await createAdminClient()
     .from("users")
     .upsert(
@@ -152,7 +158,7 @@ export async function getCurrentUser(
   let authError: unknown = null;
 
   if (accessToken) {
-    const result = await createAdminClient().auth.getUser(accessToken);
+    const result = await createAuthenticatedClient(accessToken).auth.getUser(accessToken);
     authUser = result.data.user;
     authError = result.error;
   } else {
@@ -165,7 +171,10 @@ export async function getCurrentUser(
 
   if (authError || !authUser) return apiSuccess("No current user", null);
 
-  const { data, error } = await createAdminClient()
+  const profileClient = accessToken
+    ? createAuthenticatedClient(accessToken)
+    : createClient(await cookies());
+  const { data, error } = await profileClient
     .from("users")
     .select("id, lineUserId, name, avatarUrl, address, isActive")
     .eq("authId", authUser.id)
@@ -178,7 +187,8 @@ export async function updateUser(
   userId: USERID,
   payload: UPDATEUSERPAYLOAD,
 ): Promise<APIRESULT<USER>> {
-  const { data: user, error } = await createAdminClient()
+  const supabase = createClient(await cookies());
+  const { data: user, error } = await supabase
     .from("users")
     .update({
       ...payload,

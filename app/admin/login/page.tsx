@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import styles from "../../login/Login.module.css";
@@ -63,7 +62,7 @@ export default function AdminLoginPage() {
           </p>
         )}
 
-        <form className={styles.emailForm} onSubmit={handleAdminLogin}>
+        <form className={styles.emailForm} method="post" onSubmit={handleAdminLogin}>
           <div className={styles.field}>
             <label htmlFor="admin-email">อีเมล</label>
             <input

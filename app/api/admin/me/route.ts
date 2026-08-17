@@ -1,33 +1,15 @@
-import { createAdminClient } from "@/app/api/util/supabase/admin";
 import { apiError, apiSuccess } from "@/app/api/response";
 import type { AdminData } from "@/app/models/admin";
-import { headers } from "next/headers";
+import { authenticateAdmin } from "../authorization";
 
-export async function GET() {
-  const authorization = (await headers()).get("authorization");
-  const accessToken = authorization?.replace(/^Bearer\s+/i, "");
+export async function GET(request: Request) {
+  const auth = await authenticateAdmin(request);
+  if (auth instanceof Response) return auth;
 
-  if (!accessToken) {
-    return Response.json(
-      apiError("Missing access token"),
-      { status: 401 },
-    );
-  }
-
-  const supabase = createAdminClient();
-  const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
-
-  if (authError || !authData.user) {
-    return Response.json(
-      apiError("Invalid session"),
-      { status: 401 },
-    );
-  }
-
-  const { data, error } = await supabase
+  const { data, error } = await auth.adminSupabase
     .from("employees")
     .select("id, email, name, avatarUrl, isActive, role, address, tel, thaiId, updatedAt")
-    .eq("authId", authData.user.id)
+    .eq("id", auth.admin.id)
     .maybeSingle();
 
   if (error) {

@@ -39,7 +39,10 @@ export type UPDATEADMININPUT = Partial<
 };
 
 export type ADMINAUTH = {
+  /** Caller-scoped client. Database calls made with this client enforce RLS. */
   supabase: SupabaseClient;
+  /** Backward-compatible alias for the caller-scoped client; it never bypasses RLS. */
+  adminSupabase: SupabaseClient;
   admin: { id: string; role: ADMINROLE | null; isActive: boolean };
 };
 
