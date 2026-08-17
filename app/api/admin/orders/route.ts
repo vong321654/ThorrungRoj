@@ -3,6 +3,7 @@ import { AdminRole } from "@/app/models/admin";
 import type { ADMINORDERUPDATEPAYLOAD, ORDERUPDATEVALUES } from "@/app/models/order";
 import { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD } from "@/app/enums/order";
 import { authenticateAdmin } from "../authorization";
+import { isAdminOrSuperAdmin } from "@/app/api/services/adminService";
 import { fulfillOrderInventory } from "@/app/api/services/inventoryService";
 
 const ORDER_PAYMENT_STATUSES = new Set<string>(Object.values(ORDERPAYMENTSTATUS));
@@ -11,8 +12,9 @@ const ORDER_STATUSES = new Set<string>(Object.values(ORDERSTATUS));
 export async function GET(request: Request) {
   const auth = await authenticateAdmin(request);
   if (auth instanceof Response) return auth;
+  if (!isAdminOrSuperAdmin(auth)) return Response.json(apiError("Only admins can view orders"), { status: 403 });
 
-  const { data, error } = await auth.supabase
+  const { data, error } = await auth.adminSupabase
     .from("orders")
     .select("id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, createdAt, users(name, phone, shopName), payments(id, method, status, transferSlips(id, status, createdAt))")
     .order("createdAt", { ascending: false });
@@ -33,7 +35,7 @@ export async function PATCH(request: Request) {
     return Response.json(apiError("Invalid order update"), { status: 400 });
   }
 
-  const { data: existingOrder, error: existingOrderError } = await auth.supabase
+  const { data: existingOrder, error: existingOrderError } = await auth.adminSupabase
     .from("orders")
     .select("status, paymentMethod")
     .eq("id", body.orderId)
@@ -81,14 +83,13 @@ export async function PATCH(request: Request) {
     const inventoryResult = await fulfillOrderInventory(
       body.orderId,
       auth.supabase,
-      auth.admin.id,
     );
     if (inventoryResult.result.status === "error") {
       return Response.json(inventoryResult.result, { status: inventoryResult.status });
     }
   }
 
-  const { data, error } = await auth.supabase
+  const { data, error } = await auth.adminSupabase
     .from("orders")
     .update(values)
     .eq("id", body.orderId)

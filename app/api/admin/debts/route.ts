@@ -13,8 +13,9 @@ function canManageDebts(role: AdminRole | null) {
 export async function GET(request: Request) {
   const auth = await authenticateAdmin(request);
   if (auth instanceof Response) return auth;
+  if (!canManageDebts(auth.admin.role)) return Response.json(apiError("Only admins can view debt records"), { status: 403 });
 
-  const { data, error } = await auth.supabase
+  const { data, error } = await auth.adminSupabase
     .from("debtRecords")
     .select("id, userId, orderId, debtType, amount, status, note, createdAt, users(name, phone, shopName), products(name, size), debtTransactions(id, transactionType, amount, note, createdAt)")
     .order("createdAt", { ascending: false });
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
     return Response.json(apiError("Invalid note"), { status: 400 });
   }
 
-  const { data: order, error: orderError } = await auth.supabase
+  const { data: order, error: orderError } = await auth.adminSupabase
     .from("orders")
     .select("id, userId, totalAmount, status, orderItems(productId, quantity, saleType), debtRecords(debtType)")
     .eq("id", body.orderId)
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data, error } = await auth.supabase.from("debtRecords").insert(records).select("id");
+  const { data, error } = await auth.adminSupabase.from("debtRecords").insert(records).select("id");
   if (error) return Response.json(apiError("Failed to create debt records"), { status: 500 });
   return Response.json(apiSuccess("Debt records created successfully", data ?? []), { status: 201 });
 }
@@ -90,7 +91,7 @@ async function settleDebt(
     return Response.json(apiError("Invalid settlement amount"), { status: 400 });
   }
 
-  const { data: debt, error: debtError } = await auth.supabase
+  const { data: debt, error: debtError } = await auth.adminSupabase
     .from("debtRecords")
     .select("id, debtType, amount, debtTransactions(amount)")
     .eq("id", debtId)
@@ -103,7 +104,7 @@ async function settleDebt(
     return Response.json(apiError("Settlement amount exceeds the remaining debt"), { status: 400 });
   }
 
-  const { error: transactionError } = await auth.supabase.from("debtTransactions").insert({
+  const { error: transactionError } = await auth.adminSupabase.from("debtTransactions").insert({
     debtRecordId: debt.id,
     transactionType: debt.debtType === DEBTCHOICEENUM.MONEY ? "payment" : "return",
     amount,
@@ -114,7 +115,7 @@ async function settleDebt(
 
   const nextSettled = settled + amount;
   const nextStatus = nextSettled === Number(debt.amount) ? "paid" : "partial";
-  const { data, error: updateError } = await auth.supabase
+  const { data, error: updateError } = await auth.adminSupabase
     .from("debtRecords")
     .update({ status: nextStatus, updatedAt: new Date().toISOString() })
     .eq("id", debt.id)

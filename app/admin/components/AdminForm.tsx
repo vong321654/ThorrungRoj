@@ -74,7 +74,7 @@ export default function AdminForm({
         </p>
       )}
 
-      <form className={styles.emailForm} onSubmit={handleSubmit}>
+      <form className={styles.emailForm} method="post" onSubmit={handleSubmit}>
         <div className={styles.field}>
           <label htmlFor="admin-email">Email</label>
           <input

@@ -58,7 +58,7 @@ export async function PATCH(request: Request) {
     return Response.json(apiError("Product type name is required"), { status: 400 });
   }
 
-  const result = await updateProductType(id, body.name, auth.supabase, auth.admin.id);
+  const result = await updateProductType(id, body.name, auth.adminSupabase, auth.admin.id);
   return Response.json(result, { status: result.status === "success" ? 200 : 400 });
 }
 
@@ -77,7 +77,7 @@ export async function DELETE(request: Request) {
     return Response.json(apiError("Valid product type id is required"), { status: 400 });
   }
 
-  const result = await deleteProductType(id, auth.supabase);
+  const result = await deleteProductType(id, auth.adminSupabase);
   return Response.json(result, { status: result.status === "success" ? 200 : 400 });
 }
 
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
     });
   }
 
-  const result = await addProductType(body.name, auth.supabase, auth.admin.id);
+  const result = await addProductType(body.name, auth.adminSupabase, auth.admin.id);
   return Response.json(result, {
     status: result.status === "success" ? 201 : 400,
   });

@@ -41,7 +41,6 @@ export async function getInventoryItemById(id: string) {
 export async function addInventoryItem(
   item: CREATEINVENTORYPAYLOAD,
   supabase: SupabaseClient,
-  adminId: string,
 ) : Promise<SERVICERESULT<{ inventory: INVENTORY; inventoryLog: unknown }>> {
   const productId = typeof item.productId === "number" ? item.productId : Number(item.productId);
   const quantityOnHand = typeof item.quantityOnHand === "number"
@@ -67,14 +66,13 @@ export async function addInventoryItem(
   }
 
   const { data, error } = await supabase
-    .rpc("create_inventory_with_log", {
+    .rpc("create_inventory_as_admin", {
       p_product_id: productId,
       p_stock_status: stockStatus,
       p_item_condition: item.itemCondition,
       p_quantity_on_hand: quantityOnHand,
       p_minimum_stock: minimumStock,
       p_note: typeof item.note === "string" ? item.note.trim() || null : null,
-      p_admin_id: adminId,
     })
     .single();
 
@@ -95,12 +93,10 @@ export async function addInventoryItem(
 export async function fulfillOrderInventory(
   orderId: string,
   supabase: SupabaseClient,
-  adminId: string,
 ): Promise<SERVICERESULT<unknown>> {
   const { data, error } = await supabase
-    .rpc("fulfill_order_and_deduct_inventory", {
+    .rpc("fulfill_order_as_admin", {
       p_order_id: orderId,
-      p_admin_id: adminId,
     })
     .single();
 
@@ -118,7 +114,7 @@ export async function deleteInventoryItem(
   id: string,
   supabase: SupabaseClient,
 ): Promise<SERVICERESULT<unknown>> {
-  const { data, error } = await supabase.rpc("delete_inventory_with_logs", { p_inventory_id: id }).single();
+  const { data, error } = await supabase.rpc("delete_inventory_as_admin", { p_inventory_id: id }).single();
   if (error || !data) return failure("Unable to delete inventory that is already used by an order", 400);
   return { result: apiSuccess("Inventory item deleted successfully", data), status: 200 };
 }
@@ -127,7 +123,6 @@ export async function updateInventoryItem(
   id: string,
   item: CREATEINVENTORYPAYLOAD,
   supabase: SupabaseClient,
-  adminId: string,
 ): Promise<SERVICERESULT<unknown>> {
   const quantityOnHand = typeof item.quantityOnHand === "number" ? item.quantityOnHand : Number(item.quantityOnHand);
   const minimumStock = typeof item.minimumStock === "number" ? item.minimumStock : Number(item.minimumStock);
@@ -137,14 +132,13 @@ export async function updateInventoryItem(
   if (!Number.isInteger(quantityOnHand) || quantityOnHand < 0) return failure("Quantity on hand must be a non-negative integer", 400);
   if (!Number.isInteger(minimumStock) || minimumStock < 0) return failure("Minimum stock must be a non-negative integer", 400);
 
-  const { data, error } = await supabase.rpc("update_inventory_with_log", {
+  const { data, error } = await supabase.rpc("update_inventory_as_admin", {
     p_inventory_id: id,
     p_stock_status: stockStatus,
     p_item_condition: item.itemCondition,
     p_quantity_on_hand: quantityOnHand,
     p_minimum_stock: minimumStock,
     p_note: typeof item.note === "string" ? item.note.trim() || null : null,
-    p_admin_id: adminId,
   }).single();
   if (error) return databaseFailure("Failed to update inventory item", error);
   if (!data) return failure("Failed to update inventory item", 500);

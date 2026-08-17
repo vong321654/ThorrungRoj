@@ -1,5 +1,5 @@
 import type { User as AuthUser } from "@supabase/supabase-js";
-import { createAdminClient } from "@/app/api/util/supabase/admin";
+import { createAuthenticatedClient } from "@/app/api/util/supabase/authenticated";
 import { apiError, apiSuccess } from "@/app/api/response";
 import type { SERVICERESULT } from "@/app/models/api";
 import type {
@@ -33,14 +33,14 @@ function isLineUser(user: AuthUser) {
 async function authenticateCustomer(accessToken: string | null) {
   if (!accessToken) return failure<CUSTOMERORDERPROFILE>("Missing access token", 401);
 
-  const supabase = createAdminClient();
-  const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
+  const authenticatedSupabase = createAuthenticatedClient(accessToken);
+  const { data: authData, error: authError } = await authenticatedSupabase.auth.getUser(accessToken);
   if (authError || !authData.user) return failure<CUSTOMERORDERPROFILE>("Invalid session", 401);
   if (!isLineUser(authData.user)) {
     return failure<CUSTOMERORDERPROFILE>("Please sign in with LINE to place an order", 403);
   }
 
-  const { data: customer, error } = await supabase
+  const { data: customer, error } = await authenticatedSupabase
     .from("users")
     .select("id, address, isActive")
     .eq("authId", authData.user.id)
@@ -123,7 +123,7 @@ export async function createOrder(
 
   const items = [...combinedItems.values()];
   const productIds = [...new Set(items.map((item) => item.productId))];
-  const supabase = createAdminClient();
+  const supabase = createAuthenticatedClient(accessToken!);
   const { data: products, error: productsError } = await supabase
     .from("products")
     .select("id, name, sellPrice, exchangePrice, refillPrice, isActive")
@@ -229,7 +229,7 @@ export async function getCustomerOrders(
     return failure<ORDERRECORD[]>(auth.result.message, auth.status);
   }
 
-  const supabase = createAdminClient();
+  const supabase = createAuthenticatedClient(accessToken!);
   const { data, error } = await supabase
     .from("orders")
     .select(
@@ -264,7 +264,7 @@ export async function getCustomerOrderById(
   const auth = await authenticateCustomer(accessToken);
   if (auth.result.status === "error") return failure<ORDERRECORD>(auth.result.message, auth.status);
 
-  const supabase = createAdminClient();
+  const supabase = createAuthenticatedClient(accessToken!);
   const { data, error } = await supabase
     .from("orders")
     .select(

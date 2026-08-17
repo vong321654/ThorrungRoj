@@ -2,12 +2,14 @@ import { apiError, apiSuccess } from "@/app/api/response";
 import { AdminRole } from "@/app/models/admin";
 import type { ADMINUSERUPDATEPAYLOAD, ADMINUSERUPDATEVALUES } from "@/app/models/user";
 import { authenticateAdmin } from "../authorization";
+import { isAdminOrSuperAdmin } from "@/app/api/services/adminService";
 
 export async function GET(request: Request) {
   const auth = await authenticateAdmin(request);
   if (auth instanceof Response) return auth;
+  if (!isAdminOrSuperAdmin(auth)) return Response.json(apiError("Only admins can view users"), { status: 403 });
 
-  const { data, error } = await auth.supabase
+  const { data, error } = await auth.adminSupabase
     .from("users")
     .select("id, name, phone, email, address, contactName, shopName, customerType, isActive, createdAt")
     .order("createdAt", { ascending: false });
@@ -58,7 +60,7 @@ export async function PATCH(request: Request) {
   }
 
   values.updatedAt = new Date().toISOString();
-  const { data, error } = await auth.supabase
+  const { data, error } = await auth.adminSupabase
     .from("users")
     .update(values)
     .eq("id", body.id)
@@ -82,7 +84,7 @@ export async function DELETE(request: Request) {
 
   // Keep customer history (orders, payments, and debts) intact while preventing
   // the account from being used again.
-  const { data, error } = await auth.supabase
+  const { data, error } = await auth.adminSupabase
     .from("users")
     .update({ isActive: false, updatedAt: new Date().toISOString() })
     .eq("id", id)

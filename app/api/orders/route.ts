@@ -1,17 +1,14 @@
 import { createOrder, getCustomerOrderById, getCustomerOrders } from "@/app/api/services/orderService";
 import { apiError } from "@/app/api/response";
-
-function getAccessToken(request: Request) {
-  return request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null;
-}
+import { getBearerToken } from "@/app/api/util/supabase/authenticated";
 
 export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get("id");
   if (id) {
-    const response = await getCustomerOrderById(getAccessToken(request), id);
+    const response = await getCustomerOrderById(getBearerToken(request), id);
     return Response.json(response.result, { status: response.status });
   }
-  const response = await getCustomerOrders(getAccessToken(request));
+  const response = await getCustomerOrders(getBearerToken(request));
   return Response.json(response.result, { status: response.status });
 }
 
@@ -21,6 +18,6 @@ export async function POST(request: Request) {
     return Response.json(apiError("Invalid JSON payload"), { status: 400 });
   }
 
-  const response = await createOrder(getAccessToken(request), payload);
+  const response = await createOrder(getBearerToken(request), payload);
   return Response.json(response.result, { status: response.status });
 }

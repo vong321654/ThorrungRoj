@@ -3,25 +3,27 @@ import type { DASHBOARDSTATS } from "@/app/models/dashboard";
 import { DEBTCHOICE } from "@/app/enums/debt";
 import { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD } from "@/app/enums/order";
 import { authenticateAdmin } from "../authorization";
+import { isAdminOrSuperAdmin } from "@/app/api/services/adminService";
 
 export type { DASHBOARDSTATS } from "@/app/models/dashboard";
 
 export async function GET(request: Request) {
   const auth = await authenticateAdmin(request);
   if (auth instanceof Response) return auth;
+  if (!isAdminOrSuperAdmin(auth)) return Response.json(apiError("Only admins can view dashboard statistics"), { status: 403 });
 
   const now = new Date();
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
   const [ordersResult, debtsResult, debtOrdersResult] = await Promise.all([
-    auth.supabase
+    auth.adminSupabase
       .from("orders")
       .select("totalAmount, orderItems(quantity)")
       .gte("createdAt", monthStart)
       .neq("status", ORDERSTATUS.CANCELLED),
-    auth.supabase
+    auth.adminSupabase
       .from("debtRecords")
       .select("debtType, amount, debtTransactions(amount)"),
-    auth.supabase
+    auth.adminSupabase
       .from("orders")
       .select("totalAmount, paymentMethod, paymentStatus, status, orderItems(quantity), debtRecords(id)")
       .in("paymentMethod", [PAYMENTMETHOD.PENDING_PAYMENT, PAYMENTMETHOD.PENDING_CART]),

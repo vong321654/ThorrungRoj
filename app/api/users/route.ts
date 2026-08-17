@@ -1,11 +1,7 @@
-import { createClient } from "@/app/api/util/supabase/client";
+import { getCurrentUser } from "@/app/api/services/userService";
+import { getBearerToken } from "@/app/api/util/supabase/authenticated";
 
-const supabase = createClient();
-
-export async function GET() {
-  const { data, error } = await supabase.from("users").select("*");
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
-  }
-  return Response.json({ data }, { status: 200 });
+export async function GET(request: Request) {
+  const result = await getCurrentUser(getBearerToken(request) ?? undefined);
+  return Response.json(result, { status: result.status === "success" ? 200 : 500 });
 }
