@@ -1,5 +1,5 @@
 import { apiError, apiSuccess } from "@/app/api/response";
-import type { AdminData } from "@/app/models/admin";
+import type { ADMINDATA } from "@/app/models/admin";
 import { authenticateAdmin } from "../authorization";
 
 export async function GET(request: Request) {
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   return Response.json(
     apiSuccess(
       "Admin data retrieved successfully",
-      data as AdminData,
+      data as ADMINDATA,
     ),
   );
 }

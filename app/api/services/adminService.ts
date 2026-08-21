@@ -1,8 +1,8 @@
 import { createAdminClient } from "@/app/api/util/supabase/admin";
 import { createAuthenticatedClient } from "@/app/api/util/supabase/authenticated";
 import {
-  AdminRole,
-  isAdminRole,
+  ADMINROLE,
+  ISADMINROLE,
   type ADMINAUTH,
   type ADMINAUTHFAILURE,
   type ADMINDATA,
@@ -53,11 +53,11 @@ export async function authenticateAdmin(
 }
 
 export function isSuperAdmin(auth: ADMINAUTH) {
-  return auth.admin.role === AdminRole.SuperAdmin;
+  return auth.admin.role === ADMINROLE.SUPER_ADMIN;
 }
 
 export function isAdminOrSuperAdmin(auth: ADMINAUTH) {
-  return auth.admin.role === AdminRole.Admin || auth.admin.role === AdminRole.SuperAdmin;
+  return auth.admin.role === ADMINROLE.ADMIN || auth.admin.role === ADMINROLE.SUPER_ADMIN;
 }
 
 export async function getAllAdmins(auth: ADMINAUTH) {
@@ -69,7 +69,7 @@ export async function getAllAdmins(auth: ADMINAUTH) {
 
 export async function createAdmin(auth: ADMINAUTH, input: CREATEADMINCREDENTIALS) {
   if (!isSuperAdmin(auth)) return apiError("Only a super admin can add admins");
-  if (!input.email.trim() || input.password.length < 6 || !isAdminRole(input.role)) {
+  if (!input.email.trim() || input.password.length < 6 || !ISADMINROLE(input.role)) {
     return apiError("Invalid admin credentials");
   }
 
@@ -122,7 +122,7 @@ export async function updateAdmin(auth: ADMINAUTH, id: string, input: ADMINUPDAT
 
   if (superAdmin) {
     if ("role" in input) {
-      if (!isAdminRole(input.role)) return apiError("Invalid admin role");
+      if (!ISADMINROLE(input.role)) return apiError("Invalid admin role");
       values.role = input.role;
     }
     if ("isActive" in input) {

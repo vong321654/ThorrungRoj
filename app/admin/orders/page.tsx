@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Alert, Box, Button, CircularProgress, MenuItem, Paper, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
-import type { ApiResult } from "@/app/api/response";
+import type { APIRESULT } from "@/app/api/response";
 import { useRequireAdmin } from "../useRequireAdmin";
 
 type AdminOrder = {
@@ -50,7 +50,7 @@ export default function AdminOrdersPage() {
     async function loadOrders() {
       const { data } = await createClient().auth.getSession();
       const response = await fetch("/api/admin/orders", { headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` } });
-      const result = await response.json() as ApiResult<AdminOrder[]>;
+      const result = await response.json() as APIRESULT<AdminOrder[]>;
       if (!response.ok || result.status === "error") {
         setError(result.message);
       } else {
@@ -74,7 +74,7 @@ export default function AdminOrdersPage() {
         },
         body: JSON.stringify({ orderId, paymentStatus }),
       });
-      const result = await response.json() as ApiResult<Pick<AdminOrder, "id" | "paymentMethod" | "paymentStatus" | "status">>;
+      const result = await response.json() as APIRESULT<Pick<AdminOrder, "id" | "paymentMethod" | "paymentStatus" | "status">>;
       if (!response.ok || result.status === "error") throw new Error(result.message);
       setOrders((current) => current.map((order) => order.id === orderId ? { ...order, ...result.results } : order));
     } catch (updateError) {
@@ -97,7 +97,7 @@ export default function AdminOrdersPage() {
         },
         body: JSON.stringify({ orderId, orderStatus }),
       });
-      const result = await response.json() as ApiResult<Pick<AdminOrder, "id" | "paymentMethod" | "paymentStatus" | "status">>;
+      const result = await response.json() as APIRESULT<Pick<AdminOrder, "id" | "paymentMethod" | "paymentStatus" | "status">>;
       if (!response.ok || result.status === "error") throw new Error(result.message);
       setOrders((current) => current.map((order) => order.id === orderId ? { ...order, ...result.results } : order));
     } catch (updateError) {

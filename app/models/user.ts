@@ -33,5 +33,3 @@ export type LINEPROFILE = {
   displayName?: string;
   pictureUrl?: string;
 };
-
-export type { USERID as UserId, USER as User, CURRENTUSER as CurrentUser, UPDATEUSERPAYLOAD as UpdateUserPayload, ADMINUSERUPDATEPAYLOAD as AdminUserUpdatePayload, ADMINUSERUPDATEVALUES as AdminUserUpdateValues, LINEPROFILE as LineProfile };

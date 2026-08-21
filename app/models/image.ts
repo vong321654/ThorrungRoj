@@ -8,5 +8,3 @@ export type AUTHIDENTITYUSER = {
 };
 
 export type PAYMENTORDEROWNER = { userId?: string } | null;
-
-export type { AUTHIDENTITYUSER as AuthIdentityUser, PAYMENTORDEROWNER as PaymentOrderOwner };

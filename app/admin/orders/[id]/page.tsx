@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Alert, Box, Button, Card, CardContent, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Paper, Stack, TextField, Typography } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
-import type { ApiResult } from "@/app/api/response";
+import type { APIRESULT } from "@/app/api/response";
 import { useRequireAdmin } from "../../useRequireAdmin";
 
 type Slip = {
@@ -54,7 +54,7 @@ export default function AdminOrderPaymentPage() {
       const response = await fetch(`/api/admin/payments?orderId=${encodeURIComponent(params.id)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const result = await response.json() as ApiResult<QrPayment>;
+      const result = await response.json() as APIRESULT<QrPayment>;
       if (!response.ok || result.status === "error") throw new Error(result.message);
       setPayment(result.results);
 
@@ -62,7 +62,7 @@ export default function AdminOrderPaymentPage() {
         const imageResponse = await fetch(`/api/images?type=receipt&slipId=${encodeURIComponent(slip.id)}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const imageResult = await imageResponse.json() as ApiResult<{ url: string }>;
+        const imageResult = await imageResponse.json() as APIRESULT<{ url: string }>;
         return imageResponse.ok && imageResult.status === "success" ? [slip.id, imageResult.results.url] as const : null;
       }));
       setSlipUrls(Object.fromEntries(urls.filter((item): item is readonly [string, string] => item !== null)));
@@ -88,7 +88,7 @@ export default function AdminOrderPaymentPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ paymentId: payment.id, slipId }),
       });
-      const result = await response.json() as ApiResult<unknown>;
+      const result = await response.json() as APIRESULT<unknown>;
       if (!response.ok || result.status === "error") throw new Error(result.message);
       await loadPayment();
     } catch (verifyError) {
@@ -109,7 +109,7 @@ export default function AdminOrderPaymentPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ paymentId: payment.id, slipId, action, ...extra }),
       });
-      const result = await response.json() as ApiResult<unknown>;
+      const result = await response.json() as APIRESULT<unknown>;
       if (!response.ok || result.status === "error") throw new Error(result.message);
       setRejectingSlipId(null); setPartialSlipId(null); setReason(""); setPartialAmount(""); setNote("");
       await loadPayment();
@@ -124,7 +124,7 @@ export default function AdminOrderPaymentPage() {
     try {
       const token = await getToken();
       const response = await fetch(`/api/admin/payments?paymentId=${encodeURIComponent(payment.id)}&slipId=${encodeURIComponent(slipId)}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-      const result = await response.json() as ApiResult<unknown>;
+      const result = await response.json() as APIRESULT<unknown>;
       if (!response.ok || result.status === "error") throw new Error(result.message);
       await loadPayment();
     } catch (deleteError) { setError(deleteError instanceof Error ? deleteError.message : "ไม่สามารถลบสลิปได้"); }

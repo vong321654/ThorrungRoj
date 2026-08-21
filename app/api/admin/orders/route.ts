@@ -1,5 +1,5 @@
 import { apiError, apiSuccess } from "@/app/api/response";
-import { AdminRole } from "@/app/models/admin";
+import { ADMINROLE } from "@/app/models/admin";
 import type { ADMINORDERUPDATEPAYLOAD, ORDERUPDATEVALUES } from "@/app/models/order";
 import { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD } from "@/app/enums/order";
 import { authenticateAdmin } from "../authorization";
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   const auth = await authenticateAdmin(request);
   if (auth instanceof Response) return auth;
-  if (auth.admin.role !== AdminRole.SuperAdmin && auth.admin.role !== AdminRole.Admin) {
+  if (auth.admin.role !== ADMINROLE.SUPER_ADMIN && auth.admin.role !== ADMINROLE.ADMIN) {
     return Response.json(apiError("Only admins can update order payment status"), { status: 403 });
   }
 

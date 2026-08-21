@@ -18,14 +18,14 @@ import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { createClient } from "@/app/api/util/supabase/client";
-import type { ApiResult } from "@/app/api/response";
-import type { OrderRecord, PaymentMethod, TransferSlipRecord } from "@/app/models/order";
+import type { APIRESULT } from "@/app/api/response";
+import { PAYMENTMETHOD, type ORDERRECORD, type TRANSFERSLIPRECORD } from "@/app/models/order";
 
-const PAYMENT_LABELS: Record<PaymentMethod, string> = {
-  cash: "เงินสด",
-  qrScan: "สแกน QR",
-  pendingPayment: "ค้างชำระ",
-  pendingCart: "ค้างถัง",
+const PAYMENT_LABELS: Record<PAYMENTMETHOD, string> = {
+  [PAYMENTMETHOD.CASH]: "เงินสด",
+  [PAYMENTMETHOD.QR_SCAN]: "สแกน QR",
+  [PAYMENTMETHOD.PENDING_PAYMENT]: "ค้างชำระ",
+  [PAYMENTMETHOD.PENDING_CART]: "ค้างถัง",
 };
 
 const SALE_TYPE_LABELS = {
@@ -40,7 +40,7 @@ function formatBaht(value: number) {
 
 export default function OrdersView() {
   const router = useRouter();
-  const [orders, setOrders] = useState<OrderRecord[]>([]);
+  const [orders, setOrders] = useState<ORDERRECORD[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export default function OrdersView() {
       const response = await fetch(`/api/images?type=receipt&slipId=${encodeURIComponent(slipId)}`, {
         headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` },
       });
-      const result = await response.json() as ApiResult<{ url: string }>;
+      const result = await response.json() as APIRESULT<{ url: string }>;
       if (!response.ok || result.status === "error") throw new Error(result.message);
       setReceiptUrl(result.results.url);
     } catch (error) {
@@ -83,7 +83,7 @@ export default function OrdersView() {
         headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` },
         body: form,
       });
-      const result = await response.json() as ApiResult<TransferSlipRecord & { paymentId: string }>;
+      const result = await response.json() as APIRESULT<TRANSFERSLIPRECORD & { paymentId: string }>;
       if (!response.ok || result.status === "error") throw new Error(result.message);
       setOrders((current) => current.map((order) => ({
         ...order,
@@ -116,7 +116,7 @@ export default function OrdersView() {
         const response = await fetch("/api/orders", {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
-        const result = (await response.json()) as ApiResult<OrderRecord[]>;
+        const result = (await response.json()) as APIRESULT<ORDERRECORD[]>;
         if (!response.ok || result.status === "error") throw new Error(result.message);
         if (isMounted) setOrders(result.results);
       } catch (error) {

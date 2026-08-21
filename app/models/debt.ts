@@ -22,5 +22,3 @@ export type DEBTRECORDINSERT = {
   note: string | null;
   productId?: number;
 };
-
-export type { CREATEDEBTPAYLOAD as CreateDebtPayload, SETTLEDEBTPAYLOAD as SettleDebtPayload, DEBTRECORDINSERT as DebtRecordInsert };

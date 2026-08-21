@@ -8,7 +8,7 @@ import {
   TableContainer, TableHead, TableRow, TextField, Typography,
 } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
-import type { ApiResult } from "@/app/api/response";
+import type { APIRESULT } from "@/app/api/response";
 import { useRequireAdmin } from "../useRequireAdmin";
 
 type DebtTypeChoice = "money" | "cart" | "both";
@@ -43,7 +43,7 @@ export default function AdminDebtsPage() {
       ...options,
       headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}`, ...options.headers },
     });
-    const result = await response.json() as ApiResult<T>;
+    const result = await response.json() as APIRESULT<T>;
     if (!response.ok || result.status === "error") throw new Error(result.message);
     return result.results;
   }, []);

@@ -2,9 +2,6 @@ import type { SaleType } from "@/app/productPage/_shared/domain/cartItem";
 import { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD } from "@/app/enums/order";
 
 export { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD };
-export type OrderPaymentStatus = `${ORDERPAYMENTSTATUS}`;
-export type OrderStatus = `${ORDERSTATUS}`;
-export type PaymentMethod = `${PAYMENTMETHOD}`;
 
 export type CHECKOUTITEMINPUT = {
   productId: number;
@@ -78,5 +75,3 @@ export type ADMINORDERUPDATEPAYLOAD = {
 };
 
 export type ORDERUPDATEVALUES = Record<string, string>;
-
-export type { CHECKOUTITEMINPUT as CheckoutItemInput, CHECKOUTPAYLOAD as CheckoutPayload, ORDERITEMRECORD as OrderItemRecord, TRANSFERSLIPRECORD as TransferSlipRecord, ORDERPAYMENTRECORD as OrderPaymentRecord, ORDERRECORD as OrderRecord, CUSTOMERORDERPROFILE as CustomerOrderProfile, PRODUCTPRICINGROW as ProductPricingRow, ADMINORDERUPDATEPAYLOAD as AdminOrderUpdatePayload, ORDERUPDATEVALUES as OrderUpdateValues };

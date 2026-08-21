@@ -1,10 +1,10 @@
 import { apiError } from "@/app/api/response";
-import { AdminRole } from "@/app/models/admin";
+import { ADMINROLE } from "@/app/models/admin";
 import { deleteQrSlip, getQrPaymentForOrder, recordPartialQrPayment, rejectQrSlip, verifyQrPayment } from "@/app/api/services/paymentService";
 import { authenticateAdmin } from "../authorization";
 
-function isAdmin(role: AdminRole | null) {
-  return role === AdminRole.Admin || role === AdminRole.SuperAdmin;
+function isAdmin(role: ADMINROLE | null) {
+  return role === ADMINROLE.ADMIN || role === ADMINROLE.SUPER_ADMIN;
 }
 
 export async function GET(request: Request) {

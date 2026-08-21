@@ -22,5 +22,3 @@ export type PRODUCTINPUT = Omit<
 >;
 
 export type PRODUCTPAYLOAD = Record<string, unknown>;
-
-export type { PRODUCTPAYLOAD as ProductPayload };

@@ -1,7 +1,7 @@
-import type { UpdateUserPayload } from "@/app/models/user";
+import type { UPDATEUSERPAYLOAD } from "@/app/models/user";
 
 export type EditUserValidationErrors = Partial<
-  Record<keyof UpdateUserPayload, string>
+  Record<keyof UPDATEUSERPAYLOAD, string>
 >;
 
 export const ALLOWED_EMAIL_DOMAINS = [
@@ -16,7 +16,7 @@ export const ALLOWED_EMAIL_DOMAINS = [
 ] as const;
 
 export function validateEditUserPayload(
-  payload: UpdateUserPayload,
+  payload: UPDATEUSERPAYLOAD,
 ): EditUserValidationErrors {
   const errors: EditUserValidationErrors = {};
   const name = payload.name?.trim() || "";

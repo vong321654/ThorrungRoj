@@ -18,13 +18,13 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useCart } from "@/app/productPage/_shared/CartContext";
 import { createClient } from "@/app/api/util/supabase/client";
-import type { ApiResult } from "@/app/api/response";
-import type { CurrentUser } from "@/app/models/user";
-import type { OrderRecord, PaymentMethod } from "@/app/models/order";
+import type { APIRESULT } from "@/app/api/response";
+import type { CURRENTUSER } from "@/app/models/user";
+import { PAYMENTMETHOD, type ORDERRECORD } from "@/app/models/order";
 
-const PAYMENT_OPTIONS: Array<{ value: PaymentMethod; label: string }> = [
-  { value: "cash", label: "ชำระเงินสด" },
-  { value: "qrScan", label: "สแกน QR" },
+const PAYMENT_OPTIONS: Array<{ value: PAYMENTMETHOD; label: string }> = [
+  { value: PAYMENTMETHOD.CASH, label: "ชำระเงินสด" },
+  { value: PAYMENTMETHOD.QR_SCAN, label: "สแกน QR" },
 ];
 
 function formatBaht(value: number) {
@@ -36,7 +36,7 @@ export default function CheckoutView() {
   const router = useRouter();
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [note, setNote] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  const [paymentMethod, setPaymentMethod] = useState<PAYMENTMETHOD>(PAYMENTMETHOD.CASH);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -55,7 +55,7 @@ export default function CheckoutView() {
       const response = await fetch("/api/users/me", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const result = (await response.json()) as ApiResult<CurrentUser | null>;
+      const result = (await response.json()) as APIRESULT<CURRENTUSER | null>;
       if (!isMounted) return;
       if (result.status === "success" && result.results?.address) {
         setDeliveryAddress(result.results.address);
@@ -114,7 +114,7 @@ export default function CheckoutView() {
         },
         body: JSON.stringify({ items, deliveryAddress, note, paymentMethod }),
       });
-      const result = (await response.json()) as ApiResult<OrderRecord>;
+      const result = (await response.json()) as APIRESULT<ORDERRECORD>;
       if (!response.ok || result.status === "error") {
         throw new Error(result.message);
       }
@@ -198,7 +198,7 @@ export default function CheckoutView() {
               <FormLabel>วิธีชำระเงิน</FormLabel>
               <RadioGroup
                 value={paymentMethod}
-                onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)}
+                onChange={(event) => setPaymentMethod(event.target.value as PAYMENTMETHOD)}
               >
                 {PAYMENT_OPTIONS.map((option) => (
                   <FormControlLabel

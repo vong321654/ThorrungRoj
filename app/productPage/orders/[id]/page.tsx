@@ -5,14 +5,14 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Alert, Box, Button, Chip, CircularProgress, Container, Divider, Paper, Stack, Typography } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
-import type { ApiResult } from "@/app/api/response";
-import type { OrderRecord } from "@/app/models/order";
+import type { APIRESULT } from "@/app/api/response";
+import type { ORDERRECORD } from "@/app/models/order";
 
 const ORDER_LABELS: Record<string, string> = { pending: "รอดำเนินการ", preparing: "กำลังเตรียมสินค้า", delivering: "กำลังจัดส่ง", delivered: "จัดส่งแล้ว", cancelled: "ยกเลิกแล้ว" };
 const PAYMENT_LABELS: Record<string, string> = { pending: "รอชำระเงิน", paid: "ชำระเงินแล้ว", pendingPayment: "ค้างชำระ", pendingCart: "ค้างถัง" };
 const SALE_LABELS: Record<string, string> = { sell: "ซื้อถัง", exchange: "เปลี่ยนถัง", refill: "เติมแก๊ส" };
 
-function nextStep(order: OrderRecord) {
+function nextStep(order: ORDERRECORD) {
   if (order.status === "cancelled") return "คำสั่งซื้อนี้ถูกยกเลิกแล้ว หากมีข้อสงสัย กรุณาติดต่อร้านค้า";
   if (order.paymentStatus !== "paid" && order.paymentMethod === "qrScan") return "กรุณาแนบสลิปการชำระเงินในหน้าประวัติคำสั่งซื้อ แล้วรอผู้ดูแลตรวจสอบ";
   if (order.paymentMethod === "pendingPayment") return `มีเงินค้างชำระ ${Number(order.outstandingAmount ?? 0).toLocaleString("th-TH")} บาท กรุณาติดต่อร้านค้าเพื่อนัดหมายการชำระยอดคงเหลือ`;
@@ -26,7 +26,7 @@ function nextStep(order: OrderRecord) {
 export default function CustomerOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [order, setOrder] = useState<OrderRecord | null>(null);
+  const [order, setOrder] = useState<ORDERRECORD | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -37,7 +37,7 @@ export default function CustomerOrderDetailPage() {
       const { data } = await createClient().auth.getSession();
       if (!data.session?.access_token) { router.replace("/login"); return; }
       const response = await fetch(`/api/orders?id=${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${data.session.access_token}` } });
-      const result = await response.json() as ApiResult<OrderRecord>;
+      const result = await response.json() as APIRESULT<ORDERRECORD>;
       if (!response.ok || result.status === "error") throw new Error(result.message);
       setOrder(result.results);
     } catch (loadError) { setError(loadError instanceof Error ? loadError.message : "ไม่สามารถโหลดรายละเอียดคำสั่งซื้อได้"); }

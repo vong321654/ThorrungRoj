@@ -1,13 +1,13 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
-import { AdminRole } from "@/app/models/admin";
+import { ADMINROLE } from "@/app/models/admin";
 import styles from "../../login/Login.module.css";
 
 export type AdminFormValues = {
   email: string;
   name: string;
-  role: AdminRole;
+  role: ADMINROLE;
   isActive: boolean;
   password: string;
   confirmPassword: string;
@@ -34,7 +34,7 @@ export default function AdminForm({
   const [email, setEmail] = useState(initialValues?.email ?? "");
   const [name, setName] = useState(initialValues?.name ?? "");
   const [role, setRole] = useState(
-    initialValues?.role ?? AdminRole.Employee,
+    initialValues?.role ?? ADMINROLE.EMPLOYEE,
   );
   const [isActive, setIsActive] = useState(initialValues?.isActive ?? true);
   const [password, setPassword] = useState("");
@@ -108,11 +108,11 @@ export default function AdminForm({
             name="role"
             value={role}
             disabled={!allowRoleAndStatus}
-            onChange={(event) => setRole(event.target.value as AdminRole)}
+            onChange={(event) => setRole(event.target.value as ADMINROLE)}
           >
-            <option value={AdminRole.SuperAdmin}>Super admin</option>
-            <option value={AdminRole.Admin}>Admin</option>
-            <option value={AdminRole.Employee}>Employee</option>
+            <option value={ADMINROLE.SUPER_ADMIN}>Super admin</option>
+            <option value={ADMINROLE.ADMIN}>Admin</option>
+            <option value={ADMINROLE.EMPLOYEE}>Employee</option>
           </select>
         </div>
 
