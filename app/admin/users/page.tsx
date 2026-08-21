@@ -8,8 +8,8 @@ import {
   TextField, Typography,
 } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
-import type { ApiResult } from "@/app/api/response";
-import { AdminRole } from "@/app/models/admin";
+import type { APIRESULT } from "@/app/api/response";
+import { ADMINROLE } from "@/app/models/admin";
 import { useRequireAdmin } from "../useRequireAdmin";
 
 type Customer = {
@@ -26,14 +26,14 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
-  const isSuperAdmin = admin?.role === AdminRole.SuperAdmin;
+  const isSuperAdmin = admin?.role === ADMINROLE.SUPER_ADMIN;
 
   useEffect(() => {
     if (!isAllowed) return;
     async function loadUsers() {
       const { data } = await createClient().auth.getSession();
       const response = await fetch("/api/admin/users", { headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` } });
-      const result = await response.json() as ApiResult<Customer[]>;
+      const result = await response.json() as APIRESULT<Customer[]>;
       if (!response.ok || result.status === "error") setError(result.message);
       else setUsers(result.results);
       setIsLoading(false);
@@ -52,7 +52,7 @@ export default function AdminUsersPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session?.access_token ?? ""}` },
         body: JSON.stringify(editingUser),
       });
-      const result = await response.json() as ApiResult<Customer>;
+      const result = await response.json() as APIRESULT<Customer>;
       if (!response.ok || result.status === "error") throw new Error(result.message);
       setUsers((current) => current.map((user) => user.id === result.results.id ? result.results : user));
       setEditingUser(null);
@@ -74,7 +74,7 @@ export default function AdminUsersPage() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` },
       });
-      const result = await response.json() as ApiResult<Customer>;
+      const result = await response.json() as APIRESULT<Customer>;
       if (!response.ok || result.status === "error") throw new Error(result.message);
       setUsers((current) => current.map((item) => item.id === result.results.id ? result.results : item));
     } catch (deleteError) {

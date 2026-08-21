@@ -1,4 +1,4 @@
-import type { AdminRole } from "./admin";
+import type { ADMINROLE } from "./admin";
 
 export type ADMINLOGINCREDENTIALS = {
   email: string;
@@ -8,8 +8,6 @@ export type ADMINLOGINCREDENTIALS = {
 export type CREATEADMINCREDENTIALS = ADMINLOGINCREDENTIALS & {
   email_confirm?: boolean;
   name: string | null;
-  role: AdminRole;
+  role: ADMINROLE;
   isActive: boolean;
 };
-
-export type { ADMINLOGINCREDENTIALS as AdminLoginCredentials, CREATEADMINCREDENTIALS as CreateAdminCredentials };

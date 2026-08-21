@@ -1,6 +1,6 @@
 "use client";
 
-import type { UpdateUserPayload } from "@/app/models/user";
+import type { UPDATEUSERPAYLOAD } from "@/app/models/user";
 import Link from "next/link";
 import { useState } from "react";
 import SaveButton from "./SaveButton";
@@ -8,7 +8,7 @@ import styles from "./EditUser.module.css";
 import { validateEditUserPayload } from "./validation";
 
 type EditUserFieldsProps = {
-  initialValues: UpdateUserPayload;
+  initialValues: UPDATEUSERPAYLOAD;
 };
 
 export default function EditUserFields({ initialValues }: EditUserFieldsProps) {
@@ -16,7 +16,7 @@ export default function EditUserFields({ initialValues }: EditUserFieldsProps) {
   const errors = validateEditUserPayload(values);
   const hasErrors = Object.keys(errors).length > 0;
 
-  function updateField(field: keyof UpdateUserPayload, value: string) {
+  function updateField(field: keyof UPDATEUSERPAYLOAD, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
   }
 

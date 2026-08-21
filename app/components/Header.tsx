@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { CurrentUser } from "@/app/models/user";
+import type { CURRENTUSER } from "@/app/models/user";
 import LogoutButton from "./LogoutButton";
 import { createClient } from "@/app/api/util/supabase/client";
 
 type CurrentUserResponse = {
   status: "success" | "error";
   message: string;
-  results: CurrentUser | null;
+  results: CURRENTUSER | null;
 };
 
 function isLineUser(user: {
@@ -28,7 +28,7 @@ function isLineUser(user: {
 
 export default function Header() {
   const pathname = usePathname();
-  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [user, setUser] = useState<CURRENTUSER | null>(null);
 
   const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
 

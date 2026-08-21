@@ -5,7 +5,7 @@ import {
   getUserByLineUserId,
   updateUser,
 } from "@/app/api/services/userService";
-import type { UpdateUserPayload, User } from "@/app/models/user";
+import type { UPDATEUSERPAYLOAD, USER } from "@/app/models/user";
 import { revalidatePath } from "next/cache";
 import { validateEditUserPayload } from "./validation";
 
@@ -14,7 +14,7 @@ function optionalText(value: unknown, maxLength: number): string | null {
   return value.trim().slice(0, maxLength) || null;
 }
 
-export async function getEditUserData(): Promise<User | null> {
+export async function getEditUserData(): Promise<USER | null> {
   const currentUserResult = await getCurrentUser();
 
   if (currentUserResult.status === "error") {
@@ -32,7 +32,7 @@ export async function getEditUserData(): Promise<User | null> {
   return userResult.results;
 }
 
-export async function saveEditUserData(payload: UpdateUserPayload) {
+export async function saveEditUserData(payload: UPDATEUSERPAYLOAD) {
   const currentUserResult = await getCurrentUser();
   const currentUser = currentUserResult.results;
 

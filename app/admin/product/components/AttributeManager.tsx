@@ -24,7 +24,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import { AdminRole } from "@/app/models/admin";
+import { ADMINROLE } from "@/app/models/admin";
 import { useRequireAdmin } from "../../useRequireAdmin";
 
 export type AttributeItem = {
@@ -47,7 +47,7 @@ export default function AttributeManager({
   updateItem,
   deleteItem,
 }: AttributeManagerProps) {
-  const { isAllowed } = useRequireAdmin({ role: AdminRole.SuperAdmin, redirectTo: "/admin/product" });
+  const { isAllowed } = useRequireAdmin({ role: ADMINROLE.SUPER_ADMIN, redirectTo: "/admin/product" });
   const [items, setItems] = useState<AttributeItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

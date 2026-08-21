@@ -7,12 +7,12 @@ import {
   Alert, Box, Button, Card, CardActionArea, CardContent, CircularProgress, Paper,
   Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
 } from "@mui/material";
-import { deleteAdmin, getAdminsList, getDashboardStats, type DashboardStats } from "./allFunc";
+import { deleteAdmin, getAdminsList, getDashboardStats, type DASHBOARDSTATS } from "./allFunc";
 import { useAdminSession } from "./AdminSessionContext";
 import { useRequireAdmin } from "./useRequireAdmin";
-import { AdminRole, type AdminData } from "@/app/models/admin";
+import { ADMINROLE, type ADMINDATA } from "@/app/models/admin";
 
-const EMPTY_STATS: DashboardStats = { monthlySales: 0, monthlyUnitsSold: 0, outstandingMoney: 0, outstandingCarts: 0 };
+const EMPTY_STATS: DASHBOARDSTATS = { monthlySales: 0, monthlyUnitsSold: 0, outstandingMoney: 0, outstandingCarts: 0 };
 
 function formatNumber(value: number) {
   return value.toLocaleString("th-TH");
@@ -30,8 +30,8 @@ export default function AdminPage() {
   const router = useRouter();
   const { admin: adminData, isLoading: isSessionLoading } = useRequireAdmin();
   const { signOut } = useAdminSession();
-  const [employeesData, setEmployeesData] = useState<AdminData[] | null>(null);
-  const [dashboardStats, setDashboardStats] = useState<DashboardStats>(EMPTY_STATS);
+  const [employeesData, setEmployeesData] = useState<ADMINDATA[] | null>(null);
+  const [dashboardStats, setDashboardStats] = useState<DASHBOARDSTATS>(EMPTY_STATS);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoadingAdmins, setIsLoadingAdmins] = useState(true);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
@@ -59,7 +59,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (isSessionLoading || !adminData) return;
     void fetchDashboardStats();
-    if (adminData.role === AdminRole.SuperAdmin) void fetchEmployeesData();
+    if (adminData.role === ADMINROLE.SUPER_ADMIN) void fetchEmployeesData();
     else setIsLoadingAdmins(false);
   }, [isSessionLoading, adminData]);
 
@@ -102,7 +102,7 @@ export default function AdminPage() {
       {managementItems.map(([href, title, description]) => <Card key={href} variant="outlined"><CardActionArea component={Link} href={href} sx={{ minHeight: 136 }}><CardContent><Typography variant="h6">{title}</Typography><Typography variant="body2" color="text.secondary">{description}</Typography></CardContent></CardActionArea></Card>)}
     </Box>
 
-    {adminData?.role === AdminRole.SuperAdmin && <Box component="section" id="admins">
+    {adminData?.role === ADMINROLE.SUPER_ADMIN && <Box component="section" id="admins">
       <Stack direction="row" sx={{ mb: 2, justifyContent: "space-between", alignItems: "center" }}><Typography variant="h5" sx={{ fontWeight: 700 }}>ผู้ดูแลระบบ</Typography><Button component={Link} href="/admin/addAdmin" variant="contained">เพิ่มพนักงานใหม่</Button></Stack>
       {isLoadingAdmins ? <CircularProgress /> : <TableContainer component={Paper}><Table><TableHead><TableRow><TableCell>Email</TableCell><TableCell>ชื่อ</TableCell><TableCell>สถานะ</TableCell><TableCell>บทบาท</TableCell><TableCell>อัปเดตล่าสุด</TableCell><TableCell>จัดการ</TableCell></TableRow></TableHead><TableBody>{employeesData?.map((employee) => <TableRow key={employee.id}><TableCell>{employee.email}</TableCell><TableCell>{employee.name}</TableCell><TableCell>{employee.isActive ? "ใช้งาน" : "ปิดใช้งาน"}</TableCell><TableCell>{employee.role}</TableCell><TableCell>{employee.updatedAt}</TableCell><TableCell><Stack direction="row" spacing={1}><Button component={Link} href={`/admin/editAdmin/${employee.id}`} size="small">แก้ไข</Button>{adminData.id !== employee.id && <Button size="small" color="warning" onClick={() => void handleDelete(employee.id)}>ปิดใช้งาน</Button>}</Stack></TableCell></TableRow>)}</TableBody></Table></TableContainer>}
     </Box>}

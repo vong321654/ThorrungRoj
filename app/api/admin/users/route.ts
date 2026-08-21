@@ -1,5 +1,5 @@
 import { apiError, apiSuccess } from "@/app/api/response";
-import { AdminRole } from "@/app/models/admin";
+import { ADMINROLE } from "@/app/models/admin";
 import type { ADMINUSERUPDATEPAYLOAD, ADMINUSERUPDATEVALUES } from "@/app/models/user";
 import { authenticateAdmin } from "../authorization";
 import { isAdminOrSuperAdmin } from "@/app/api/services/adminService";
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   const auth = await authenticateAdmin(request);
   if (auth instanceof Response) return auth;
-  if (auth.admin.role !== AdminRole.SuperAdmin) {
+  if (auth.admin.role !== ADMINROLE.SUPER_ADMIN) {
     return Response.json(apiError("Only a super admin can edit users"), { status: 403 });
   }
 
@@ -75,7 +75,7 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   const auth = await authenticateAdmin(request);
   if (auth instanceof Response) return auth;
-  if (auth.admin.role !== AdminRole.SuperAdmin) {
+  if (auth.admin.role !== ADMINROLE.SUPER_ADMIN) {
     return Response.json(apiError("Only a super admin can delete users"), { status: 403 });
   }
 

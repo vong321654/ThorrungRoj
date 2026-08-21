@@ -4,9 +4,6 @@ export type {
   APIERROR,
   APIRESULT,
   APISUCCESS,
-  APIERROR as ApiError,
-  APIRESULT as ApiResult,
-  APISUCCESS as ApiSuccess,
 } from "@/app/models/api";
 
 export function apiSuccess<T>(message: string, results: T): APISUCCESS<T> {

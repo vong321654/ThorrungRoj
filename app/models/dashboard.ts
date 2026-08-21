@@ -4,5 +4,3 @@ export type DASHBOARDSTATS = {
   outstandingMoney: number;
   outstandingCarts: number;
 };
-
-export type { DASHBOARDSTATS as DashboardStats };

@@ -19,5 +19,3 @@ export type SERVICERESULT<T> = {
 
 export type NAMEPAYLOAD = { name?: unknown };
 export type IDNAMEPAYLOAD = { id?: unknown; name?: unknown };
-
-export type { APISUCCESS as ApiSuccess, APIERROR as ApiError, APIRESULT as ApiResult, SERVICERESULT as ServiceResult, NAMEPAYLOAD as NamePayload, IDNAMEPAYLOAD as IdNamePayload };

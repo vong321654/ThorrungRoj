@@ -2,14 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ADMINROLE } from "@/app/enums/admin";
 
 export { ADMINROLE };
-export const AdminRole = {
-  SuperAdmin: ADMINROLE.SUPER_ADMIN,
-  Admin: ADMINROLE.ADMIN,
-  Employee: ADMINROLE.EMPLOYEE,
-} as const;
-export type AdminRole = ADMINROLE;
 
-export function isAdminRole(value: unknown): value is ADMINROLE {
+export function ISADMINROLE(value: unknown): value is ADMINROLE {
   return Object.values(ADMINROLE).includes(value as ADMINROLE);
 }
 
@@ -52,5 +46,3 @@ export type ADMINAUTHFAILURE = {
 };
 
 export type ADMINUPDATEPAYLOAD = Record<string, unknown>;
-
-export type { ADMINDATA as AdminData, UPDATEADMININPUT as UpdateAdminInput, ADMINAUTH as AdminAuth, ADMINAUTHFAILURE as AdminAuthFailure, ADMINUPDATEPAYLOAD as AdminUpdatePayload };

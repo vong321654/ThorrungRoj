@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Select, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
-import type { ApiResult } from "@/app/api/response";
+import type { APIRESULT } from "@/app/api/response";
 import type { PRODUCT } from "@/app/models/product";
 import { useRequireAdmin } from "../useRequireAdmin";
 
@@ -37,7 +37,7 @@ export default function AdminInventoryPage() {
   const request = useCallback(async <T,>(url: string, options: RequestInit = {}) => {
     const { data } = await createClient().auth.getSession();
     const response = await fetch(url, { ...options, headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}`, ...options.headers } });
-    const result = await response.json() as ApiResult<T>;
+    const result = await response.json() as APIRESULT<T>;
     if (!response.ok || result.status === "error") throw new Error(result.message);
     return result.results;
   }, []);

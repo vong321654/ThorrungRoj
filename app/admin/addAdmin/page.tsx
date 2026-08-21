@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AdminRole } from "@/app/models/admin";
+import { ADMINROLE } from "@/app/models/admin";
 import AdminForm, {
   type AdminFormValues,
 } from "../components/AdminForm";
@@ -13,7 +13,7 @@ import styles from "../../login/Login.module.css";
 
 export default function AddAdminPage() {
   const router = useRouter();
-  const { isAllowed, isLoading: isCheckingAccess } = useRequireAdmin({ role: AdminRole.SuperAdmin });
+  const { isAllowed, isLoading: isCheckingAccess } = useRequireAdmin({ role: ADMINROLE.SUPER_ADMIN });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -63,7 +63,7 @@ export default function AddAdminPage() {
         <AdminForm
           mode="create"
           initialValues={{
-            role: AdminRole.Employee,
+            role: ADMINROLE.EMPLOYEE,
             isActive: true,
           }}
           isSubmitting={isSubmitting}

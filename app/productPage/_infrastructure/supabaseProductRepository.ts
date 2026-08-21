@@ -1,6 +1,6 @@
 import type { Product } from "@/app/productPage/_domain/entities";
 import type { ProductRepository } from "@/app/productPage/_domain/productRepository";
-import type { ApiResult } from "@/app/api/response";
+import type { APIRESULT } from "@/app/api/response";
 import type { PRODUCT } from "@/app/models/product";
 import type { PRODUCTBAND } from "@/app/models/productsType";
 
@@ -16,12 +16,12 @@ export class SupabaseProductRepository implements ProductRepository {
       fetch("/api/inventory"),
     ]);
 
-    const productsResult = (await productsResponse.json()) as ApiResult<PRODUCT[]>;
+    const productsResult = (await productsResponse.json()) as APIRESULT<PRODUCT[]>;
     if (productsResult.status === "error") throw new Error(productsResult.message);
 
-    const brandsResult = (await brandsResponse.json()) as ApiResult<PRODUCTBAND[]>;
+    const brandsResult = (await brandsResponse.json()) as APIRESULT<PRODUCTBAND[]>;
     if (brandsResult.status === "error") throw new Error(brandsResult.message);
-    const inventoryResult = (await inventoryResponse.json()) as ApiResult<InventoryItem[]>;
+    const inventoryResult = (await inventoryResponse.json()) as APIRESULT<InventoryItem[]>;
     if (inventoryResult.status === "error") throw new Error(inventoryResult.message);
 
     const brandLabels = new Map(brandsResult.results.map((brand) => [brand.id, brand.name]));

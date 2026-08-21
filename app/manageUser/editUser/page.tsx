@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { User } from "@/app/models/user";
+import type { USER } from "@/app/models/user";
 import { getEditUserData } from "./allFunc";
 import EditUserFields from "./EditUserFields";
 import styles from "./EditUser.module.css";
 
 export default function EditUser() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<USER | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
 

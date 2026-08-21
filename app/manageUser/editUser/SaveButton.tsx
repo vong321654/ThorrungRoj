@@ -1,13 +1,13 @@
 "use client";
 
-import type { UpdateUserPayload } from "@/app/models/user";
+import type { UPDATEUSERPAYLOAD } from "@/app/models/user";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { saveEditUserData } from "./allFunc";
 import styles from "./EditUser.module.css";
 
 type SaveButtonProps = {
-  payload: UpdateUserPayload;
+  payload: UPDATEUSERPAYLOAD;
   hasValidationErrors: boolean;
 };
 

@@ -3,10 +3,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAdminSession } from "./AdminSessionContext";
-import { AdminRole } from "@/app/models/admin";
+import { ADMINROLE } from "@/app/models/admin";
 
 type RequireAdminOptions = {
-  role?: AdminRole;
+  role?: ADMINROLE;
   redirectTo?: string;
 };
 

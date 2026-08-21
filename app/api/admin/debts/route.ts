@@ -1,13 +1,13 @@
 import { apiError, apiSuccess } from "@/app/api/response";
-import { AdminRole } from "@/app/models/admin";
+import { ADMINROLE } from "@/app/models/admin";
 import type { CREATEDEBTPAYLOAD, DEBTCHOICE, DEBTRECORDINSERT, SETTLEDEBTPAYLOAD } from "@/app/models/debt";
 import { DEBTCHOICE as DEBTCHOICEENUM } from "@/app/enums/debt";
 import { ORDERSTATUS, SALETYPE } from "@/app/enums/order";
 import { authenticateAdmin } from "../authorization";
 
 
-function canManageDebts(role: AdminRole | null) {
-  return role === AdminRole.Admin || role === AdminRole.SuperAdmin;
+function canManageDebts(role: ADMINROLE | null) {
+  return role === ADMINROLE.ADMIN || role === ADMINROLE.SUPER_ADMIN;
 }
 
 export async function GET(request: Request) {

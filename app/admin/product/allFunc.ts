@@ -1,7 +1,7 @@
 "use client";
 
 import { createClient } from "@/app/api/util/supabase/client";
-import type { ApiResult } from "@/app/api/response";
+import type { APIRESULT } from "@/app/api/response";
 import type { PRODUCT, PRODUCTINPUT } from "@/app/models/product";
 import type { PRODUCTBAND, PRODUCTTYPE, PRODUCTUNIT } from "@/app/models/productsType";
 
@@ -19,7 +19,7 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T
       ...options.headers,
     },
   });
-  const result = (await response.json()) as ApiResult<T>;
+  const result = (await response.json()) as APIRESULT<T>;
   if (!response.ok || result.status === "error") throw new Error(result.message);
   return result.results;
 }

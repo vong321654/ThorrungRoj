@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AdminRole, isAdminRole, type AdminData } from "@/app/models/admin";
+import { ADMINROLE, ISADMINROLE, type ADMINDATA } from "@/app/models/admin";
 import AdminForm, {
   type AdminFormValues,
 } from "../../components/AdminForm";
@@ -15,7 +15,7 @@ export default function EditAdminPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { admin: currentAdmin, isLoading: isSessionLoading } = useRequireAdmin();
-  const [admin, setAdmin] = useState<AdminData | null>(null);
+  const [admin, setAdmin] = useState<ADMINDATA | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -45,7 +45,7 @@ export default function EditAdminPage() {
 
     setIsSaving(true);
     setMessage(null);
-    const canEditRoleAndStatus = currentAdmin?.role === AdminRole.SuperAdmin;
+    const canEditRoleAndStatus = currentAdmin?.role === ADMINROLE.SUPER_ADMIN;
     try {
       const input = {
         id: admin.id,
@@ -102,13 +102,13 @@ export default function EditAdminPage() {
           initialValues={{
             email: admin.email ?? "",
             name: admin.name ?? "",
-            role: isAdminRole(admin.role) ? admin.role : AdminRole.Employee,
+            role: ISADMINROLE(admin.role) ? admin.role : ADMINROLE.EMPLOYEE,
             isActive: admin.isActive,
           }}
           isSubmitting={isSaving}
           message={message}
           onSubmit={handleSubmit}
-          allowRoleAndStatus={currentAdmin?.role === AdminRole.SuperAdmin}
+          allowRoleAndStatus={currentAdmin?.role === ADMINROLE.SUPER_ADMIN}
         />
       </section>
     </main>

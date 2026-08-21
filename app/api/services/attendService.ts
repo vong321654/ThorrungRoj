@@ -1,39 +1,23 @@
 // app/api/services/attendService.ts
-import { AdminRole } from "@/app/models/admin";
+import { ADMINROLE } from "@/app/models/admin";
 import type { SERVICERESULT } from "@/app/models/api";
+import type {
+  ATTENDANCERECORD,
+  AUTHENTICATEDEMPLOYEE,
+  EMPLOYEESESSION,
+} from "@/app/models/attendance";
 import { apiError, apiSuccess } from "../response";
 import { createAuthenticatedClient } from "../util/supabase/authenticated";
-
-type AttendanceRecord = {
-  id: string;
-  employeeId: string;
-  checkInTime: string;
-  checkOutTime: string | null;
-  workDate: string;
-  note: string | null;
-  createdAt: string;
-};
-
-type EmployeeSession = {
-  id: string;
-  role: AdminRole | null;
-  isActive: boolean;
-};
-
-type AuthenticatedEmployee = {
-  supabase: ReturnType<typeof createAuthenticatedClient>;
-  employee: EmployeeSession;
-};
 
 function failure<T>(message: string, status: number): SERVICERESULT<T> {
   return { result: apiError(message), status };
 }
 
-function isAdminOrSuperAdmin(employee: EmployeeSession) {
-  return employee.role === AdminRole.Admin || employee.role === AdminRole.SuperAdmin;
+function isAdminOrSuperAdmin(employee: EMPLOYEESESSION) {
+  return employee.role === ADMINROLE.ADMIN || employee.role === ADMINROLE.SUPER_ADMIN;
 }
 
-function parseNote(payload: unknown): { note: string | null } | null {
+function parseNote(payload: unknown): Pick<ATTENDANCERECORD, "note"> | null {
   if (payload === null || payload === undefined) return { note: null };
   if (typeof payload !== "object" || Array.isArray(payload)) return null;
 
@@ -45,7 +29,7 @@ function parseNote(payload: unknown): { note: string | null } | null {
 
 async function authenticateEmployee(
   accessToken: string | null,
-): Promise<SERVICERESULT<AuthenticatedEmployee>> {
+): Promise<SERVICERESULT<AUTHENTICATEDEMPLOYEE>> {
   if (!accessToken) return failure("Missing access token", 401);
 
   const supabase = createAuthenticatedClient(accessToken);
@@ -65,16 +49,16 @@ async function authenticateEmployee(
   return {
     result: apiSuccess("Employee authenticated", {
       supabase,
-      employee: employee as EmployeeSession,
+      employee: employee as EMPLOYEESESSION,
     }),
     status: 200,
   };
 }
 
 async function loadAttendance(
-  authenticated: AuthenticatedEmployee,
+  authenticated: AUTHENTICATEDEMPLOYEE,
   employeeId?: string,
-): Promise<SERVICERESULT<AttendanceRecord[]>> {
+): Promise<SERVICERESULT<ATTENDANCERECORD[]>> {
   let query = authenticated.supabase
     .from("workAttendance")
     .select("id, employeeId, checkInTime, checkOutTime, workDate, note, createdAt")
@@ -86,14 +70,14 @@ async function loadAttendance(
   if (error) return failure("Failed to load attendance history", 500);
 
   return {
-    result: apiSuccess("Attendance history loaded", (data ?? []) as AttendanceRecord[]),
+    result: apiSuccess("Attendance history loaded", (data ?? []) as ATTENDANCERECORD[]),
     status: 200,
   };
 }
 
 export async function getMyAttendance(
   accessToken: string | null,
-): Promise<SERVICERESULT<AttendanceRecord[]>> {
+): Promise<SERVICERESULT<ATTENDANCERECORD[]>> {
   const auth = await authenticateEmployee(accessToken);
   if (auth.result.status === "error") return failure(auth.result.message, auth.status);
   return loadAttendance(auth.result.results, auth.result.results.employee.id);
@@ -102,7 +86,7 @@ export async function getMyAttendance(
 export async function getEmployeeAttendance(
   accessToken: string | null,
   employeeId: string,
-): Promise<SERVICERESULT<AttendanceRecord[]>> {
+): Promise<SERVICERESULT<ATTENDANCERECORD[]>> {
   const auth = await authenticateEmployee(accessToken);
   if (auth.result.status === "error") return failure(auth.result.message, auth.status);
 
@@ -116,7 +100,7 @@ export async function getEmployeeAttendance(
 
 export async function getAllAttendance(
   accessToken: string | null,
-): Promise<SERVICERESULT<AttendanceRecord[]>> {
+): Promise<SERVICERESULT<ATTENDANCERECORD[]>> {
   const auth = await authenticateEmployee(accessToken);
   if (auth.result.status === "error") return failure(auth.result.message, auth.status);
   if (!isAdminOrSuperAdmin(auth.result.results.employee)) {
@@ -129,7 +113,7 @@ export async function getAllAttendance(
 export async function clockIn(
   accessToken: string | null,
   payload: unknown,
-): Promise<SERVICERESULT<AttendanceRecord>> {
+): Promise<SERVICERESULT<ATTENDANCERECORD>> {
   const auth = await authenticateEmployee(accessToken);
   if (auth.result.status === "error") return failure(auth.result.message, auth.status);
 
@@ -158,13 +142,13 @@ export async function clockIn(
     return failure("Failed to clock in", 500);
   }
 
-  return { result: apiSuccess("Clocked in successfully", data as AttendanceRecord), status: 201 };
+  return { result: apiSuccess("Clocked in successfully", data as ATTENDANCERECORD), status: 201 };
 }
 
 export async function clockOut(
   accessToken: string | null,
   payload: unknown,
-): Promise<SERVICERESULT<AttendanceRecord>> {
+): Promise<SERVICERESULT<ATTENDANCERECORD>> {
   const auth = await authenticateEmployee(accessToken);
   if (auth.result.status === "error") return failure(auth.result.message, auth.status);
 
@@ -183,7 +167,8 @@ export async function clockOut(
   if (openError) return failure("Failed to check current attendance", 500);
   if (!openAttendance) return failure("No active clock-in was found", 409);
 
-  const values: { checkOutTime: string; note?: string | null } = {
+  const values: Pick<ATTENDANCERECORD, "checkOutTime"> &
+    Partial<Pick<ATTENDANCERECORD, "note">> = {
     checkOutTime: new Date().toISOString(),
   };
   if (input.note !== null) values.note = input.note;
@@ -196,5 +181,5 @@ export async function clockOut(
     .single();
 
   if (error || !data) return failure("Failed to clock out", 500);
-  return { result: apiSuccess("Clocked out successfully", data as AttendanceRecord), status: 200 };
+  return { result: apiSuccess("Clocked out successfully", data as ATTENDANCERECORD), status: 200 };
 }
