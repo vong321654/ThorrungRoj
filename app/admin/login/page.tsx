@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import styles from "../../login/Login.module.css";
+import loginStyles from "./AdminLogin.module.css";
 import { hasActiveAdminSession, loginWithEmail } from "./allFunc";
 import { useAdminSession } from "../AdminSessionContext";
 
@@ -47,8 +48,8 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className={styles.page}>
-      <section className={styles.card} aria-labelledby="admin-login-title">
+    <main className={loginStyles.page}>
+      <section className={`${styles.card} ${loginStyles.card}`} aria-labelledby="admin-login-title">
         <div className={`${styles.brandMark} ${styles.adminBrandMark}`}>A</div>
         <header className={styles.heading}>
           <p className={styles.eyebrow}>ร้านแก๊สทอรุ่งโรจน์</p>
