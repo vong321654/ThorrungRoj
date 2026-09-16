@@ -86,7 +86,7 @@ export default function AdminInventoryPage() {
   }
 
   return <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1200, mx: "auto" }}>
-    <Button component={Link} href="/admin" sx={{ mb: 2 }}>← กลับ Dashboard</Button>
+    <Button component={Link} href="/admin" sx={{ mb: 2 }}>กลับหน้าจัดการระบบ</Button>
     <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>จัดการคลังสินค้า</Typography>
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
     <Paper sx={{ p: 3, mb: 3 }}><Typography variant="h6" sx={{ mb: 2 }}>เพิ่มรายการสต็อก</Typography><Stack spacing={2} direction={{ xs: "column", md: "row" }}>

@@ -95,7 +95,7 @@ export default function AdminDebtsPage() {
   }
 
   return <Box sx={{ p: { xs: 2, md: 4 } }}>
-    <Button component={Link} href="/admin" sx={{ mb: 2 }}>← กลับ Dashboard</Button>
+    <Button component={Link} href="/admin" sx={{ mb: 2 }}>← กลับหน้าจัดการระบบ</Button>
     <Typography variant="h5" sx={{ mb: 2, fontWeight: 700 }}>จัดการหนี้ค้างเงินและค้างถัง</Typography>
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
