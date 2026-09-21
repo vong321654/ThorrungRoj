@@ -21,8 +21,7 @@ type ProductCardProps = {
 
 const SALE_TYPE_OPTIONS: Array<{ value: SaleType; label: string }> = [
   { value: "sell", label: "ซื้อถัง" },
-  { value: "exchange", label: "เปลี่ยนถัง" },
-  { value: "refill", label: "เติมแก๊ส" },
+  { value: "exchange", label: "เปลี่ยนถัง" }
 ];
 
 export default function ProductCard({ product, onSelect }: ProductCardProps) {

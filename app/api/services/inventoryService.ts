@@ -86,8 +86,8 @@ export async function addInventoryItem(
 }
 
 /**
- * Marks an order as delivered and deducts every ordered item from full-cylinder
- * inventory in the same database transaction. The database function locks the
+ * Marks an order as delivered, deducts full cylinders, and adds returned empty
+ * cylinders for exchanges in one transaction. The function locks the
  * inventory rows, preventing concurrent deliveries from overselling stock.
  */
 export async function fulfillOrderInventory(
@@ -144,4 +144,3 @@ export async function updateInventoryItem(
   if (!data) return failure("Failed to update inventory item", 500);
   return { result: apiSuccess("Inventory item updated successfully", data), status: 200 };
 }
-

@@ -13,7 +13,7 @@ import type {
 import type { SaleType } from "@/app/productPage/_shared/domain/cartItem";
 import { PAYMENTMETHOD, SALETYPE } from "@/app/enums/order";
 
-const SALE_TYPES = new Set<SaleType>([SALETYPE.SELL, SALETYPE.EXCHANGE, SALETYPE.REFILL]);
+const SALE_TYPES = new Set<SaleType>([SALETYPE.SELL, SALETYPE.EXCHANGE]);
 const PAYMENT_METHODS = new Set<PAYMENTMETHOD>([PAYMENTMETHOD.CASH, PAYMENTMETHOD.QR_SCAN]);
 
 function failure<T>(message: string, status: number): SERVICERESULT<T> {
