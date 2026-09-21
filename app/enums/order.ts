@@ -24,6 +24,6 @@ export enum ORDERSTATUS {
 export enum SALETYPE {
   SELL = "sell",
   EXCHANGE = "exchange",
-  REFILL = "refill",
+  // REFILL = "refill",
   RETURN = "return",
 }

@@ -401,9 +401,8 @@ BEGIN
   END IF;
 
   FOR v_item IN
-    SELECT * FROM public."orderItems" WHERE "orderId" = p_order_id
+    SELECT * FROM public."orderItems" WHERE "orderId" = p_order_id ORDER BY "productId", id
   LOOP
-    -- All current sale types represent a full cylinder leaving the shop.
     SELECT * INTO v_inventory
     FROM public."inventoryProducts"
     WHERE "productId" = v_item."productId" AND "stockStatus" = 'full'
@@ -440,6 +439,44 @@ BEGIN
       now(), now(), p_admin_id, p_admin_id
     )
     RETURNING * INTO v_log;
+
+    IF v_item."saleType" = 'exchange' THEN
+      -- The full-stock row remains locked while the returned empties are recorded.
+      SELECT * INTO v_inventory
+      FROM public."inventoryProducts"
+      WHERE "productId" = v_item."productId" AND "stockStatus" = 'empty'
+      ORDER BY "createdAt", id
+      LIMIT 1
+      FOR UPDATE;
+
+      IF NOT FOUND THEN
+        INSERT INTO public."inventoryProducts" (
+          "productId", "stockStatus", "quantityOnHand", "quantityReserved",
+          "minimumStock", "createdBy", "updatedBy"
+        ) VALUES (
+          v_item."productId", 'empty', 0, 0, 0, p_admin_id, p_admin_id
+        )
+        RETURNING * INTO v_inventory;
+      END IF;
+
+      UPDATE public."inventoryProducts"
+      SET "quantityOnHand" = v_inventory."quantityOnHand" + v_item.quantity,
+          "updatedAt" = now(), "updatedBy" = p_admin_id
+      WHERE id = v_inventory.id
+      RETURNING * INTO v_inventory;
+
+      INSERT INTO public."inventoryLog" (
+        "inventoryProductId", "orderId", "orderItemId", "transactionType",
+        "quantityOnHandBefore", "quantityOnHandChange", "quantityOnHandAfter",
+        "quantityReservedBefore", "quantityReservedChange", "quantityReservedAfter",
+        "createdAt", "updatedAt", "createdBy", "updatedBy"
+      ) VALUES (
+        v_inventory.id, p_order_id, v_item.id, 'emptyReturn',
+        v_inventory."quantityOnHand" - v_item.quantity, v_item.quantity, v_inventory."quantityOnHand",
+        v_inventory."quantityReserved", 0, v_inventory."quantityReserved",
+        now(), now(), p_admin_id, p_admin_id
+      );
+    END IF;
   END LOOP;
 
   UPDATE public.orders
