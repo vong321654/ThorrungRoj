@@ -11,7 +11,7 @@ export type PRODUCT = {
   updatedAt: string | null;
   updatedBy: string | null;
   exchangePrice: number;
-  refillPrice: number;
+  //refillPrice: number;
   imageUrl?: string | null;
   isActive: boolean;
 };

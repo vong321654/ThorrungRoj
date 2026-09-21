@@ -2,10 +2,26 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import styles from "../../login/Login.module.css";
-import loginStyles from "./AdminLogin.module.css";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { hasActiveAdminSession, loginWithEmail } from "./allFunc";
 import { useAdminSession } from "../AdminSessionContext";
+import {
+  adminBrandMarkSx,
+  authCardSx,
+  authPageSx,
+  errorAlertSx,
+  eyebrowSx,
+  headingSubtitleSx,
+  headingTitleSx,
+  submitButtonSx,
+  textFieldSx,
+} from "@/app/components/UI/authStyles";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -48,57 +64,78 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className={loginStyles.page}>
-      <section className={`${styles.card} ${loginStyles.card}`} aria-labelledby="admin-login-title">
-        <div className={`${styles.brandMark} ${styles.adminBrandMark}`}>A</div>
-        <header className={styles.heading}>
-          <p className={styles.eyebrow}>ร้านแก๊สทอรุ่งโรจน์</p>
-          <h1 id="admin-login-title">เข้าสู่ระบบ Admin</h1>
-          <p>สำหรับผู้ดูแลระบบและพนักงานที่ได้รับสิทธิ์เท่านั้น</p>
-        </header>
+    <Box
+      component="main"
+      sx={{
+        ...authPageSx,
+        flex: 1,
+        minHeight: "100dvh",
+        p: "clamp(16px, 4vw, 48px)",
+      }}
+    >
+      <Paper
+        component="section"
+        aria-labelledby="adminLoginTitle"
+        elevation={0}
+        sx={{
+          ...authCardSx,
+          overflowWrap: "anywhere",
+          p: "clamp(20px, 5vw, 36px)",
+        }}
+      >
+        <Box sx={adminBrandMarkSx}>A</Box>
+
+        <Box sx={{ mt: 2.5 }}>
+          <Typography sx={eyebrowSx}>ร้านแก๊สทอรุ่งโรจน์</Typography>
+          <Typography id="adminLoginTitle" component="h1" sx={headingTitleSx}>
+            เข้าสู่ระบบ Admin
+          </Typography>
+          <Typography sx={headingSubtitleSx}>
+            สำหรับผู้ดูแลระบบและพนักงานที่ได้รับสิทธิ์เท่านั้น
+          </Typography>
+        </Box>
 
         {message && (
-          <p className={styles.message} role="alert">
+          <Alert icon={false} severity="warning" role="alert" sx={errorAlertSx}>
             {message}
-          </p>
+          </Alert>
         )}
 
-        <form className={styles.emailForm} method="post" onSubmit={handleAdminLogin}>
-          <div className={styles.field}>
-            <label htmlFor="admin-email">อีเมล</label>
-            <input
-              id="admin-email"
-              name="email"
-              type="email"
-              placeholder="admin@example.com"
-              autoComplete="username"
-              required
-              onChange={(e) => setAdminEmail(e.target.value)}
-              value={adminEmail}
-            />
-          </div>
+        <Stack component="form" method="post" onSubmit={handleAdminLogin} spacing={2} sx={{ mt: 3.5 }}>
+          <TextField
+            id="adminEmail"
+            name="email"
+            type="email"
+            label="อีเมล"
+            placeholder="admin@example.com"
+            autoComplete="username"
+            required
+            fullWidth
+            value={adminEmail}
+            onChange={(event) => setAdminEmail(event.target.value)}
+            sx={textFieldSx}
+          />
 
-          <div className={styles.field}>
-            <label htmlFor="admin-password">รหัสผ่าน</label>
-            <input
-              id="admin-password"
-              name="password"
-              type="password"
-              placeholder="กรอกรหัสผ่าน"
-              autoComplete="current-password"
-              minLength={6}
-              required
-              onChange={(e) => setAdminPassword(e.target.value)}
-              value={adminPassword}
-            />
-          </div>
+          <TextField
+            id="adminPassword"
+            name="password"
+            type="password"
+            label="รหัสผ่าน"
+            placeholder="กรอกรหัสผ่าน"
+            autoComplete="current-password"
+            required
+            fullWidth
+            value={adminPassword}
+            onChange={(event) => setAdminPassword(event.target.value)}
+            slotProps={{ htmlInput: { minLength: 6 } }}
+            sx={textFieldSx}
+          />
 
-          <button className={styles.submitButton} type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting} disableElevation fullWidth sx={submitButtonSx}>
             เข้าสู่ระบบ Admin
-          </button>
-        </form>
-
-      </section>
-    </main>
+          </Button>
+        </Stack>
+      </Paper>
+    </Box>
   );
 }

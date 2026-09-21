@@ -90,7 +90,6 @@ export default function EditProductPage() {
         unitId: values.unitId,
         sellPrice: Number(values.sellPrice),
         exchangePrice: values.exchangePrice ? Number(values.exchangePrice) : 0,
-        refillPrice: values.refillPrice ? Number(values.refillPrice) : 0,
         isActive: values.isActive,
       });
       router.replace("/admin/product");
@@ -140,7 +139,6 @@ export default function EditProductPage() {
             unitId: product.unitId,
             sellPrice: String(product.sellPrice),
             exchangePrice: String(product.exchangePrice),
-            refillPrice: String(product.refillPrice),
             isActive: product.isActive ?? true,
           }}
           brands={brands}

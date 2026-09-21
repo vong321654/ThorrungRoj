@@ -3,13 +3,23 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Box from "@mui/material/Box";
+import MuiLink from "@mui/material/Link";
+import Paper from "@mui/material/Paper";
+import Typography from "@mui/material/Typography";
 import { ADMINROLE, ISADMINROLE, type ADMINDATA } from "@/app/models/admin";
 import AdminForm, {
   type AdminFormValues,
 } from "../../components/AdminForm";
 import { getAdminByEmployeeId, saveAdminChanges } from "../../allFunc";
 import { useRequireAdmin } from "../../useRequireAdmin";
-import styles from "../../../login/Login.module.css";
+import {
+  authCardSx,
+  authPageSx,
+  backLinkSx,
+  headingSubtitleSx,
+  headingTitleSx,
+} from "@/app/components/UI/authStyles";
 
 export default function EditAdminPage() {
   const params = useParams<{ id: string }>();
@@ -70,32 +80,38 @@ export default function EditAdminPage() {
 
   if (isLoading) {
     return (
-      <main className={styles.page}>
-        <p>Loading employee data...</p>
-      </main>
+      <Box component="main" sx={authPageSx}>
+        <Typography>Loading employee data...</Typography>
+      </Box>
     );
   }
 
   if (!admin) {
     return (
-      <main className={styles.page}>
-        <p role="alert">{message ?? "Employee not found"}</p>
-        <Link href="/admin">Back</Link>
-      </main>
+      <Box component="main" sx={{ ...authPageSx, flexDirection: "column", gap: 1.5 }}>
+        <Typography role="alert">{message ?? "Employee not found"}</Typography>
+        <MuiLink component={Link} href="/admin" sx={backLinkSx}>
+          Back
+        </MuiLink>
+      </Box>
     );
   }
 
   return (
-    <main className={styles.page}>
-      <section className={styles.card} aria-labelledby="edit-admin-title">
-        <Link className={styles.userLoginLink} href="/admin">
+    <Box component="main" sx={authPageSx}>
+      <Paper component="section" aria-labelledby="editAdminTitle" elevation={0} sx={authCardSx}>
+        <MuiLink component={Link} href="/admin" sx={backLinkSx}>
           ← Back to admins
-        </Link>
+        </MuiLink>
 
-        <header className={styles.heading}>
-          <h1 id="edit-admin-title">Edit employee</h1>
-          <p>Update this employee&apos;s profile, role, and status.</p>
-        </header>
+        <Box>
+          <Typography id="editAdminTitle" component="h1" sx={headingTitleSx}>
+            Edit employee
+          </Typography>
+          <Typography sx={headingSubtitleSx}>
+            Update this employee&apos;s profile, role, and status.
+          </Typography>
+        </Box>
 
         <AdminForm
           mode="edit"
@@ -110,7 +126,7 @@ export default function EditAdminPage() {
           onSubmit={handleSubmit}
           allowRoleAndStatus={currentAdmin?.role === ADMINROLE.SUPER_ADMIN}
         />
-      </section>
-    </main>
+      </Paper>
+    </Box>
   );
 }

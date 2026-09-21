@@ -71,7 +71,6 @@ export default function AddProductPage() {
         unitId: values.unitId,
         sellPrice: Number(values.sellPrice),
         exchangePrice: values.exchangePrice ? Number(values.exchangePrice) : 0,
-        refillPrice: values.refillPrice ? Number(values.refillPrice) : 0,
         isActive: values.isActive,
       });
 

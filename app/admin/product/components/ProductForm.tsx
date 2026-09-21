@@ -21,7 +21,6 @@ export type ProductFormValues = {
   unitId: number | "";
   sellPrice: string;
   exchangePrice: string;
-  refillPrice: string;
   isActive: boolean;
 };
 
@@ -53,7 +52,6 @@ export default function ProductForm({
   const [unitId, setUnitId] = useState<number | "">(initialValues?.unitId ?? "");
   const [sellPrice, setSellPrice] = useState(initialValues?.sellPrice ?? "");
   const [exchangePrice, setExchangePrice] = useState(initialValues?.exchangePrice ?? "");
-  const [refillPrice, setRefillPrice] = useState(initialValues?.refillPrice ?? "");
   const [isActive, setIsActive] = useState(initialValues?.isActive ?? true);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
@@ -81,7 +79,6 @@ export default function ProductForm({
       unitId,
       sellPrice: sellPrice.trim(),
       exchangePrice: exchangePrice.trim(),
-      refillPrice: refillPrice.trim(),
       isActive,
     });
   }
@@ -173,14 +170,6 @@ export default function ProductForm({
           onChange={(event) => setExchangePrice(event.target.value)}
           fullWidth
         />
-
-        <TextField
-          label="ราคาเติม"
-          value={refillPrice}
-          onChange={(event) => setRefillPrice(event.target.value)}
-          fullWidth
-        />
-
         <FormControlLabel
           control={
             <Checkbox checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />

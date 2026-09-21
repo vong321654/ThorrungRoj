@@ -3,21 +3,19 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/api/util/supabase/client";
-import styles from "./Login.module.css";
-
-/*
- * วิธีล็อกอินเดิม (ปิดใช้งานแล้ว)
- *
- * import liff from "@line/liff";
- * const LIFF_ID = "2009558098-JoPkdhsJ";
- * await liff.init({ liffId: LIFF_ID });
- * if (!liff.isLoggedIn()) liff.login();
- * const accessToken = liff.getAccessToken();
- * await fetch("/api/auth/line", { method: "POST", body: JSON.stringify({ accessToken }) });
- *
- * วิธีนี้สร้าง custom JWT cookie เอง จึงไม่เกิด Supabase Auth session
- * และ auth.uid() ใน RLS ไม่สามารถระบุผู้ใช้ LINE ได้
- */
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Paper from "@mui/material/Paper";
+import Typography from "@mui/material/Typography";
+import {
+  authCardSx,
+  authPageSx,
+  brandMarkSx,
+  errorAlertSx,
+  eyebrowSx,
+  successAlertSx,
+} from "@/app/components/UI/authStyles";
 
 function subscribeToLocation() {
   return () => {};
@@ -109,47 +107,75 @@ export default function LoginPage() {
   }
 
   return (
-    <main className={styles.page}>
-      <section className={styles.card} aria-labelledby="login-title">
-        <div className={styles.brandMark}>TR</div>
-        <header className={styles.heading}>
-          <p className={styles.eyebrow}>ร้านแก๊สทอรุ่งโรจน์</p>
-        </header>
+    <Box component="main" sx={authPageSx}>
+      <Paper component="section" aria-labelledby="loginTitle" elevation={0} sx={authCardSx}>
+        <Box sx={brandMarkSx}>TR</Box>
+
+        <Typography id="loginTitle" component="h1" sx={{ ...eyebrowSx, mt: 2.5 }}>
+          ร้านแก๊สทอรุ่งโรจน์
+        </Typography>
 
         {hasLoggedOut && (
-          <p className={styles.successMessage} role="status">
+          <Alert icon={false} severity="success" role="status" sx={successAlertSx}>
             ออกจากระบบเรียบร้อยแล้ว
-          </p>
+          </Alert>
         )}
 
-        {hasAuthError && !message && (
-          <p className={styles.message} role="alert">
-            เข้าสู่ระบบด้วย LINE ไม่สำเร็จ กรุณาลองอีกครั้ง
-          </p>
+        {(message || hasAuthError) && (
+          <Alert icon={false} severity="warning" role="alert" sx={errorAlertSx}>
+            {message ?? "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ กรุณาลองอีกครั้ง"}
+          </Alert>
         )}
 
-        {message && (
-          <p className={styles.message} role="alert">
-            {message}
-          </p>
-        )}
+        <Button
+          type="button"
+          onClick={handleLineLogin}
+          disabled={isLoading}
+          disableElevation
+          fullWidth
 
-        <div className={styles.methods}>
-          <button
-            className={styles.lineButton}
-            type="button"
-            onClick={handleLineLogin}
-            disabled={isLoading}
-          >
-            <span className={styles.lineIcon} aria-hidden="true">LINE</span>
-            <span>
-              <strong>{isLoading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบด้วย LINE"}</strong>
-            </span>
-          </button>
-        </div>
+          sx={{
+            bgcolor: "#06c755",
+            border: "1px solid #06c755",
+            borderRadius: "12px",
+            color: "#ffffff",
+            fontSize: "0.95rem",
+            fontWeight: 700,
+            justifyContent: "flex-start",
+            minHeight: 68,
+            mt: 3.5,
+            px: 2,
+            py: 1.5,
+            textTransform: "none",
+            transition: "background-color 150ms ease, transform 150ms ease",
+            "& .MuiButton-startIcon": { mr: 1.75 },
+            "&:hover": {
+              bgcolor: "#05b84e",
+              transform: "translateY(-1px)",
+            },
+            "&.Mui-disabled": {
+              bgcolor: "#06c755",
+              color: "#ffffff",
+              cursor: "wait",
+              opacity: 0.7,
+            },
+          }}
+        >
+          {isLoading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบด้วย LINE"}
+        </Button>
 
-        <p className={styles.securityNote}>ระบบจะไม่เปิดเผยข้อมูลเข้าสู่ระบบของคุณแก่บุคคลอื่น</p>
-      </section>
-    </main>
+        <Typography
+          sx={{
+            color: "#7c8980",
+            fontSize: "0.75rem",
+            lineHeight: 1.5,
+            mt: 3,
+            textAlign: "center",
+          }}
+        >
+          ระบบจะไม่เปิดเผยข้อมูลเข้าสู่ระบบของคุณแก่บุคคลอื่น
+        </Typography>
+      </Paper>
+    </Box>
   );
 }
