@@ -1,13 +1,11 @@
-import type { ProductRepository } from "@/app/productPage/_domain/productRepository";
+import type { Product } from "@/app/productPage/_domain/entities";
 
 export type FilterOptions = {
   brands: { value: number; label: string }[];
   weightsKg: number[];
 };
 
-export async function getFilterOptions(repository: ProductRepository): Promise<FilterOptions> {
-  const products = await repository.listAllProducts();
-
+export function getFilterOptions(products: Product[]): FilterOptions {
   const brandLabels = new Map<number, string>();
   const weights = new Set<number>();
 

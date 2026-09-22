@@ -21,6 +21,21 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
+function getProductQuantity(lines: CartLine[], productId: number | null) {
+  if (productId === null) return 0;
+  return lines.reduce(
+    (total, line) => total + (line.item.productId === productId ? line.quantity : 0),
+    0,
+  );
+}
+
+function hasReachedInventoryLimit(lines: CartLine[], item: CartItem) {
+  return (
+    item.availableQuantity !== null &&
+    getProductQuantity(lines, item.productId) >= item.availableQuantity
+  );
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cartLines, setCartLines] = useState<CartLine[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -47,10 +62,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 item.saleType === "sell" ||
                 item.saleType === "exchange" ||
                 item.saleType === "refill") &&
-              (item.price === null || (typeof item.price === "number" && Number.isFinite(item.price)))
+              (item.price === null || (typeof item.price === "number" && Number.isFinite(item.price))) &&
+              (item.availableQuantity === undefined ||
+                item.availableQuantity === null ||
+                (Number.isInteger(item.availableQuantity) && item.availableQuantity >= 0))
             );
           });
-          setCartLines(validLines);
+          setCartLines(
+            validLines.map((line) => ({
+              ...line,
+              item: {
+                ...line.item,
+                availableQuantity: line.item.availableQuantity ?? null,
+              },
+            })),
+          );
         }
       }
     } catch {
@@ -67,10 +93,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   function addItem(item: CartItem) {
     setCartLines((prev) => {
+      if (hasReachedInventoryLimit(prev, item)) return prev;
       const existing = prev.find((line) => line.item.id === item.id);
       if (existing) {
         return prev.map((line) =>
-          line.item.id === item.id ? { ...line, quantity: line.quantity + 1 } : line
+          line.item.id === item.id
+            ? { ...line, item, quantity: line.quantity + 1 }
+            : line
         );
       }
       return [...prev, { item, quantity: 1 }];
@@ -79,9 +108,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }
 
   function increaseQuantity(itemId: string) {
-    setCartLines((prev) =>
-      prev.map((line) => (line.item.id === itemId ? { ...line, quantity: line.quantity + 1 } : line))
-    );
+    setCartLines((prev) => {
+      const selectedLine = prev.find((line) => line.item.id === itemId);
+      if (!selectedLine || hasReachedInventoryLimit(prev, selectedLine.item)) return prev;
+      return prev.map((line) =>
+        line.item.id === itemId ? { ...line, quantity: line.quantity + 1 } : line,
+      );
+    });
   }
 
   function decreaseQuantity(itemId: string) {

@@ -41,6 +41,15 @@ export default function CartDrawer({
   onDecrease,
   onCheckout,
 }: CartDrawerProps) {
+  const quantityByProduct = new Map<number, number>();
+  for (const line of lines) {
+    if (line.item.productId === null) continue;
+    quantityByProduct.set(
+      line.item.productId,
+      (quantityByProduct.get(line.item.productId) ?? 0) + line.quantity,
+    );
+  }
+
   const canCheckout =
     lines.length > 0 &&
     lines.every(
@@ -82,6 +91,11 @@ export default function CartDrawer({
                 <Typography variant="body2" color="text.secondary">
                   {getSaleTypeLabel(line.item)} · {formatBaht(line.item.price)} / ชิ้น
                 </Typography>
+                {line.item.availableQuantity !== null && (
+                  <Typography variant="caption" color="text.secondary">
+                    มีสินค้า {line.item.availableQuantity.toLocaleString("th-TH")} ชิ้น
+                  </Typography>
+                )}
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
                   <IconButton
                     size="small"
@@ -95,6 +109,11 @@ export default function CartDrawer({
                   <IconButton
                     size="small"
                     onClick={() => onIncrease(line.item.id)}
+                    disabled={
+                      line.item.availableQuantity !== null &&
+                      (quantityByProduct.get(line.item.productId ?? -1) ?? 0) >=
+                        line.item.availableQuantity
+                    }
                     aria-label={`เพิ่มจำนวน ${line.item.name}`}
                     sx={{ border: "1px solid", borderColor: "divider" }}
                   >

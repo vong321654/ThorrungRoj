@@ -8,6 +8,7 @@ export type CartItem = {
   name: string;
   price: number | null;
   saleType: SaleType | null;
+  availableQuantity: number | null;
 };
 
 export type CartLine = {
