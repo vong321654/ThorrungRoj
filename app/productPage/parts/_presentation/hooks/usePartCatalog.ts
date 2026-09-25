@@ -6,6 +6,23 @@ import { getPartCatalog } from "@/app/productPage/parts/_application/getPartCata
 import { SupabasePartRepository } from "@/app/productPage/parts/_infrastructure/supabasePartRepository";
 
 const partRepository = new SupabasePartRepository();
+let pendingPartCatalogRequest: Promise<Part[]> | null = null;
+
+function loadPartCatalog() {
+  if (pendingPartCatalogRequest) return pendingPartCatalogRequest;
+
+  const request = getPartCatalog(partRepository);
+  pendingPartCatalogRequest = request;
+  void request.then(
+    () => {
+      if (pendingPartCatalogRequest === request) pendingPartCatalogRequest = null;
+    },
+    () => {
+      if (pendingPartCatalogRequest === request) pendingPartCatalogRequest = null;
+    },
+  );
+  return request;
+}
 
 export function usePartCatalog() {
   const [parts, setParts] = useState<Part[]>([]);
@@ -16,7 +33,7 @@ export function usePartCatalog() {
 
     async function loadParts() {
       setIsLoading(true);
-      const result = await getPartCatalog(partRepository);
+      const result = await loadPartCatalog();
       if (isMounted) {
         setParts(result);
         setIsLoading(false);

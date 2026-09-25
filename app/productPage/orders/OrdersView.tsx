@@ -38,6 +38,36 @@ function formatBaht(value: number) {
   return `${value.toLocaleString("th-TH")} บาท`;
 }
 
+let pendingOrdersRequest: Promise<ORDERRECORD[] | null> | null = null;
+
+function fetchCustomerOrders() {
+  if (pendingOrdersRequest) return pendingOrdersRequest;
+
+  const request = (async () => {
+    const { data } = await createClient().auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (!accessToken) return null;
+
+    const response = await fetch("/api/orders", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const result = (await response.json()) as APIRESULT<ORDERRECORD[]>;
+    if (!response.ok || result.status === "error") throw new Error(result.message);
+    return result.results;
+  })();
+
+  pendingOrdersRequest = request;
+  void request.then(
+    () => {
+      if (pendingOrdersRequest === request) pendingOrdersRequest = null;
+    },
+    () => {
+      if (pendingOrdersRequest === request) pendingOrdersRequest = null;
+    },
+  );
+  return request;
+}
+
 export default function OrdersView() {
   const router = useRouter();
   const [orders, setOrders] = useState<ORDERRECORD[]>([]);
@@ -105,20 +135,12 @@ export default function OrdersView() {
 
     async function loadOrders() {
       try {
-        const supabase = createClient();
-        const { data } = await supabase.auth.getSession();
-        const accessToken = data.session?.access_token;
-        if (!accessToken) {
+        const result = await fetchCustomerOrders();
+        if (!result) {
           router.replace("/login");
           return;
         }
-
-        const response = await fetch("/api/orders", {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        const result = (await response.json()) as APIRESULT<ORDERRECORD[]>;
-        if (!response.ok || result.status === "error") throw new Error(result.message);
-        if (isMounted) setOrders(result.results);
+        if (isMounted) setOrders(result);
       } catch (error) {
         if (isMounted) {
           setErrorMessage(error instanceof Error ? error.message : "ไม่สามารถโหลดคำสั่งซื้อได้");

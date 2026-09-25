@@ -134,6 +134,36 @@ export async function createOrder(
     return failure<ORDERRECORD>("One or more products were not found", 400);
   }
 
+  const { data: inventory, error: inventoryError } = await supabase
+    .from("inventoryProducts")
+    .select("productId, stockStatus, quantityAvailable")
+    .in("productId", productIds)
+    .eq("stockStatus", "full");
+  if (inventoryError) return failure<ORDERRECORD>("Failed to validate inventory", 500);
+
+  const availableByProduct = new Map<number, number>();
+  for (const inventoryItem of inventory ?? []) {
+    const productId = Number(inventoryItem.productId);
+    availableByProduct.set(
+      productId,
+      (availableByProduct.get(productId) ?? 0) + Number(inventoryItem.quantityAvailable ?? 0),
+    );
+  }
+  const requestedByProduct = new Map<number, number>();
+  for (const item of items) {
+    requestedByProduct.set(
+      item.productId,
+      (requestedByProduct.get(item.productId) ?? 0) + item.quantity,
+    );
+  }
+  const insufficientProductId = productIds.find(
+    (productId) =>
+      (requestedByProduct.get(productId) ?? 0) > (availableByProduct.get(productId) ?? 0),
+  );
+  if (insufficientProductId !== undefined) {
+    return failure<ORDERRECORD>("Requested quantity exceeds available inventory", 409);
+  }
+
   const productsById = new Map(
     (products as PRODUCTPRICINGROW[]).map((product) => [Number(product.id), product]),
   );
