@@ -22,6 +22,12 @@ import type { APIRESULT } from "@/app/api/response";
 import type { CURRENTUSER } from "@/app/models/user";
 import { PAYMENTMETHOD, type ORDERRECORD } from "@/app/models/order";
 
+type InventoryItem = {
+  productId: number | string;
+  stockStatus: string | null;
+  quantityAvailable: number | string | null;
+};
+
 const PAYMENT_OPTIONS: Array<{ value: PAYMENTMETHOD; label: string }> = [
   { value: PAYMENTMETHOD.CASH, label: "ชำระเงินสด" },
   { value: PAYMENTMETHOD.QR_SCAN, label: "สแกน QR" },
@@ -98,6 +104,46 @@ export default function CheckoutView() {
 
     setIsSubmitting(true);
     try {
+      const inventoryTrackedLines = cart.cartLines.filter(
+        (line) => line.item.availableQuantity !== null,
+      );
+      if (inventoryTrackedLines.length > 0) {
+        const inventoryResponse = await fetch("/api/inventory", { cache: "no-store" });
+        const inventoryResult = (await inventoryResponse.json()) as APIRESULT<InventoryItem[]>;
+        if (!inventoryResponse.ok || inventoryResult.status === "error") {
+          throw new Error("ไม่สามารถตรวจสอบจำนวนสินค้าในคลังได้ กรุณาลองใหม่อีกครั้ง");
+        }
+
+        const availableByProduct = new Map<number, number>();
+        for (const inventoryItem of inventoryResult.results) {
+          if (inventoryItem.stockStatus !== "full") continue;
+          const productId = Number(inventoryItem.productId);
+          availableByProduct.set(
+            productId,
+            (availableByProduct.get(productId) ?? 0) + Number(inventoryItem.quantityAvailable ?? 0),
+          );
+        }
+
+        const requestedByProduct = new Map<number, number>();
+        for (const line of inventoryTrackedLines) {
+          const productId = line.item.productId as number;
+          requestedByProduct.set(
+            productId,
+            (requestedByProduct.get(productId) ?? 0) + line.quantity,
+          );
+        }
+        const unavailableLine = inventoryTrackedLines.find((line) => {
+          const productId = line.item.productId as number;
+          return (requestedByProduct.get(productId) ?? 0) > (availableByProduct.get(productId) ?? 0);
+        });
+        if (unavailableLine) {
+          const available = availableByProduct.get(unavailableLine.item.productId as number) ?? 0;
+          throw new Error(
+            `${unavailableLine.item.name} มีสินค้าเหลือ ${available.toLocaleString("th-TH")} ชิ้น กรุณาลดจำนวนในตะกร้า`,
+          );
+        }
+      }
+
       const supabase = createClient();
       const { data } = await supabase.auth.getSession();
       const accessToken = data.session?.access_token;

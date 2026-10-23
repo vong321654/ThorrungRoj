@@ -28,7 +28,7 @@ export default function ProductCatalogView() {
       name: `${product.brandLabel} ${product.weightKg}กก.`,
       price,
       saleType,
-      stockLimit: product.availableQuantity ?? 0,
+      availableQuantity: product.availableQuantity ?? 0,
     });
   }
 

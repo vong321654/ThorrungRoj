@@ -22,13 +22,19 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-// ซื้อถังกับเปลี่ยนถังของสินค้าเดียวกันใช้สต๊อกก้อนเดียวกัน จึงนับรวมทุกบรรทัดที่ productId ตรงกัน
-function hasRoomFor(lines: CartLine[], item: CartItem) {
-  if (item.stockLimit === undefined || item.productId === null) return true;
-  const inCart = lines
-    .filter((line) => line.item.productId === item.productId)
-    .reduce((total, line) => total + line.quantity, 0);
-  return inCart < item.stockLimit;
+function getProductQuantity(lines: CartLine[], productId: number | null) {
+  if (productId === null) return 0;
+  return lines.reduce(
+    (total, line) => total + (line.item.productId === productId ? line.quantity : 0),
+    0,
+  );
+}
+
+function hasReachedInventoryLimit(lines: CartLine[], item: CartItem) {
+  return (
+    item.availableQuantity !== null &&
+    getProductQuantity(lines, item.productId) >= item.availableQuantity
+  );
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
@@ -58,11 +64,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 item.saleType === "exchange" ||
                 item.saleType === "refill") &&
               (item.price === null || (typeof item.price === "number" && Number.isFinite(item.price))) &&
-              (item.stockLimit === undefined ||
-                (Number.isInteger(item.stockLimit) && item.stockLimit >= 0))
+              (item.availableQuantity === undefined ||
+                item.availableQuantity === null ||
+                (Number.isInteger(item.availableQuantity) && item.availableQuantity >= 0))
             );
           });
-          setCartLines(validLines);
+          setCartLines(
+            validLines.map((line) => ({
+              ...line,
+              item: {
+                ...line.item,
+                availableQuantity: line.item.availableQuantity ?? null,
+              },
+            })),
+          );
         }
       }
     } catch {
@@ -79,12 +94,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   function addItem(item: CartItem) {
     setCartLines((prev) => {
-      if (!hasRoomFor(prev, item)) return prev;
+      if (hasReachedInventoryLimit(prev, item)) return prev;
       const existing = prev.find((line) => line.item.id === item.id);
       if (existing) {
         return prev.map((line) =>
           line.item.id === item.id
-            ? { item: { ...line.item, stockLimit: item.stockLimit }, quantity: line.quantity + 1 }
+            ? { ...line, item, quantity: line.quantity + 1 }
             : line
         );
       }
@@ -95,17 +110,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   function increaseQuantity(itemId: string) {
     setCartLines((prev) => {
-      const target = prev.find((line) => line.item.id === itemId);
-      if (!target || !hasRoomFor(prev, target.item)) return prev;
+      const selectedLine = prev.find((line) => line.item.id === itemId);
+      if (!selectedLine || hasReachedInventoryLimit(prev, selectedLine.item)) return prev;
       return prev.map((line) =>
-        line.item.id === itemId ? { ...line, quantity: line.quantity + 1 } : line
+        line.item.id === itemId ? { ...line, quantity: line.quantity + 1 } : line,
       );
     });
-  }
-
-  function canIncrease(itemId: string) {
-    const target = cartLines.find((line) => line.item.id === itemId);
-    return target ? hasRoomFor(cartLines, target.item) : false;
   }
 
   function decreaseQuantity(itemId: string) {

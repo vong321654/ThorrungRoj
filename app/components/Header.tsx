@@ -26,6 +26,52 @@ function isLineUser(user: {
   );
 }
 
+type CurrentUserLoadResult = {
+  user: CURRENTUSER | null;
+  redirectTo: string | null;
+};
+
+let pendingCurrentUserRequest: Promise<CurrentUserLoadResult> | null = null;
+
+function loadCurrentUser() {
+  if (pendingCurrentUserRequest) return pendingCurrentUserRequest;
+
+  const request = (async (): Promise<CurrentUserLoadResult> => {
+    const supabase = createClient();
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
+    if (session?.user && !isLineUser(session.user)) {
+      await supabase.auth.signOut({ scope: "local" });
+      return { user: null, redirectTo: "/login?reason=line-required" };
+    }
+
+    const accessToken = session?.access_token;
+    if (!accessToken) return { user: null, redirectTo: null };
+
+    const response = await fetch("/api/users/me", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) return { user: null, redirectTo: null };
+
+    const result = (await response.json()) as CurrentUserResponse;
+    return {
+      user: result.status === "success" ? result.results : null,
+      redirectTo: null,
+    };
+  })();
+
+  pendingCurrentUserRequest = request;
+  void request.then(
+    () => {
+      if (pendingCurrentUserRequest === request) pendingCurrentUserRequest = null;
+    },
+    () => {
+      if (pendingCurrentUserRequest === request) pendingCurrentUserRequest = null;
+    },
+  );
+  return request;
+}
+
 export default function Header() {
   const pathname = usePathname();
   const [user, setUser] = useState<CURRENTUSER | null>(null);
@@ -36,34 +82,20 @@ export default function Header() {
     if (isAdminPath) return;
 
     let isMounted = true;
-    const supabase = createClient();
 
-    async function loadCurrentUser() {
+    async function updateCurrentUser() {
       try {
-        const { data } = await supabase.auth.getSession();
-        const session = data.session;
-        if (session?.user && !isLineUser(session.user)) {
-          await supabase.auth.signOut({ scope: "local" });
-          if (isMounted) {
-            window.location.replace("/login?reason=line-required");
-          }
+        const result = await loadCurrentUser();
+        if (!isMounted) return;
+        if (result.redirectTo) {
+          window.location.replace(result.redirectTo);
           return;
         }
-
-        const accessToken = session?.access_token;
-        if (!accessToken) return;
-
-        const response = await fetch("/api/users/me", {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (!response.ok) return;
-
-        const result = (await response.json()) as CurrentUserResponse;
-        if (isMounted && result.status === "success") setUser(result.results);
+        setUser(result.user);
       } catch {}
     }
 
-    void loadCurrentUser();
+    void updateCurrentUser();
     return () => {
       isMounted = false;
     };

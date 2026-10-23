@@ -1,12 +1,9 @@
 import type { Product, ProductFilterState } from "@/app/productPage/_domain/entities";
-import type { ProductRepository } from "@/app/productPage/_domain/productRepository";
 
-export async function getProductCatalog(
-  repository: ProductRepository,
+export function getProductCatalog(
+  products: Product[],
   filter: ProductFilterState
-): Promise<Product[]> {
-  const products = await repository.listAllProducts();
-
+): Product[] {
   return products.filter((product) => {
     const matchesBrand = filter.brandId === "" || product.brandId === filter.brandId;
     const matchesWeight = filter.weightKg === "" || product.weightKg === filter.weightKg;

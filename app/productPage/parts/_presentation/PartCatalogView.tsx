@@ -17,7 +17,7 @@ export default function PartCatalogView() {
       name: part.name,
       price: part.price,
       saleType: "sell",
-      stockLimit: part.availableQuantity,
+      availableQuantity: null,
     });
   }
 

@@ -11,6 +11,34 @@ import type { ORDERRECORD } from "@/app/models/order";
 const ORDER_LABELS: Record<string, string> = { pending: "รอดำเนินการ", preparing: "กำลังเตรียมสินค้า", delivering: "กำลังจัดส่ง", delivered: "จัดส่งแล้ว", cancelled: "ยกเลิกแล้ว" };
 const PAYMENT_LABELS: Record<string, string> = { pending: "รอชำระเงิน", paid: "ชำระเงินแล้ว", pendingPayment: "ค้างชำระ", pendingCart: "ค้างถัง" };
 const SALE_LABELS: Record<string, string> = { sell: "ซื้อถัง", exchange: "เปลี่ยนถัง", refill: "เติมแก๊ส" };
+const pendingOrderRequests = new Map<string, Promise<ORDERRECORD | null>>();
+
+function fetchCustomerOrder(orderId: string) {
+  const pendingRequest = pendingOrderRequests.get(orderId);
+  if (pendingRequest) return pendingRequest;
+
+  const request = (async () => {
+    const { data } = await createClient().auth.getSession();
+    if (!data.session?.access_token) return null;
+    const response = await fetch(`/api/orders?id=${encodeURIComponent(orderId)}`, {
+      headers: { Authorization: `Bearer ${data.session.access_token}` },
+    });
+    const result = await response.json() as APIRESULT<ORDERRECORD>;
+    if (!response.ok || result.status === "error") throw new Error(result.message);
+    return result.results;
+  })();
+
+  pendingOrderRequests.set(orderId, request);
+  void request.then(
+    () => {
+      if (pendingOrderRequests.get(orderId) === request) pendingOrderRequests.delete(orderId);
+    },
+    () => {
+      if (pendingOrderRequests.get(orderId) === request) pendingOrderRequests.delete(orderId);
+    },
+  );
+  return request;
+}
 
 function nextStep(order: ORDERRECORD) {
   if (order.status === "cancelled") return "คำสั่งซื้อนี้ถูกยกเลิกแล้ว หากมีข้อสงสัย กรุณาติดต่อร้านค้า";
@@ -34,12 +62,9 @@ export default function CustomerOrderDetailPage() {
     if (!id) return;
     setLoading(true); setError(null);
     try {
-      const { data } = await createClient().auth.getSession();
-      if (!data.session?.access_token) { router.replace("/login"); return; }
-      const response = await fetch(`/api/orders?id=${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${data.session.access_token}` } });
-      const result = await response.json() as APIRESULT<ORDERRECORD>;
-      if (!response.ok || result.status === "error") throw new Error(result.message);
-      setOrder(result.results);
+      const result = await fetchCustomerOrder(id);
+      if (!result) { router.replace("/login"); return; }
+      setOrder(result);
     } catch (loadError) { setError(loadError instanceof Error ? loadError.message : "ไม่สามารถโหลดรายละเอียดคำสั่งซื้อได้"); }
     finally { setLoading(false); }
   }, [id, router]);
