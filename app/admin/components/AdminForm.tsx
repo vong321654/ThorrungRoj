@@ -1,8 +1,15 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import { ADMINROLE } from "@/app/models/admin";
-import styles from "../../login/Login.module.css";
+import { errorAlertSx, submitButtonSx, textFieldSx } from "@/app/components/UI/authStyles";
 
 export type AdminFormValues = {
   email: string;
@@ -69,109 +76,108 @@ export default function AdminForm({
   return (
     <>
       {displayedMessage && (
-        <p className={styles.message} role="alert">
+        <Alert icon={false} severity="warning" role="alert" sx={errorAlertSx}>
           {displayedMessage}
-        </p>
+        </Alert>
       )}
 
-      <form className={styles.emailForm} method="post" onSubmit={handleSubmit}>
-        <div className={styles.field}>
-          <label htmlFor="admin-email">Email</label>
-          <input
-            id="admin-email"
-            name="email"
-            type="email"
-            autoComplete={mode === "create" ? "off" : "email"}
-            disabled={mode === "edit"}
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-        </div>
+      <Stack component="form" method="post" onSubmit={handleSubmit} spacing={2} sx={{ mt: 3.5 }}>
+        <TextField
+          id="adminEmail"
+          name="email"
+          type="email"
+          label="Email"
+          autoComplete={mode === "create" ? "off" : "email"}
+          disabled={mode === "edit"}
+          required
+          fullWidth
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          sx={textFieldSx}
+        />
 
-        <div className={styles.field}>
-          <label htmlFor="admin-name">Name</label>
-          <input
-            id="admin-name"
-            name="name"
-            type="text"
-            maxLength={100}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </div>
+        <TextField
+          id="adminName"
+          name="name"
+          type="text"
+          label="Name"
+          fullWidth
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          slotProps={{ htmlInput: { maxLength: 100 } }}
+          sx={textFieldSx}
+        />
 
-        <div className={styles.field}>
-          <label htmlFor="admin-role">Role</label>
-          <select
-            id="admin-role"
-            name="role"
-            value={role}
-            disabled={!allowRoleAndStatus}
-            onChange={(event) => setRole(event.target.value as ADMINROLE)}
-          >
-            <option value={ADMINROLE.SUPER_ADMIN}>Super admin</option>
-            <option value={ADMINROLE.ADMIN}>Admin</option>
-            <option value={ADMINROLE.EMPLOYEE}>Employee</option>
-          </select>
-        </div>
+        <TextField
+          id="adminRole"
+          name="role"
+          label="Role"
+          select
+          fullWidth
+          value={role}
+          disabled={!allowRoleAndStatus}
+          onChange={(event) => setRole(event.target.value as ADMINROLE)}
+          sx={textFieldSx}
+        >
+          <MenuItem value={ADMINROLE.SUPER_ADMIN}>Super admin</MenuItem>
+          <MenuItem value={ADMINROLE.ADMIN}>Admin</MenuItem>
+          <MenuItem value={ADMINROLE.EMPLOYEE}>Employee</MenuItem>
+        </TextField>
 
-        <label>
-          <input
-            type="checkbox"
-            checked={isActive}
-            disabled={!allowRoleAndStatus}
-            onChange={(event) => setIsActive(event.target.checked)}
-          />{" "}
-          Active
-        </label>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={isActive}
+              disabled={!allowRoleAndStatus}
+              onChange={(event) => setIsActive(event.target.checked)}
+            />
+          }
+          label="Active"
+        />
 
         {mode === "create" && (
           <>
-            <div className={styles.field}>
-              <label htmlFor="admin-password">Password</label>
-              <input
-                id="admin-password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                minLength={6}
-                required
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
-            </div>
+            <TextField
+              id="adminPassword"
+              name="password"
+              type="password"
+              label="Password"
+              autoComplete="new-password"
+              required
+              fullWidth
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              slotProps={{ htmlInput: { minLength: 6 } }}
+              sx={textFieldSx}
+            />
 
-            <div className={styles.field}>
-              <label htmlFor="confirm-password">Confirm password</label>
-              <input
-                id="confirm-password"
-                name="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                minLength={6}
-                required
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-              />
-            </div>
+            <TextField
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              label="Confirm password"
+              autoComplete="new-password"
+              required
+              fullWidth
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              slotProps={{ htmlInput: { minLength: 6 } }}
+              sx={textFieldSx}
+            />
 
-            <label>
-              <input
-                type="checkbox"
-                checked={emailConfirm}
-                onChange={(event) => setEmailConfirm(event.target.checked)}
-              />{" "}
-              Mark email as confirmed
-            </label>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={emailConfirm}
+                  onChange={(event) => setEmailConfirm(event.target.checked)}
+                />
+              }
+              label="Mark email as confirmed"
+            />
           </>
         )}
 
-        <button
-          className={styles.submitButton}
-          type="submit"
-          disabled={isSubmitting}
-        >
+        <Button type="submit" disabled={isSubmitting} disableElevation fullWidth sx={submitButtonSx}>
           {isSubmitting
             ? mode === "create"
               ? "Creating admin..."
@@ -179,8 +185,8 @@ export default function AdminForm({
             : mode === "create"
               ? "Create admin"
               : "Save changes"}
-        </button>
-      </form>
+        </Button>
+      </Stack>
     </>
   );
 }

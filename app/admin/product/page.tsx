@@ -136,16 +136,16 @@ export default function ProductPage() {
               <Button component={Link} href="/admin/product/unit" variant="outlined">
                 จัดการหน่วย
               </Button>
+              <Button
+                component={Link}
+                href="/admin/product/addProduct"
+                variant="contained"
+                startIcon={<AddIcon />}
+              >
+                เพิ่มสินค้า
+              </Button>
             </>
           )}
-          <Button
-            component={Link}
-            href="/admin/product/addProduct"
-            variant="contained"
-            startIcon={<AddIcon />}
-          >
-            เพิ่มสินค้า
-          </Button>
         </Box>
       </Box>
 

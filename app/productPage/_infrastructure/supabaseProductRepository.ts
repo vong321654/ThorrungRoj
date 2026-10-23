@@ -4,7 +4,7 @@ import type { APIRESULT } from "@/app/api/response";
 import type { PRODUCT } from "@/app/models/product";
 import type { PRODUCTBAND } from "@/app/models/productsType";
 
-type InventoryItem = { productId: number | string; stockStatus: string; quantityAvailable: number | string | null };
+type AvailableStock = { productId: number; availableQuantity: number };
 
 const TANK_TYPE_ID = 14; // "ถังแก๊ส" ใน types
 
@@ -13,7 +13,7 @@ export class SupabaseProductRepository implements ProductRepository {
     const [productsResponse, brandsResponse, inventoryResponse] = await Promise.all([
       fetch("/api/product"),
       fetch("/api/product/brand"),
-      fetch("/api/inventory"),
+      fetch("/api/inventory/available"),
     ]);
 
     const productsResult = (await productsResponse.json()) as APIRESULT<PRODUCT[]>;
@@ -21,16 +21,14 @@ export class SupabaseProductRepository implements ProductRepository {
 
     const brandsResult = (await brandsResponse.json()) as APIRESULT<PRODUCTBAND[]>;
     if (brandsResult.status === "error") throw new Error(brandsResult.message);
-    const inventoryResult = (await inventoryResponse.json()) as APIRESULT<InventoryItem[]>;
+    const inventoryResult = (await inventoryResponse.json()) as APIRESULT<AvailableStock[]>;
     if (inventoryResult.status === "error") throw new Error(inventoryResult.message);
 
     const brandLabels = new Map(brandsResult.results.map((brand) => [brand.id, brand.name]));
-    const availableByProduct = new Map<number, number>();
-    for (const item of inventoryResult.results) {
-      if (item.stockStatus !== "full") continue;
-      const productId = Number(item.productId);
-      availableByProduct.set(productId, (availableByProduct.get(productId) ?? 0) + Number(item.quantityAvailable ?? 0));
-    }
+    // ตัวเลขเดียวกับที่ server ใช้ตรวจตอนสั่งซื้อ (หักออเดอร์ที่ยังไม่ส่งแล้ว)
+    const availableByProduct = new Map(
+      inventoryResult.results.map((item) => [item.productId, item.availableQuantity]),
+    );
 
     return productsResult.results
       .filter(
@@ -48,6 +46,7 @@ export class SupabaseProductRepository implements ProductRepository {
         exchangePrice: Number(product.exchangePrice),
         refillPrice: Number(product.refillPrice),
         availableQuantity: availableByProduct.get(product.id) ?? 0,
+        imageUrl: product.imageUrl?.trim() || null,
       }));
   }
 }

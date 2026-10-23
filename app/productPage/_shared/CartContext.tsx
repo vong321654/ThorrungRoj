@@ -12,6 +12,7 @@ type CartContextValue = {
   isCartOpen: boolean;
   addItem: (item: CartItem) => void;
   increaseQuantity: (itemId: string) => void;
+  canIncrease: (itemId: string) => boolean;
   decreaseQuantity: (itemId: string) => void;
   removeItem: (itemId: string) => void;
   clearCart: () => void;
@@ -152,6 +153,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     isCartOpen,
     addItem,
     increaseQuantity,
+    canIncrease,
     decreaseQuantity,
     removeItem,
     clearCart,

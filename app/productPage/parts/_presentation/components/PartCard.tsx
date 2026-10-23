@@ -24,6 +24,13 @@ export default function PartCard({ part, onSelect }: PartCardProps) {
         <Typography variant="body2" color="text.secondary">
           ราคา : {part.price !== null ? `${part.price.toLocaleString("th-TH")} บาท` : "-- บาท"}
         </Typography>
+        <Typography
+          variant="body2"
+          color={part.availableQuantity > 0 ? "success.main" : "error.main"}
+          sx={{ mt: 0.5, fontWeight: 600 }}
+        >
+          คงเหลือ: {part.availableQuantity.toLocaleString("th-TH")} ชิ้น
+        </Typography>
       </CardContent>
       <CardActions sx={{ justifyContent: "center", pb: 2 }}>
         <Button
@@ -32,6 +39,7 @@ export default function PartCard({ part, onSelect }: PartCardProps) {
           size="small"
           sx={{ borderRadius: 5, px: 3 }}
           onClick={() => onSelect(part)}
+          disabled={part.availableQuantity <= 0}
         >
           เลือก
         </Button>

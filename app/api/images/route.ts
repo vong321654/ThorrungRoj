@@ -13,7 +13,7 @@ import {
 import type { AUTHIDENTITYUSER, IMAGEKIND, PAYMENTORDEROWNER } from "@/app/models/image";
 import { IMAGEKIND as IMAGEKINDENUM } from "@/app/enums/image";
 import { authenticateAdmin } from "../admin/authorization";
-import { isAdminOrSuperAdmin } from "../services/adminService";
+import { isAdminOrSuperAdmin, isSuperAdmin } from "../services/adminService";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -131,30 +131,23 @@ export async function POST(request: Request) {
   const webpImage = await convertImageToWebp(file);
   if (!webpImage) return Response.json(apiError("The selected file is not a valid image"), { status: 400 });
 
+  // อัปโหลดรูปสินค้าแล้วคืน imageUrl ให้ client เท่านั้น
+  // การบันทึกลง DB เกิดตอน add/updateProduct โดยส่ง imageUrl ไปพร้อมข้อมูลสินค้า
   if (kind === IMAGEKINDENUM.PRODUCT) {
     const auth = await authenticateAdmin(request);
     if (auth instanceof Response) return auth;
-    if (!isAdminOrSuperAdmin(auth)) return Response.json(apiError("Only admins can manage product images"), { status: 403 });
-    const productId = parsePositiveId(typeof form.get("productId") === "string" ? form.get("productId") as string : null);
-    if (!productId) return Response.json(apiError("A valid productId is required"), { status: 400 });
-    const { data: product, error: productError } = await auth.adminSupabase
-      .from("products").select("id").eq("id", productId).maybeSingle();
-    if (productError) return Response.json(apiError("Failed to validate product"), { status: 500 });
-    if (!product) return Response.json(apiError("Product not found"), { status: 404 });
+    if (!isSuperAdmin(auth)) {
+      return Response.json(apiError("Only a super admin can upload product images"), { status: 403 });
+    }
 
-    const path = `products/${productId}/${crypto.randomUUID()}.webp`;
+    const path = `products/${crypto.randomUUID()}.webp`;
     const uploadError = await uploadWebpImage(auth.adminSupabase, PRODUCT_IMAGE_BUCKET, path, webpImage);
     if (uploadError) return Response.json(apiError("Failed to upload product image"), { status: 500 });
     const { data: urlData } = auth.adminSupabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path);
-    const { data, error } = await auth.adminSupabase
-      .from("products")
-      .update({ imageUrl: urlData.publicUrl, updatedBy: auth.admin.id, updatedAt: new Date().toISOString() })
-      .eq("id", productId).select("id, imageUrl").single();
-    if (error) {
-      await auth.adminSupabase.storage.from(PRODUCT_IMAGE_BUCKET).remove([path]);
-      return Response.json(apiError("Failed to save product image"), { status: 500 });
-    }
-    return Response.json(apiSuccess("Product image uploaded successfully", data), { status: 201 });
+    return Response.json(
+      apiSuccess("Product image uploaded successfully", { imageUrl: urlData.publicUrl }),
+      { status: 201 },
+    );
   }
 
   const adminAuth = await authenticateAdmin(request);
@@ -208,43 +201,32 @@ export async function PATCH(request: Request) {
   if (!form) return Response.json(apiError("Request must use multipart/form-data"), { status: 400 });
   const kind = getKind(typeof form.get("type") === "string" ? form.get("type") as string : null);
   const file = validateFile(form.get("file"));
-  if (!kind) return Response.json(apiError("type must be product or receipt"), { status: 400 });
+  // รูปสินค้าไม่ใช้ PATCH แล้ว — อัปโหลดด้วย POST แล้วส่ง imageUrl ไปกับ add/updateProduct
+  if (kind !== IMAGEKINDENUM.RECEIPT) {
+    return Response.json(apiError("type must be receipt"), { status: 400 });
+  }
   if (file instanceof Response) return file;
   const webpImage = await convertImageToWebp(file);
   if (!webpImage) return Response.json(apiError("The selected file is not a valid image"), { status: 400 });
 
-  const isProduct = kind === IMAGEKINDENUM.PRODUCT;
-  const id = isProduct
-    ? parsePositiveId(typeof form.get("productId") === "string" ? form.get("productId") as string : null)
-    : parseUuid(typeof form.get("slipId") === "string" ? form.get("slipId") as string : null);
-  if (!id) return Response.json(apiError(isProduct ? "A valid productId is required" : "A valid slipId is required"), { status: 400 });
+  const slipId = parseUuid(typeof form.get("slipId") === "string" ? form.get("slipId") as string : null);
+  if (!slipId) return Response.json(apiError("A valid slipId is required"), { status: 400 });
 
-  const table = isProduct ? "products" : "transferSlips";
-  const imageField = isProduct ? "imageUrl" : "slipImageUrl";
   const { data: current, error: currentError } = await auth.adminSupabase
-    .from(table).select(`id, ${imageField}`).eq("id", id).maybeSingle();
+    .from("transferSlips").select("id, slipImageUrl").eq("id", slipId).maybeSingle();
   if (currentError) return Response.json(apiError("Failed to load current image"), { status: 500 });
-  if (!current) return Response.json(apiError(isProduct ? "Product not found" : "Receipt not found"), { status: 404 });
+  if (!current) return Response.json(apiError("Receipt not found"), { status: 404 });
 
-  const bucket = isProduct ? PRODUCT_IMAGE_BUCKET : RECEIPT_IMAGE_BUCKET;
-  const path = `${isProduct ? "products" : "receipts"}/${id}/${crypto.randomUUID()}.webp`;
-  const uploadError = await uploadWebpImage(auth.adminSupabase, bucket, path, webpImage);
+  const path = `receipts/${slipId}/${crypto.randomUUID()}.webp`;
+  const uploadError = await uploadWebpImage(auth.adminSupabase, RECEIPT_IMAGE_BUCKET, path, webpImage);
   if (uploadError) return Response.json(apiError("Failed to upload image"), { status: 500 });
-  const imageValue = isProduct
-    ? auth.adminSupabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl
-    : path;
-  const updates = isProduct
-    ? { imageUrl: imageValue, updatedBy: auth.admin.id, updatedAt: new Date().toISOString() }
-    : { slipImageUrl: imageValue };
-  const { data, error } = await auth.adminSupabase.from(table).update(updates).eq("id", id).select().single();
+  const { data, error } = await auth.adminSupabase
+    .from("transferSlips").update({ slipImageUrl: path }).eq("id", slipId).select().single();
   if (error) {
-    await auth.adminSupabase.storage.from(bucket).remove([path]);
+    await auth.adminSupabase.storage.from(RECEIPT_IMAGE_BUCKET).remove([path]);
     return Response.json(apiError("Failed to update image"), { status: 500 });
   }
-  const currentImage = isProduct
-    ? ("imageUrl" in current ? current.imageUrl : null)
-    : ("slipImageUrl" in current ? current.slipImageUrl : null);
-  const previousPath = storagePathFromUrl(currentImage, bucket) ?? (!isProduct ? currentImage : null);
-  if (previousPath) await auth.adminSupabase.storage.from(bucket).remove([previousPath]);
+  const previousPath = storagePathFromUrl(current.slipImageUrl, RECEIPT_IMAGE_BUCKET) ?? current.slipImageUrl;
+  if (previousPath) await auth.adminSupabase.storage.from(RECEIPT_IMAGE_BUCKET).remove([previousPath]);
   return Response.json(apiSuccess("Image updated successfully", data));
 }

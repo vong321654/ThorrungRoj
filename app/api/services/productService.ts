@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PRODUCTPAYLOAD } from "@/app/models/product";
 import { createPublicClient } from "@/app/api/util/supabase/public";
+import { PRODUCT_IMAGE_BUCKET, storagePathFromUrl } from "./imageService";
 import { apiError, apiSuccess } from "../response";
 
 export type { PRODUCTPAYLOAD } from "@/app/models/product";
@@ -14,8 +15,26 @@ const productWriteFields = [
   "sellPrice",
   "exchangePrice",
   "refillPrice",
+  "imageUrl",
   "isActive",
 ] as const;
+
+// imageUrl มาจาก client ได้ แต่ต้องเป็น URL ที่ออกจาก bucket ของเราเท่านั้น
+// กัน client ยัด URL ภายนอกเข้ามาเก็บใน DB
+function isValidProductImageUrl(value: unknown) {
+  if (value === null) return true;
+  if (typeof value !== "string") return false;
+  // ตัด "/" ท้าย URL ออกก่อน เพราะ getPublicUrl() ไม่ใส่ "/" ซ้ำ
+  // ถ้าไม่ตัด prefix จะกลายเป็น "//storage/..." แล้วไม่ตรงกับ URL จริง
+  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "");
+  if (!baseUrl) return false;
+  return value.startsWith(`${baseUrl}/storage/v1/object/public/${PRODUCT_IMAGE_BUCKET}/`);
+}
+
+async function removeProductImage(supabase: SupabaseClient, imageUrl: string | null) {
+  const path = storagePathFromUrl(imageUrl, PRODUCT_IMAGE_BUCKET);
+  if (path) await supabase.storage.from(PRODUCT_IMAGE_BUCKET).remove([path]);
+}
 
 function pickProductValues(data: PRODUCTPAYLOAD) {
   const values: PRODUCTPAYLOAD = {};
@@ -60,6 +79,21 @@ export async function updateProduct(
 ) {
   const values = pickProductValues(data);
   if (Object.keys(values).length === 0) return apiError("No editable product fields supplied");
+  if ("imageUrl" in values && !isValidProductImageUrl(values.imageUrl)) {
+    return apiError("Product image URL must come from the product image storage bucket");
+  }
+
+  // เก็บ URL เดิมไว้ก่อน เพื่อลบไฟล์เก่าออกจาก storage หลังอัปเดตสำเร็จ
+  let previousImageUrl: string | null = null;
+  if ("imageUrl" in values) {
+    const { data: current, error: currentError } = await supabase
+      .from("products")
+      .select("imageUrl")
+      .eq("id", id)
+      .maybeSingle();
+    if (currentError) return databaseError("Failed to load current product image", currentError);
+    previousImageUrl = current?.imageUrl ?? null;
+  }
 
   const { data: updatedProduct, error } = await supabase
     .from("products")
@@ -73,6 +107,9 @@ export async function updateProduct(
     .single();
 
   if (error) return databaseError("Failed to update product", error);
+  if (previousImageUrl && previousImageUrl !== values.imageUrl) {
+    await removeProductImage(supabase, previousImageUrl);
+  }
   return apiSuccess("Product updated successfully", updatedProduct);
 }
 
@@ -90,13 +127,21 @@ export async function addProduct(
   createdBy: string,
 ) {
   const values = pickProductValues(data);
+  if ("imageUrl" in values && !isValidProductImageUrl(values.imageUrl)) {
+    return apiError("Product image URL must come from the product image storage bucket");
+  }
+
   const { data: newProduct, error } = await supabase
     .from("products")
     .insert({ ...values, createdBy })
     .select()
     .single();
 
-  if (error) return databaseError("Failed to add product", error);
+  if (error) {
+    // สร้างสินค้าไม่สำเร็จ ไม่ต้องเก็บไฟล์ที่เพิ่งอัปโหลดไว้ใน storage
+    if (typeof values.imageUrl === "string") await removeProductImage(supabase, values.imageUrl);
+    return databaseError("Failed to add product", error);
+  }
   return apiSuccess("Product created successfully", newProduct);
 }
 

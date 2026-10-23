@@ -9,7 +9,7 @@ import {
 import { apiError } from "@/app/api/response";
 import type { PRODUCTPAYLOAD } from "@/app/models/product";
 import { authenticateAdmin } from "../admin/authorization";
-import { isAdminOrSuperAdmin } from "../services/adminService";
+import { isAdminOrSuperAdmin, isSuperAdmin } from "../services/adminService";
 
 function getQueryId(request: Request) {
   const idValue = new URL(request.url).searchParams.get("id");
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const auth = await authenticateAdmin(request);
   if (auth instanceof Response) return auth;
-  if (!isAdminOrSuperAdmin(auth)) return Response.json(apiError("Only admins can manage products"), { status: 403 });
+  if (!isSuperAdmin(auth)) return Response.json(apiError("Only a super admin can add products"), { status: 403 });
 
   const body = (await request.json().catch(() => null)) as PRODUCTPAYLOAD | null;
   if (!body || typeof body !== "object") {
@@ -75,6 +75,9 @@ export async function PATCH(request: Request) {
   const body = (await request.json().catch(() => null)) as PRODUCTPAYLOAD | null;
   if (!body || typeof body !== "object") {
     return Response.json(apiError("Invalid product payload"), { status: 400 });
+  }
+  if ("imageUrl" in body && !isSuperAdmin(auth)) {
+    return Response.json(apiError("Only a super admin can change product images"), { status: 403 });
   }
 
   const result = await updateProduct(id, body, auth.adminSupabase, auth.admin.id);

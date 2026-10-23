@@ -3,13 +3,23 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Box from "@mui/material/Box";
+import MuiLink from "@mui/material/Link";
+import Paper from "@mui/material/Paper";
+import Typography from "@mui/material/Typography";
 import { ADMINROLE } from "@/app/models/admin";
 import AdminForm, {
   type AdminFormValues,
 } from "../components/AdminForm";
 import { addAdmin } from "../allFunc";
 import { useRequireAdmin } from "../useRequireAdmin";
-import styles from "../../login/Login.module.css";
+import {
+  authCardSx,
+  authPageSx,
+  backLinkSx,
+  headingSubtitleSx,
+  headingTitleSx,
+} from "@/app/components/UI/authStyles";
 
 export default function AddAdminPage() {
   const router = useRouter();
@@ -42,23 +52,27 @@ export default function AddAdminPage() {
 
   if (isCheckingAccess || !isAllowed) {
     return (
-      <main className={styles.page}>
-        <p>Checking admin access...</p>
-      </main>
+      <Box component="main" sx={authPageSx}>
+        <Typography>Checking admin access...</Typography>
+      </Box>
     );
   }
 
   return (
-    <main className={styles.page}>
-      <section className={styles.card} aria-labelledby="add-admin-title">
-        <Link className={styles.userLoginLink} href="/admin">
+    <Box component="main" sx={authPageSx}>
+      <Paper component="section" aria-labelledby="addAdminTitle" elevation={0} sx={authCardSx}>
+        <MuiLink component={Link} href="/admin" sx={backLinkSx}>
           ← Back to admins
-        </Link>
+        </MuiLink>
 
-        <header className={styles.heading}>
-          <h1 id="add-admin-title">Add admin</h1>
-          <p>Create login credentials and an employee profile.</p>
-        </header>
+        <Box>
+          <Typography id="addAdminTitle" component="h1" sx={headingTitleSx}>
+            Add admin
+          </Typography>
+          <Typography sx={headingSubtitleSx}>
+            Create login credentials and an employee profile.
+          </Typography>
+        </Box>
 
         <AdminForm
           mode="create"
@@ -70,7 +84,7 @@ export default function AddAdminPage() {
           message={message}
           onSubmit={handleSubmit}
         />
-      </section>
-    </main>
+      </Paper>
+    </Box>
   );
 }

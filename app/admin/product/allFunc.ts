@@ -51,6 +51,27 @@ export function updateProduct(id: number, input: Partial<PRODUCTINPUT>) {
   });
 }
 
+// อัปโหลดไฟล์ขึ้น storage แล้วคืน imageUrl มาเก็บไว้ในฟอร์ม
+// URL จะถูกบันทึกลง DB ตอนกดบันทึกสินค้า (addProduct / updateProduct)
+export async function uploadProductImage(file: File) {
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data.session?.access_token;
+
+  const form = new FormData();
+  form.append("type", "product");
+  form.append("file", file);
+
+  // ไม่ใส่ Content-Type เอง ให้ browser ใส่ multipart boundary ให้
+  const response = await fetch("/api/images", {
+    method: "POST",
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    body: form,
+  });
+  const result = (await response.json()) as APIRESULT<{ imageUrl: string }>;
+  if (!response.ok || result.status === "error") throw new Error(result.message);
+  return result.results.imageUrl;
+}
+
 export function deleteProduct(id: number) {
   return apiRequest<null>(`/api/product?id=${id}`, {
     method: "DELETE",
