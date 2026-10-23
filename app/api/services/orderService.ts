@@ -12,6 +12,7 @@ import type {
 } from "@/app/models/order";
 import type { SaleType } from "@/app/productPage/_shared/domain/cartItem";
 import { PAYMENTMETHOD, SALETYPE } from "@/app/enums/order";
+import { getOrderableStock } from "./stockService";
 
 const SALE_TYPES = new Set<SaleType>([SALETYPE.SELL, SALETYPE.EXCHANGE]);
 const PAYMENT_METHODS = new Set<PAYMENTMETHOD>([PAYMENTMETHOD.CASH, PAYMENTMETHOD.QR_SCAN]);
@@ -156,6 +157,27 @@ export async function createOrder(
   }
 
   const validOrderItems = orderItems.filter((item) => item !== null);
+
+  // ซื้อถังและเปลี่ยนถังใช้ถังเต็มจากคลังเดียวกัน จึงรวมจำนวนต่อ productId ก่อนเทียบสต๊อก
+  const requestedByProduct = new Map<number, number>();
+  for (const item of validOrderItems) {
+    requestedByProduct.set(item.productId, (requestedByProduct.get(item.productId) ?? 0) + item.quantity);
+  }
+  const stock = await getOrderableStock(productIds);
+  if (!stock) return failure<ORDERRECORD>("Failed to check stock", 500);
+  for (const [productId, requested] of requestedByProduct) {
+    const available = stock.get(productId) ?? 0;
+    if (requested > available) {
+      const name = productsById.get(productId)?.name ?? `#${productId}`;
+      return failure<ORDERRECORD>(
+        available === 0
+          ? `สินค้า "${name}" หมดแล้ว`
+          : `สินค้า "${name}" มีไม่พอ (สั่ง ${requested} เหลือ ${available})`,
+        409,
+      );
+    }
+  }
+
   const totalAmount = validOrderItems.reduce(
     (total, item) => total + item.unitPrice * item.quantity,
     0,

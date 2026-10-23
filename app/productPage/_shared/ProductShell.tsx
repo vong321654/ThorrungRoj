@@ -22,6 +22,7 @@ function CartDrawerConnected() {
       onClose={cart.closeCart}
       onRemove={cart.removeItem}
       onIncrease={cart.increaseQuantity}
+      canIncrease={cart.canIncrease}
       onDecrease={cart.decreaseQuantity}
       onCheckout={async () => {
         cart.closeCart();

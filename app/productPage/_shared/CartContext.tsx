@@ -12,6 +12,7 @@ type CartContextValue = {
   isCartOpen: boolean;
   addItem: (item: CartItem) => void;
   increaseQuantity: (itemId: string) => void;
+  canIncrease: (itemId: string) => boolean;
   decreaseQuantity: (itemId: string) => void;
   removeItem: (itemId: string) => void;
   clearCart: () => void;
@@ -20,6 +21,15 @@ type CartContextValue = {
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
+
+// ซื้อถังกับเปลี่ยนถังของสินค้าเดียวกันใช้สต๊อกก้อนเดียวกัน จึงนับรวมทุกบรรทัดที่ productId ตรงกัน
+function hasRoomFor(lines: CartLine[], item: CartItem) {
+  if (item.stockLimit === undefined || item.productId === null) return true;
+  const inCart = lines
+    .filter((line) => line.item.productId === item.productId)
+    .reduce((total, line) => total + line.quantity, 0);
+  return inCart < item.stockLimit;
+}
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cartLines, setCartLines] = useState<CartLine[]>([]);
@@ -47,7 +57,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 item.saleType === "sell" ||
                 item.saleType === "exchange" ||
                 item.saleType === "refill") &&
-              (item.price === null || (typeof item.price === "number" && Number.isFinite(item.price)))
+              (item.price === null || (typeof item.price === "number" && Number.isFinite(item.price))) &&
+              (item.stockLimit === undefined ||
+                (Number.isInteger(item.stockLimit) && item.stockLimit >= 0))
             );
           });
           setCartLines(validLines);
@@ -67,10 +79,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   function addItem(item: CartItem) {
     setCartLines((prev) => {
+      if (!hasRoomFor(prev, item)) return prev;
       const existing = prev.find((line) => line.item.id === item.id);
       if (existing) {
         return prev.map((line) =>
-          line.item.id === item.id ? { ...line, quantity: line.quantity + 1 } : line
+          line.item.id === item.id
+            ? { item: { ...line.item, stockLimit: item.stockLimit }, quantity: line.quantity + 1 }
+            : line
         );
       }
       return [...prev, { item, quantity: 1 }];
@@ -79,9 +94,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }
 
   function increaseQuantity(itemId: string) {
-    setCartLines((prev) =>
-      prev.map((line) => (line.item.id === itemId ? { ...line, quantity: line.quantity + 1 } : line))
-    );
+    setCartLines((prev) => {
+      const target = prev.find((line) => line.item.id === itemId);
+      if (!target || !hasRoomFor(prev, target.item)) return prev;
+      return prev.map((line) =>
+        line.item.id === itemId ? { ...line, quantity: line.quantity + 1 } : line
+      );
+    });
+  }
+
+  function canIncrease(itemId: string) {
+    const target = cartLines.find((line) => line.item.id === itemId);
+    return target ? hasRoomFor(cartLines, target.item) : false;
   }
 
   function decreaseQuantity(itemId: string) {
@@ -119,6 +143,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     isCartOpen,
     addItem,
     increaseQuantity,
+    canIncrease,
     decreaseQuantity,
     removeItem,
     clearCart,

@@ -15,6 +15,7 @@ type CartDrawerProps = {
   onClose: () => void;
   onRemove: (itemId: string) => void;
   onIncrease: (itemId: string) => void;
+  canIncrease: (itemId: string) => boolean;
   onDecrease: (itemId: string) => void;
   onCheckout: () => void;
 };
@@ -38,6 +39,7 @@ export default function CartDrawer({
   onClose,
   onRemove,
   onIncrease,
+  canIncrease,
   onDecrease,
   onCheckout,
 }: CartDrawerProps) {
@@ -95,6 +97,7 @@ export default function CartDrawer({
                   <IconButton
                     size="small"
                     onClick={() => onIncrease(line.item.id)}
+                    disabled={!canIncrease(line.item.id)}
                     aria-label={`เพิ่มจำนวน ${line.item.name}`}
                     sx={{ border: "1px solid", borderColor: "divider" }}
                   >
@@ -104,6 +107,11 @@ export default function CartDrawer({
                     {line.item.price !== null ? formatBaht(line.item.price * line.quantity) : "-- บาท"}
                   </Typography>
                 </Box>
+                {!canIncrease(line.item.id) && line.item.stockLimit !== undefined && (
+                  <Typography variant="caption" color="text.secondary">
+                    ครบจำนวนที่มีในคลังแล้ว
+                  </Typography>
+                )}
               </Box>
             ))}
           </Box>

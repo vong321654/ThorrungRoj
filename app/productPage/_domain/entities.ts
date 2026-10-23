@@ -7,6 +7,7 @@ export type Product = {
   exchangePrice: number;
   refillPrice: number;
   availableQuantity?: number;
+  imageUrl?: string | null;
 };
 
 export type ProductFilterState = {

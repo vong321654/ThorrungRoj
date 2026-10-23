@@ -13,6 +13,7 @@ import {
   getUnitList,
   updateProduct,
 } from "../../allFunc";
+import { ADMINROLE } from "@/app/models/admin";
 import type { PRODUCT } from "@/app/models/product";
 import type { PRODUCTBAND, PRODUCTTYPE, PRODUCTUNIT } from "@/app/models/productsType";
 
@@ -20,6 +21,7 @@ export default function EditProductPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { admin, isAllowed } = useRequireAdmin();
+  const canUploadImage = admin?.role === ADMINROLE.SUPER_ADMIN;
   const [product, setProduct] = useState<PRODUCT | null>(null);
   const [brands, setBrands] = useState<PRODUCTBAND[]>([]);
   const [types, setTypes] = useState<PRODUCTTYPE[]>([]);
@@ -90,8 +92,12 @@ export default function EditProductPage() {
         unitId: values.unitId,
         sellPrice: Number(values.sellPrice),
         exchangePrice: values.exchangePrice ? Number(values.exchangePrice) : 0,
+        refillPrice: values.refillPrice ? Number(values.refillPrice) : 0,
         isActive: values.isActive,
+        // ส่ง imageUrl เฉพาะตอนที่ผู้ใช้มีสิทธิ์แก้รูป ไม่งั้น API จะตอบ 403
+        ...(values.imageUrl !== undefined ? { imageUrl: values.imageUrl } : {}),
       });
+
       router.replace("/admin/product");
       router.refresh();
     } catch (error) {
@@ -131,6 +137,8 @@ export default function EditProductPage() {
 
         <ProductForm
           mode="edit"
+          initialImageUrl={product.imageUrl}
+          canUploadImage={canUploadImage}
           initialValues={{
             name: product.name,
             brandId: product.brandId,
@@ -139,6 +147,7 @@ export default function EditProductPage() {
             unitId: product.unitId,
             sellPrice: String(product.sellPrice),
             exchangePrice: String(product.exchangePrice),
+            refillPrice: product.refillPrice == null ? "" : String(product.refillPrice),
             isActive: product.isActive ?? true,
           }}
           brands={brands}

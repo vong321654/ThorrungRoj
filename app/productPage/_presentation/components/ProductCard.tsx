@@ -28,6 +28,8 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
   const accentColor = getBrandAccentColor(product.brandId);
   const availableQuantity = product.availableQuantity ?? 0;
   const [saleType, setSaleType] = useState<SaleType>("sell");
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  const imageUrl = product.imageUrl && product.imageUrl !== failedImageUrl ? product.imageUrl : null;
   const selectedPrice =
     saleType === "sell"
       ? product.sellPrice
@@ -38,9 +40,20 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
   return (
     <Card variant="outlined" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <Box sx={{ height: 140, p: 2, display: "flex", justifyContent: "center", bgcolor: "#f9fafb" }}>
-        <Box sx={{ width: 90 }}>
-          <GasCylinderGlyph accentColor={accentColor} label={product.brandLabel.charAt(0)} />
-        </Box>
+        {imageUrl ? (
+          <Box
+            component="img"
+            src={imageUrl}
+            alt={`${product.brandLabel} ${product.weightKg}กก.`}
+            loading="lazy"
+            onError={() => setFailedImageUrl(imageUrl)}
+            sx={{ width: "100%", height: "100%", objectFit: "contain" }}
+          />
+        ) : (
+          <Box sx={{ width: 90 }}>
+            <GasCylinderGlyph accentColor={accentColor} label={product.brandLabel.charAt(0)} />
+          </Box>
+        )}
       </Box>
       <CardContent sx={{ flexGrow: 1, textAlign: "center", pb: 0 }}>
         <Typography variant="body2" sx={{ fontWeight: 600 }}>

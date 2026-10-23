@@ -8,6 +8,9 @@ export type CartItem = {
   name: string;
   price: number | null;
   saleType: SaleType | null;
+  // จำนวนคงเหลือตอนหยิบใส่ตะกร้า ใช้กันกดเพิ่มเกินสต๊อกฝั่ง client
+  // (server ตรวจซ้ำอีกครั้งตอนสั่งซื้อ เพราะตัวเลขนี้อาจเก่าแล้ว)
+  stockLimit?: number;
 };
 
 export type CartLine = {

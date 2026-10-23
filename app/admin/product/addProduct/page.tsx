@@ -7,11 +7,15 @@ import { Box, Container, Paper, Typography } from "@mui/material";
 import { useRequireAdmin } from "../../useRequireAdmin";
 import ProductForm, { type ProductFormValues } from "../components/ProductForm";
 import { addProduct, getBrandList, getTypeList, getUnitList } from "../allFunc";
+import { ADMINROLE } from "@/app/models/admin";
 import type { PRODUCTBAND, PRODUCTTYPE, PRODUCTUNIT } from "@/app/models/productsType";
 
 export default function AddProductPage() {
   const router = useRouter();
-  const { admin, isAllowed } = useRequireAdmin();
+  const { admin, isAllowed } = useRequireAdmin({
+    role: ADMINROLE.SUPER_ADMIN,
+    redirectTo: "/admin/product",
+  });
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -71,7 +75,9 @@ export default function AddProductPage() {
         unitId: values.unitId,
         sellPrice: Number(values.sellPrice),
         exchangePrice: values.exchangePrice ? Number(values.exchangePrice) : 0,
+        refillPrice: values.refillPrice ? Number(values.refillPrice) : 0,
         isActive: values.isActive,
+        imageUrl: values.imageUrl ?? null,
       });
 
       router.replace("/admin/product");
@@ -104,6 +110,7 @@ export default function AddProductPage() {
 
         <ProductForm
           mode="create"
+          canUploadImage
           brands={brands}
           types={types}
           units={units}
