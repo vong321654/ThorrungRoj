@@ -7,9 +7,6 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardActionArea,
-  CardContent,
   CircularProgress,
   Paper,
   Stack,
@@ -83,10 +80,15 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (isSessionLoading || !adminData) return;
+    // แดชบอร์ดสถิติเป็นของผู้ดูแลเท่านั้น พนักงานไปหน้าเวลาทำงานแทน
+    if (adminData.role === ADMINROLE.EMPLOYEE) {
+      router.replace("/admin/attendance");
+      return;
+    }
     void fetchDashboardStats();
     if (adminData.role === ADMINROLE.SUPER_ADMIN) void fetchEmployeesData();
     else setIsLoadingAdmins(false);
-  }, [isSessionLoading, adminData]);
+  }, [isSessionLoading, adminData, router]);
 
   async function handleSignOut() {
     await signOut();

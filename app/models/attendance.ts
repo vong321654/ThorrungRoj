@@ -8,6 +8,8 @@ export type ATTENDANCERECORD = {
   workDate: string;
   note: string | null;
   createdAt: string;
+  // มีเฉพาะตอนดึงรายการ ใช้แสดงชื่อพนักงานในหน้าแอดมิน
+  employees?: { name: string; email: string } | null;
 };
 
 export type EMPLOYEESESSION = Pick<

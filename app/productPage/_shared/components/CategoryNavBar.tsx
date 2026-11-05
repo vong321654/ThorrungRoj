@@ -8,7 +8,7 @@ import Typography from "@mui/material/Typography";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCart } from "../CartContext";
-import { CartIcon, HomeIcon, PartIcon, TankIcon } from "./NavIcons";
+import { BellIcon, CartIcon, ChatIcon, HomeIcon, PartIcon, TankIcon } from "./NavIcons";
 
 const navItemSx = {
   display: "flex",
@@ -16,7 +16,7 @@ const navItemSx = {
   alignItems: "center",
   gap: 0.5,
   color: "#fff",
-  px: 2,
+  px: { xs: 1.25, sm: 2 },
   py: 1,
   borderRadius: 1.5,
 } as const;
@@ -47,6 +47,8 @@ export default function CategoryNavBar() {
   const isPartsActive = pathname?.startsWith("/productPage/parts") ?? false;
   const isOrdersActive = pathname?.startsWith("/productPage/orders") ?? false;
   const isProductsActive = pathname === "/productPage";
+  const isAnnouncementsActive = pathname?.startsWith("/productPage/announcements") ?? false;
+  const isChatActive = pathname?.startsWith("/productPage/chat") ?? false;
 
   return (
     <Box
@@ -58,10 +60,12 @@ export default function CategoryNavBar() {
         px: { xs: 1, md: 3 },
       }}
     >
-      <Box sx={{ display: "flex" }}>
+      <Box sx={{ display: "flex", overflowX: "auto" }}>
         <NavTab href="/productPage" active={isProductsActive} icon={<TankIcon color="#fff" />} label="รายการถังแก๊ส" />
         <NavTab href="/productPage/parts" active={isPartsActive} icon={<PartIcon color="#fff" />} label="อะไหล่แก๊ส" />
         <NavTab href="/productPage/orders" active={isOrdersActive} icon={<HomeIcon color="#fff" />} label="คำสั่งซื้อ" />
+        <NavTab href="/productPage/announcements" active={isAnnouncementsActive} icon={<BellIcon color="#fff" />} label="โปรโมชั่น" />
+        <NavTab href="/productPage/chat" active={isChatActive} icon={<ChatIcon color="#fff" />} label="แชทบอท" />
       </Box>
 
       <ButtonBase onClick={openCart} sx={navItemSx}>

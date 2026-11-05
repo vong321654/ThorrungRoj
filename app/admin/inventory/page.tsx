@@ -6,7 +6,7 @@ import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogCont
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 import type { PRODUCT } from "@/app/models/product";
-import { useRequireAdmin } from "../useRequireAdmin";
+import { useRequireAdmin, MANAGER_ONLY } from "../useRequireAdmin";
 
 type InventoryItem = {
   id: string; productId: number; stockStatus: "full" | "empty" | "damaged" | null; itemCondition: "new" | "old" | "normal"; quantityOnHand: number; quantityReserved: number; quantityAvailable: number; minimumStock: number; createdAt: string;
@@ -14,7 +14,7 @@ type InventoryItem = {
 };
 
 export default function AdminInventoryPage() {
-  const { isAllowed } = useRequireAdmin();
+  const { isAllowed } = useRequireAdmin(MANAGER_ONLY);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [products, setProducts] = useState<PRODUCT[]>([]);
   const [productId, setProductId] = useState("");

@@ -1,8 +1,15 @@
 import { apiError, apiSuccess } from "@/app/api/response";
 import { ADMINROLE } from "@/app/models/admin";
-import type { CREATEDEBTPAYLOAD, DEBTCHOICE, DEBTRECORDINSERT, SETTLEDEBTPAYLOAD } from "@/app/models/debt";
+import type { CREATEDEBTPAYLOAD, DEBTCHOICE, SETTLEDEBTPAYLOAD } from "@/app/models/debt";
 import { DEBTCHOICE as DEBTCHOICEENUM } from "@/app/enums/debt";
-import { ORDERSTATUS, SALETYPE } from "@/app/enums/order";
+import { ORDERSTATUS } from "@/app/enums/order";
+import {
+  buildDebtRecords,
+  DEBT_ORDER_FIELDS,
+  isFullySettled,
+  markOrderPaidIfMoneyDebtsCleared,
+  type DEBTORDER,
+} from "@/app/api/services/debtService";
 import { authenticateAdmin } from "../authorization";
 
 
@@ -40,13 +47,14 @@ export async function POST(request: Request) {
     return Response.json(apiError("Invalid note"), { status: 400 });
   }
 
-  const { data: order, error: orderError } = await auth.adminSupabase
+  const { data, error: orderError } = await auth.adminSupabase
     .from("orders")
-    .select("id, userId, totalAmount, status, orderItems(productId, quantity, saleType), debtRecords(debtType)")
+    .select(DEBT_ORDER_FIELDS)
     .eq("id", body.orderId)
     .maybeSingle();
   if (orderError) return Response.json(apiError("Failed to load order"), { status: 500 });
-  if (!order) return Response.json(apiError("Order not found"), { status: 404 });
+  if (!data) return Response.json(apiError("Order not found"), { status: 404 });
+  const order = data as unknown as DEBTORDER;
   if (order.status !== ORDERSTATUS.DELIVERED) {
     return Response.json(apiError("Debt can only be recorded after the order is delivered"), { status: 400 });
   }
@@ -61,23 +69,17 @@ export async function POST(request: Request) {
   }
 
   const note = typeof body.note === "string" ? body.note.trim() || null : null;
-  const records: DEBTRECORDINSERT[] = [];
-  if (debtType === DEBTCHOICEENUM.MONEY || debtType === DEBTCHOICEENUM.BOTH) {
-    records.push({ userId: order.userId, orderId: order.id, recordedBy: auth.admin.id, debtType: DEBTCHOICEENUM.MONEY, amount: order.totalAmount, note });
-  }
-  if (debtType === DEBTCHOICEENUM.CART || debtType === DEBTCHOICEENUM.BOTH) {
-    for (const item of order.orderItems ?? []) {
-      if ((item.saleType !== SALETYPE.SELL && item.saleType !== SALETYPE.EXCHANGE) || !item.productId || item.quantity <= 0) continue;
-      records.push({ userId: order.userId, orderId: order.id, recordedBy: auth.admin.id, debtType: DEBTCHOICEENUM.CART, productId: item.productId, amount: item.quantity, note });
-    }
-    if (!records.some((record) => record.debtType === DEBTCHOICEENUM.CART)) {
-      return Response.json(apiError("This order has no gas cylinders to record as a cart debt"), { status: 400 });
-    }
+  const records = buildDebtRecords(order, debtType, auth.admin.id, note);
+  if (
+    (debtType === DEBTCHOICEENUM.CART || debtType === DEBTCHOICEENUM.BOTH) &&
+    !records.some((record) => record.debtType === DEBTCHOICEENUM.CART)
+  ) {
+    return Response.json(apiError("ออเดอร์นี้ไม่มีรายการเปลี่ยนถัง จึงบันทึกค้างถังไม่ได้"), { status: 400 });
   }
 
-  const { data, error } = await auth.adminSupabase.from("debtRecords").insert(records).select("id");
+  const { data: created, error } = await auth.adminSupabase.from("debtRecords").insert(records).select("id");
   if (error) return Response.json(apiError("Failed to create debt records"), { status: 500 });
-  return Response.json(apiSuccess("Debt records created successfully", data ?? []), { status: 201 });
+  return Response.json(apiSuccess("Debt records created successfully", created ?? []), { status: 201 });
 }
 
 async function settleDebt(
@@ -93,7 +95,7 @@ async function settleDebt(
 
   const { data: debt, error: debtError } = await auth.adminSupabase
     .from("debtRecords")
-    .select("id, debtType, amount, debtTransactions(amount)")
+    .select("id, orderId, debtType, amount, debtTransactions(amount)")
     .eq("id", debtId)
     .maybeSingle();
   if (debtError) return Response.json(apiError("Failed to load debt record"), { status: 500 });
@@ -114,7 +116,7 @@ async function settleDebt(
   if (transactionError) return Response.json(apiError("Failed to record settlement"), { status: 500 });
 
   const nextSettled = settled + amount;
-  const nextStatus = nextSettled === Number(debt.amount) ? "paid" : "partial";
+  const nextStatus = isFullySettled(Number(debt.amount), nextSettled) ? "paid" : "partial";
   const { data, error: updateError } = await auth.adminSupabase
     .from("debtRecords")
     .update({ status: nextStatus, updatedAt: new Date().toISOString() })
@@ -122,5 +124,13 @@ async function settleDebt(
     .select("id, status")
     .single();
   if (updateError) return Response.json(apiError("Settlement was recorded but the debt status could not be updated"), { status: 500 });
+
+  // รับเงินครบแล้ว ให้ออเดอร์ขึ้น "ชำระแล้ว" ด้วย ส่วนการคืนถังไม่เกี่ยวกับการจ่ายเงิน
+  if (nextStatus === "paid" && debt.debtType === DEBTCHOICEENUM.MONEY && debt.orderId) {
+    const synced = await markOrderPaidIfMoneyDebtsCleared(auth.adminSupabase, debt.orderId);
+    if (!synced) {
+      return Response.json(apiError("รับชำระครบแล้ว แต่อัปเดตสถานะออเดอร์ไม่สำเร็จ กรุณาเปลี่ยนเป็น \"ชำระแล้ว\" ในหน้าคำสั่งซื้อ"), { status: 500 });
+    }
+  }
   return Response.json(apiSuccess("Debt settlement recorded successfully", data));
 }

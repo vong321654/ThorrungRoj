@@ -51,6 +51,7 @@ export type ORDERRECORD = {
   orderItems?: ORDERITEMRECORD[];
   payments?: ORDERPAYMENTRECORD[];
   outstandingAmount?: number;
+  outstandingCarts?: number;
 };
 
 export type CUSTOMERORDERPROFILE = {
@@ -66,6 +67,7 @@ export type PRODUCTPRICINGROW = {
   exchangePrice: number | string | null;
   refillPrice: number | string | null;
   isActive: boolean;
+  typeId: number;
 };
 
 export type ADMINORDERUPDATEPAYLOAD = {

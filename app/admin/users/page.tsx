@@ -10,7 +10,7 @@ import {
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 import { ADMINROLE } from "@/app/models/admin";
-import { useRequireAdmin } from "../useRequireAdmin";
+import { useRequireAdmin, MANAGER_ONLY } from "../useRequireAdmin";
 
 type Customer = {
   id: string; name: string; phone: string | null; email: string | null; address: string | null;
@@ -19,7 +19,7 @@ type Customer = {
 };
 
 export default function AdminUsersPage() {
-  const { admin, isAllowed } = useRequireAdmin();
+  const { admin, isAllowed } = useRequireAdmin(MANAGER_ONLY);
   const [users, setUsers] = useState<Customer[]>([]);
   const [editingUser, setEditingUser] = useState<Customer | null>(null);
   const [error, setError] = useState<string | null>(null);

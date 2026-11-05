@@ -118,6 +118,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }
 
+  function canIncrease(itemId: string) {
+    const line = cartLines.find((candidate) => candidate.item.id === itemId);
+    return !!line && !hasReachedInventoryLimit(cartLines, line.item);
+  }
+
   function decreaseQuantity(itemId: string) {
     setCartLines((prev) =>
       prev.flatMap((line) => {

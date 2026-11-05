@@ -5,6 +5,7 @@ import { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD } from "@/app/enums/orde
 import { authenticateAdmin } from "../authorization";
 import { isAdminOrSuperAdmin } from "@/app/api/services/adminService";
 import { fulfillOrderInventory } from "@/app/api/services/inventoryService";
+import { recordDebtForDeliveredOrder, settleOrderMoneyDebts } from "@/app/api/services/debtService";
 
 const ORDER_PAYMENT_STATUSES = new Set<string>(Object.values(ORDERPAYMENTSTATUS));
 const ORDER_STATUSES = new Set<string>(Object.values(ORDERSTATUS));
@@ -37,7 +38,7 @@ export async function PATCH(request: Request) {
 
   const { data: existingOrder, error: existingOrderError } = await auth.adminSupabase
     .from("orders")
-    .select("status, paymentMethod")
+    .select("status, paymentMethod, debtRecords(id)")
     .eq("id", body.orderId)
     .maybeSingle();
   if (existingOrderError) return Response.json(apiError("Failed to load order"), { status: 500 });
@@ -47,6 +48,10 @@ export async function PATCH(request: Request) {
   if (body.paymentStatus !== undefined) {
     if (!ORDER_PAYMENT_STATUSES.has(body.paymentStatus as string)) {
       return Response.json(apiError("Invalid order payment status"), { status: 400 });
+    }
+    // มีรายการหนี้แล้ว เปลี่ยนกลับเป็นรอชำระ/ค้างแบบอื่นไม่ได้ ไม่งั้นออเดอร์กับหนี้จะไม่ตรงกัน
+    if (body.paymentStatus !== ORDERPAYMENTSTATUS.PAID && (existingOrder.debtRecords ?? []).length > 0) {
+      return Response.json(apiError("ออเดอร์นี้มีรายการหนี้แล้ว กรุณาจัดการยอดในหน้าหนี้ค้าง"), { status: 400 });
     }
     if (body.paymentStatus === ORDERPAYMENTSTATUS.PAID) {
       if (existingOrder.paymentMethod === PAYMENTMETHOD.QR_SCAN) {
@@ -97,5 +102,17 @@ export async function PATCH(request: Request) {
     .maybeSingle();
 
   if (error) return Response.json(apiError("Failed to update order payment status"), { status: 500 });
-  return Response.json(apiSuccess("Order updated", data));
+
+  // ออเดอร์อัปเดตสำเร็จแล้ว ถ้าขั้นตอนหนี้พลาดให้แจ้งเตือนแทนการตอบ error เพราะสต๊อกถูกตัดไปแล้ว ห้ามให้กดซ้ำ
+  let debtWarning: string | null = null;
+  let debtsCreated = 0;
+  if (body.paymentStatus === ORDERPAYMENTSTATUS.PAID) {
+    const settled = await settleOrderMoneyDebts(auth.adminSupabase, body.orderId, auth.admin.id);
+    if (!settled) debtWarning = "อัปเดตออเดอร์แล้ว แต่ปิดยอดหนี้ไม่สำเร็จ กรุณาบันทึกรับชำระในหน้าหนี้ค้าง";
+  }
+  const debtResult = await recordDebtForDeliveredOrder(auth.adminSupabase, body.orderId, auth.admin.id);
+  debtsCreated = debtResult.created;
+  debtWarning = debtWarning ?? debtResult.warning;
+
+  return Response.json(apiSuccess("Order updated", { ...data, debtsCreated, debtWarning }));
 }

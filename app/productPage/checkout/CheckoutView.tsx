@@ -28,9 +28,11 @@ type InventoryItem = {
   quantityAvailable: number | string | null;
 };
 
-const PAYMENT_OPTIONS: Array<{ value: PAYMENTMETHOD; label: string }> = [
-  { value: PAYMENTMETHOD.CASH, label: "ชำระเงินสด" },
-  { value: PAYMENTMETHOD.QR_SCAN, label: "สแกน QR" },
+const PAYMENT_OPTIONS: Array<{ value: PAYMENTMETHOD; label: string; hint: string }> = [
+  { value: PAYMENTMETHOD.QR_SCAN, label: "สแกนจ่าย (QR)", hint: "โอนผ่าน QR แล้วแนบสลิปในหน้าคำสั่งซื้อ รอร้านตรวจสอบ" },
+  { value: PAYMENTMETHOD.CASH, label: "จ่ายสด", hint: "ชำระเงินสดกับคนส่งเมื่อรับสินค้า" },
+  { value: PAYMENTMETHOD.PENDING_PAYMENT, label: "ค้างชำระ", hint: "รับสินค้าก่อน แล้วชำระเงินภายหลังตามที่ตกลงกับร้าน" },
+  { value: PAYMENTMETHOD.PENDING_CART, label: "ค้างถัง", hint: "สำหรับรายการเปลี่ยนถัง: รับถังเต็มก่อน แล้วนำถังเปล่ามาคืนภายหลัง" },
 ];
 
 function formatBaht(value: number) {
@@ -42,7 +44,8 @@ export default function CheckoutView() {
   const router = useRouter();
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [note, setNote] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<PAYMENTMETHOD>(PAYMENTMETHOD.CASH);
+  // ไม่เลือกค่าเริ่มต้นให้ ลูกค้าต้องตัดสินใจเองว่าจะจ่ายแบบไหน
+  const [paymentMethod, setPaymentMethod] = useState<PAYMENTMETHOD | "">("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -99,6 +102,10 @@ export default function CheckoutView() {
     }
     if (!deliveryAddress.trim()) {
       setErrorMessage("กรุณาระบุที่อยู่จัดส่ง");
+      return;
+    }
+    if (!paymentMethod) {
+      setErrorMessage("กรุณาเลือกวิธีชำระเงิน");
       return;
     }
 
@@ -214,7 +221,7 @@ export default function CheckoutView() {
               <Typography sx={{ fontWeight: 700 }}>{formatBaht(cart.cartTotal)}</Typography>
             </Box>
             <Typography variant="caption" color="text.secondary">
-              ระบบจะตรวจสอบและคำนวณราคาอีกครั้งก่อนบันทึก
+              ระบบจะตรวจสอบราคาและจำนวนสินค้าในคลังอีกครั้งก่อนบันทึก
             </Typography>
           </Paper>
 
@@ -251,7 +258,13 @@ export default function CheckoutView() {
                     key={option.value}
                     value={option.value}
                     control={<Radio />}
-                    label={option.label}
+                    label={
+                      <Box>
+                        <Typography>{option.label}</Typography>
+                        <Typography variant="caption" color="text.secondary">{option.hint}</Typography>
+                      </Box>
+                    }
+                    sx={{ alignItems: "flex-start", mb: 1 }}
                   />
                 ))}
               </RadioGroup>
@@ -262,7 +275,7 @@ export default function CheckoutView() {
             <Button variant="outlined" onClick={() => router.back()} disabled={isSubmitting}>
               กลับไปแก้ไขตะกร้า
             </Button>
-            <Button type="submit" variant="contained" disabled={isSubmitting}>
+            <Button type="submit" variant="contained" disabled={isSubmitting || !paymentMethod}>
               {isSubmitting ? "กำลังบันทึก..." : "ยืนยันคำสั่งซื้อ"}
             </Button>
           </Stack>

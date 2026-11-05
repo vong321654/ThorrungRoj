@@ -61,16 +61,16 @@ async function loadAttendance(
 ): Promise<SERVICERESULT<ATTENDANCERECORD[]>> {
   let query = authenticated.supabase
     .from("workAttendance")
-    .select("id, employeeId, checkInTime, checkOutTime, workDate, note, createdAt")
+    .select("id, employeeId, checkInTime, checkOutTime, workDate, note, createdAt, employees(name, email)")
     .order("workDate", { ascending: false })
     .order("checkInTime", { ascending: false });
 
   if (employeeId) query = query.eq("employeeId", employeeId);
-  const { data, error } = await query;
+  const { data, error } = await query.limit(500);
   if (error) return failure("Failed to load attendance history", 500);
 
   return {
-    result: apiSuccess("Attendance history loaded", (data ?? []) as ATTENDANCERECORD[]),
+    result: apiSuccess("Attendance history loaded", (data ?? []) as unknown as ATTENDANCERECORD[]),
     status: 200,
   };
 }

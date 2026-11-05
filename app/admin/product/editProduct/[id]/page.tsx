@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Box, Container, Paper, Typography } from "@mui/material";
-import { useRequireAdmin } from "../../../useRequireAdmin";
+import { useRequireAdmin, MANAGER_ONLY } from "../../../useRequireAdmin";
 import ProductForm, { type ProductFormValues } from "../../components/ProductForm";
 import {
   getBrandList,
@@ -20,7 +20,7 @@ import type { PRODUCTBAND, PRODUCTTYPE, PRODUCTUNIT } from "@/app/models/product
 export default function EditProductPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { admin, isAllowed } = useRequireAdmin();
+  const { admin, isAllowed } = useRequireAdmin(MANAGER_ONLY);
   const canUploadImage = admin?.role === ADMINROLE.SUPER_ADMIN;
   const [product, setProduct] = useState<PRODUCT | null>(null);
   const [brands, setBrands] = useState<PRODUCTBAND[]>([]);

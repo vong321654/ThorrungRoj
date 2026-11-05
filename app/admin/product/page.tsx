@@ -22,7 +22,7 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { ADMINROLE } from "@/app/models/admin";
-import { useRequireAdmin } from "../useRequireAdmin";
+import { useRequireAdmin, MANAGER_ONLY } from "../useRequireAdmin";
 import { deleteProduct, getBrandList, getProductList, getTypeList, getUnitList } from "./allFunc";
 import type { PRODUCT } from "@/app/models/product";
 import type { PRODUCTBAND, PRODUCTTYPE, PRODUCTUNIT } from "@/app/models/productsType";
@@ -30,7 +30,7 @@ import type { PRODUCTBAND, PRODUCTTYPE, PRODUCTUNIT } from "@/app/models/product
 const ROWS_PER_PAGE = 10;
 
 export default function ProductPage() {
-  const { admin, isAllowed } = useRequireAdmin();
+  const { admin, isAllowed } = useRequireAdmin(MANAGER_ONLY);
   const isSuperAdmin = admin?.role === ADMINROLE.SUPER_ADMIN;
   const [products, setProducts] = useState<PRODUCT[]>([]);
   const [brands, setBrands] = useState<PRODUCTBAND[]>([]);

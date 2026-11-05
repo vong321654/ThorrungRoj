@@ -12,10 +12,17 @@ import type {
 } from "@/app/models/order";
 import type { SaleType } from "@/app/productPage/_shared/domain/cartItem";
 import { PAYMENTMETHOD, SALETYPE } from "@/app/enums/order";
+import { TANK_TYPE_ID } from "./debtService";
 import { getOrderableStock } from "./stockService";
 
 const SALE_TYPES = new Set<SaleType>([SALETYPE.SELL, SALETYPE.EXCHANGE]);
-const PAYMENT_METHODS = new Set<PAYMENTMETHOD>([PAYMENTMETHOD.CASH, PAYMENTMETHOD.QR_SCAN]);
+// ค้างชำระ/ค้างถัง ไม่สร้างรายการชำระเงิน แอดมินจะบันทึกหนี้ในหน้า "หนี้ค้าง" หลังจัดส่งแล้ว
+const PAYMENT_METHODS = new Set<PAYMENTMETHOD>([
+  PAYMENTMETHOD.CASH,
+  PAYMENTMETHOD.QR_SCAN,
+  PAYMENTMETHOD.PENDING_PAYMENT,
+  PAYMENTMETHOD.PENDING_CART,
+]);
 
 function failure<T>(message: string, status: number): SERVICERESULT<T> {
   return { result: apiError(message), status };
@@ -127,7 +134,7 @@ export async function createOrder(
   const supabase = createAuthenticatedClient(accessToken!);
   const { data: products, error: productsError } = await supabase
     .from("products")
-    .select("id, name, sellPrice, exchangePrice, refillPrice, isActive")
+    .select("id, name, sellPrice, exchangePrice, refillPrice, isActive, typeId")
     .in("id", productIds);
 
   if (productsError) return failure<ORDERRECORD>("Failed to validate products", 500);
@@ -157,6 +164,16 @@ export async function createOrder(
   }
 
   const validOrderItems = orderItems.filter((item) => item !== null);
+
+  // ค้างถังต้องมีรายการเปลี่ยนถังในออเดอร์ ไม่งั้นตอนส่งของจะไม่มีอะไรให้บันทึกหนี้
+  if (
+    payload.paymentMethod === PAYMENTMETHOD.PENDING_CART &&
+    !validOrderItems.some(
+      (item) => item.saleType === "exchange" && Number(productsById.get(item.productId)?.typeId) === TANK_TYPE_ID,
+    )
+  ) {
+    return failure<ORDERRECORD>("เลือกค้างถังได้เฉพาะออเดอร์ที่มีรายการเปลี่ยนถัง กรุณาเลือกวิธีชำระอื่น", 400);
+  }
 
   // ซื้อถังและเปลี่ยนถังใช้ถังเต็มจากคลังเดียวกัน จึงรวมจำนวนต่อ productId ก่อนเทียบสต๊อก
   const requestedByProduct = new Map<number, number>();
@@ -311,6 +328,9 @@ export async function getCustomerOrderById(
       outstandingAmount: (data.debtRecords ?? [])
         .filter((debt) => debt.debtType === "money" && debt.status !== "paid")
         .reduce((total, debt) => total + Math.max(0, Number(debt.amount) - (debt.debtTransactions ?? []).reduce((paid, transaction) => paid + Number(transaction.amount), 0)), 0),
+      outstandingCarts: (data.debtRecords ?? [])
+        .filter((debt) => debt.debtType === "cart" && debt.status !== "paid")
+        .reduce((total, debt) => total + Math.max(0, Number(debt.amount) - (debt.debtTransactions ?? []).reduce((returned, transaction) => returned + Number(transaction.amount), 0)), 0),
     } as ORDERRECORD),
     status: 200,
   };

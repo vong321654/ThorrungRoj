@@ -125,7 +125,7 @@ export default function CartDrawer({
                     {line.item.price !== null ? formatBaht(line.item.price * line.quantity) : "-- บาท"}
                   </Typography>
                 </Box>
-                {!canIncrease(line.item.id) && line.item.stockLimit !== undefined && (
+                {!canIncrease(line.item.id) && line.item.availableQuantity !== null && (
                   <Typography variant="caption" color="text.secondary">
                     ครบจำนวนที่มีในคลังแล้ว
                   </Typography>

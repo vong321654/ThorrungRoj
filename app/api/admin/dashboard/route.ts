@@ -4,6 +4,7 @@ import { DEBTCHOICE } from "@/app/enums/debt";
 import { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD } from "@/app/enums/order";
 import { authenticateAdmin } from "../authorization";
 import { isAdminOrSuperAdmin } from "@/app/api/services/adminService";
+import { isCartDebtItem, type DEBTORDER } from "@/app/api/services/debtService";
 
 export type { DASHBOARDSTATS } from "@/app/models/dashboard";
 
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
       .select("debtType, amount, debtTransactions(amount)"),
     auth.adminSupabase
       .from("orders")
-      .select("totalAmount, paymentMethod, paymentStatus, status, orderItems(quantity), debtRecords(id)")
+      .select("totalAmount, paymentMethod, paymentStatus, status, orderItems(productId, quantity, saleType, products(typeId)), debtRecords(id)")
       .in("paymentMethod", [PAYMENTMETHOD.PENDING_PAYMENT, PAYMENTMETHOD.PENDING_CART]),
   ]);
 
@@ -63,10 +64,9 @@ export async function GET(request: Request) {
       if (hasDebtRecord || order.paymentStatus === ORDERPAYMENTSTATUS.PAID || order.status === ORDERSTATUS.CANCELLED) return totals;
       if (order.paymentMethod === PAYMENTMETHOD.PENDING_PAYMENT) totals.outstandingMoney += Number(order.totalAmount);
       if (order.paymentMethod === PAYMENTMETHOD.PENDING_CART) {
-        totals.outstandingCarts += (order.orderItems ?? []).reduce(
-          (sum, item) => sum + Number(item.quantity),
-          0,
-        );
+        totals.outstandingCarts += ((order.orderItems ?? []) as unknown as DEBTORDER["orderItems"] ?? [])
+          .filter(isCartDebtItem)
+          .reduce((sum, item) => sum + Number(item.quantity), 0);
       }
       return totals;
     },

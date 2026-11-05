@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
-import { useRequireAdmin } from "../useRequireAdmin";
+import { useRequireAdmin, MANAGER_ONLY } from "../useRequireAdmin";
 
 type DebtTypeChoice = "money" | "cart" | "both";
 type OrderOption = { id: string; totalAmount: number | string; status: string; users: { name: string; shopName: string | null } | null };
@@ -25,7 +25,7 @@ function formatAmount(value: number, debtType: DebtRecord["debtType"]) {
 }
 
 export default function AdminDebtsPage() {
-  const { isAllowed } = useRequireAdmin();
+  const { isAllowed } = useRequireAdmin(MANAGER_ONLY);
   const [orders, setOrders] = useState<OrderOption[]>([]);
   const [debts, setDebts] = useState<DebtRecord[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState("");
@@ -100,7 +100,8 @@ export default function AdminDebtsPage() {
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
     <Paper sx={{ p: 3, mb: 3 }}>
-      <Typography variant="h6" sx={{ mb: 2 }}>บันทึกรายการค้างจากออเดอร์ที่จัดส่งแล้ว</Typography>
+      <Typography variant="h6">บันทึกรายการค้างจากออเดอร์ที่จัดส่งแล้ว</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>ออเดอร์ที่ลูกค้าเลือกค้างชำระหรือค้างถัง ระบบบันทึกให้อัตโนมัติเมื่อยืนยันจัดส่งแล้ว ใช้ฟอร์มนี้เฉพาะกรณีอื่น</Typography>
       <Stack spacing={2} direction={{ xs: "column", md: "row" }}>
         <FormControl fullWidth><InputLabel id="debt-order-label">ออเดอร์</InputLabel><Select labelId="debt-order-label" label="ออเดอร์" value={selectedOrderId} onChange={(event) => setSelectedOrderId(event.target.value)}>{orders.map((order) => <MenuItem key={order.id} value={order.id}>{order.users?.shopName || order.users?.name || "ลูกค้า"} — {Number(order.totalAmount).toLocaleString("th-TH")} บาท</MenuItem>)}</Select></FormControl>
         <FormControl fullWidth><InputLabel id="debt-type-label">ประเภทค้าง</InputLabel><Select labelId="debt-type-label" label="ประเภทค้าง" value={debtType} onChange={(event) => setDebtType(event.target.value as DebtTypeChoice)}><MenuItem value="money">ค้างเงิน</MenuItem><MenuItem value="cart">ค้างถัง</MenuItem><MenuItem value="both">ค้างทั้งเงินและถัง</MenuItem></Select></FormControl>

@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { Alert, Box, Button, Card, CardContent, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Paper, Stack, TextField, Typography } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
-import { useRequireAdmin } from "../../useRequireAdmin";
+import { useRequireAdmin, MANAGER_ONLY } from "../../useRequireAdmin";
 
 type Slip = {
   id: string;
@@ -28,7 +28,7 @@ type QrPayment = {
 
 export default function AdminOrderPaymentPage() {
   const params = useParams<{ id: string }>();
-  const { isAllowed } = useRequireAdmin();
+  const { isAllowed } = useRequireAdmin(MANAGER_ONLY);
   const [payment, setPayment] = useState<QrPayment | null>(null);
   const [slipUrls, setSlipUrls] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);

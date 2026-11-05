@@ -69,6 +69,10 @@ function parseAnnouncementPayload(
     if (typeof input.imageUrl === "string" && input.imageUrl.trim().length > 2_048) {
       return { message: "Announcement image URL is too long" };
     }
+    // รูปแสดงให้ลูกค้าทุกคนเห็น จึงรับเฉพาะลิงก์ https (หรือเว้นว่างเพื่อลบรูป)
+    if (typeof input.imageUrl === "string" && input.imageUrl.trim() && !/^https:\/\//i.test(input.imageUrl.trim())) {
+      return { message: "Announcement image URL must start with https://" };
+    }
     values.imageUrl =
       typeof input.imageUrl === "string" ? input.imageUrl.trim() || null : null;
   }
@@ -209,9 +213,18 @@ export async function updateAnnouncement(
 
   const values: ANNOUNCEMENTUPDATEVALUES = { ...parsed.values };
   if (parsed.values.isPublished !== undefined) {
-    values.publishedAt = parsed.values.isPublished
-      ? new Date().toISOString()
-      : null;
+    // แก้ไขข้อความของประกาศที่เผยแพร่อยู่แล้วต้องไม่ขยับวันที่เผยแพร่ ไม่งั้นจะเด้งขึ้นบนสุดของลูกค้า
+    // จึงเปลี่ยน publishedAt เฉพาะเมื่อสถานะเผยแพร่เปลี่ยนจริง
+    const { data: current, error: currentError } = await auth.supabase
+      .from("announcements")
+      .select("isPublished")
+      .eq("id", id)
+      .maybeSingle();
+    if (currentError) return databaseFailure("Failed to load announcement", currentError);
+    if (!current) return failure("Announcement not found", 404);
+    if (current.isPublished !== parsed.values.isPublished) {
+      values.publishedAt = parsed.values.isPublished ? new Date().toISOString() : null;
+    }
   }
 
   const { data, error } = await auth.supabase

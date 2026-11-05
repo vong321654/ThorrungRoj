@@ -1,3 +1,4 @@
+import { apiError } from "../response";
 import {
   getAllAttendance,
   getEmployeeAttendance,
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
   const accessToken = getBearerToken(request);
 
   if (!accessToken) {
-    return Response.json({ message: "Missing access token" }, { status: 401 });
+    return Response.json(apiError("Missing access token"), { status: 401 });
   }
 
   const url = new URL(request.url);
@@ -17,10 +18,10 @@ export async function GET(request: Request) {
   const scope = url.searchParams.get("scope");
 
   if (scope && scope !== "all") {
-    return Response.json({ message: "Invalid attendance scope" }, { status: 400 });
+    return Response.json(apiError("Invalid attendance scope"), { status: 400 });
   }
   if (scope === "all" && employeeId) {
-    return Response.json({ message: "Use either scope=all or employeeId" }, { status: 400 });
+    return Response.json(apiError("Use either scope=all or employeeId"), { status: 400 });
   }
 
   const response = scope === "all"

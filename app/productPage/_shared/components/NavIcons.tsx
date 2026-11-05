@@ -68,6 +68,45 @@ export function HomeIcon({ size = 22, color = "currentColor" }: IconProps) {
   );
 }
 
+export function BellIcon({ size = 22, color = "currentColor" }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" />
+      <path d="M10 20.5a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
+
+export function ChatIcon({ size = 22, color = "currentColor" }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 5h16v11H9l-5 4z" />
+      <line x1="8" y1="9.5" x2="16" y2="9.5" />
+      <line x1="8" y1="12.5" x2="13" y2="12.5" />
+    </svg>
+  );
+}
+
 export function CartIcon({ size = 22, color = "currentColor" }: IconProps) {
   return (
     <svg
