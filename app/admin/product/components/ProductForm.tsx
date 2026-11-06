@@ -15,10 +15,7 @@ import {
 } from "@mui/material";
 import { uploadProductImage } from "../allFunc";
 import type { PRODUCTBAND, PRODUCTTYPE, PRODUCTUNIT } from "@/app/models/productsType";
-
-// ต้องตรงกับเงื่อนไขใน app/api/images/route.ts
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
-const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+import { compressImage, UPLOAD_IMAGE_TYPES } from "@/app/util/compressImage";
 
 export type ProductFormValues = {
   name: string;
@@ -79,19 +76,10 @@ export default function ProductForm({
     event.target.value = "";
     if (!file) return;
 
-    if (!IMAGE_TYPES.includes(file.type)) {
-      setValidationMessage("รูปสินค้าต้องเป็นไฟล์ JPG, PNG หรือ WebP เท่านั้น");
-      return;
-    }
-    if (file.size > MAX_IMAGE_SIZE) {
-      setValidationMessage("รูปสินค้าต้องมีขนาดไม่เกิน 5 MB");
-      return;
-    }
-
     setValidationMessage(null);
     setIsUploading(true);
     try {
-      setUploadedImageUrl(await uploadProductImage(file));
+      setUploadedImageUrl(await uploadProductImage(await compressImage(file)));
     } catch (error) {
       setValidationMessage(
         error instanceof Error ? `อัปโหลดรูปไม่สำเร็จ: ${error.message}` : "อัปโหลดรูปไม่สำเร็จ",
@@ -272,14 +260,14 @@ export default function ProductForm({
               <input
                 hidden
                 type="file"
-                accept={IMAGE_TYPES.join(",")}
+                accept={UPLOAD_IMAGE_TYPES.join(",")}
                 onChange={(event) => void handleImageChange(event)}
               />
             </Button>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
               {uploadedImageUrl
                 ? "อัปโหลดรูปแล้ว กดบันทึกเพื่อผูกรูปกับสินค้า"
-                : "JPG, PNG หรือ WebP ขนาดไม่เกิน 5 MB (ไม่บังคับ)"}
+                : "JPG, PNG หรือ WebP รูปใหญ่ระบบจะย่อให้อัตโนมัติ (ไม่บังคับ)"}
             </Typography>
           </Box>
         )}

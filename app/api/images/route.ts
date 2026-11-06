@@ -15,7 +15,8 @@ import { IMAGEKIND as IMAGEKINDENUM } from "@/app/enums/image";
 import { authenticateAdmin } from "../admin/authorization";
 import { isAdminOrSuperAdmin, isSuperAdmin } from "../services/adminService";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+// ต่ำกว่าเพดาน request ของ Vercel (ประมาณ 4.5 MB) และต้องตรงกับ MAX_UPLOAD_BYTES ใน app/util/compressImage.ts
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function parsePositiveId(value: string | null) {
@@ -35,7 +36,7 @@ function validateFile(value: FormDataEntryValue | null): File | Response {
     return Response.json(apiError("An image file is required"), { status: 400 });
   }
   if (!IMAGE_TYPES.has(value.type) || value.size > MAX_FILE_SIZE) {
-    return Response.json(apiError("Image must be a JPEG, PNG, or WebP file no larger than 5 MB"), { status: 400 });
+    return Response.json(apiError("Image must be a JPEG, PNG, or WebP file no larger than 4 MB"), { status: 400 });
   }
   return value;
 }

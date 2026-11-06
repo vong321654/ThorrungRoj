@@ -20,6 +20,7 @@ import Typography from "@mui/material/Typography";
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 import { PAYMENTMETHOD, type ORDERRECORD, type TRANSFERSLIPRECORD } from "@/app/models/order";
+import { compressImage, UPLOAD_IMAGE_TYPES } from "@/app/util/compressImage";
 
 const PAYMENT_LABELS: Record<PAYMENTMETHOD, string> = {
   [PAYMENTMETHOD.CASH]: "เงินสด",
@@ -103,11 +104,12 @@ export default function OrdersView() {
     setUploadMessage(null);
     setErrorMessage(null);
     try {
+      const compressedFile = await compressImage(file);
       const { data } = await createClient().auth.getSession();
       const form = new FormData();
       form.set("type", "receipt");
       form.set("paymentId", paymentId);
-      form.set("file", file);
+      form.set("file", compressedFile);
       const response = await fetch("/api/images", {
         method: "POST",
         headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` },
@@ -218,7 +220,12 @@ export default function OrdersView() {
                 return <Box key={payment.id} sx={{ mt: 2 }}>
                   <Button component="label" size="small" variant="outlined" disabled={uploadingPaymentId === payment.id}>
                     {uploadingPaymentId === payment.id ? "กำลังอัปโหลด..." : hasSlip ? "แนบสลิปใหม่" : "แนบสลิปชำระเงิน"}
-                    <input hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void uploadReceipt(payment.id, event.currentTarget.files?.[0])} />
+                    <input hidden type="file" accept={UPLOAD_IMAGE_TYPES.join(",")} onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      // reset เพื่อให้เลือกไฟล์เดิมซ้ำได้ ถ้าอัปโหลดรอบก่อนพลาด
+                      event.currentTarget.value = "";
+                      void uploadReceipt(payment.id, file);
+                    }} />
                   </Button>
                   {hasSlip && <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>ส่งสลิปแล้ว รอตรวจสอบ</Typography>}
                   {payment.transferSlips?.map((slip) => <Button key={slip.id} size="small" sx={{ ml: 1 }} disabled={viewingSlipId === slip.id} onClick={() => void viewReceipt(slip.id)}>{viewingSlipId === slip.id ? "กำลังเปิด..." : "ดูสลิป"}</Button>)}
