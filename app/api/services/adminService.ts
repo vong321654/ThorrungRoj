@@ -98,24 +98,42 @@ export async function createAdmin(auth: ADMINAUTH, input: CREATEADMINCREDENTIALS
     password: input.password,
     email_confirm: input.email_confirm === true,
   });
-  if (userError) return apiError("Failed to add admin");
+  if (userError) {
+    return apiError(userError.code === "email_exists" ? "This email is already registered" : "Failed to add admin");
+  }
 
+  // trigger sync_employees_after_auth_users_insert ใน DB สร้างแถว employees (id = auth user id)
+  // ให้ตั้งแต่ตอน createUser แล้ว จึงต้อง upsert ตาม id เพื่อเติมข้อมูล ถ้า insert จะชน UNIQUE ของ email
   const { data: employee, error } = await auth.supabase
     .from("employees")
-    .insert({
-      authId: userData.user.id,
-      email: input.email.trim(),
-      name: input.name?.trim() || null,
-      ...contact,
-      role: input.role,
-      isActive: input.isActive,
-      updatedAt: new Date().toISOString(),
-    })
+    .upsert(
+      {
+        id: userData.user.id,
+        authId: userData.user.id,
+        email: input.email.trim(),
+        // คอลัมน์ name เป็น NOT NULL แต่ฟอร์มไม่บังคับกรอก
+        name: input.name?.trim() || "",
+        ...contact,
+        role: input.role,
+        isActive: input.isActive,
+        updatedAt: new Date().toISOString(),
+      },
+      { onConflict: "id" },
+    )
     .select(adminFields)
     .single();
 
   if (error) {
-    await privilegedAuth.auth.admin.deleteUser(userData.user.id);
+    // FK employees.authId ไม่มี ON DELETE CASCADE ต้องลบแถว employees ก่อน ไม่งั้นลบ auth user ไม่ได้
+    // และอีเมลนี้จะค้างจนสร้างซ้ำไม่ได้อีก
+    const { error: profileRollbackError } = await privilegedAuth
+      .from("employees")
+      .delete()
+      .eq("authId", userData.user.id);
+    const { error: userRollbackError } = await privilegedAuth.auth.admin.deleteUser(userData.user.id);
+    if (profileRollbackError || userRollbackError) {
+      return apiError("Failed to create employee profile, and the login account for this email could not be removed");
+    }
     return apiError(isDuplicateThaiId(error) ? "This ID number is already in use" : "Failed to create employee profile");
   }
   return apiSuccess("Admin created successfully", { user: userData.user, employee });
