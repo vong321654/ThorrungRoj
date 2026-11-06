@@ -6,6 +6,8 @@ import { GREETING_ANSWER, QUICK_REPLIES } from "./chatbotFaq";
 import { buildChatReply, type CHATREPLY } from "./chatbotService";
 
 const LINE_REPLY_URL = "https://api.line.me/v2/bot/message/reply";
+const LINE_PUSH_URL = "https://api.line.me/v2/bot/message/push";
+const PUSH_TIMEOUT_MS = 5000;
 const MAX_TEXT_LENGTH = 5000; // ข้อความ LINE ยาวได้ไม่เกิน 5,000 ตัวอักษร
 const MAX_INPUT_LENGTH = 500; // เท่ากับขีดจำกัดของแชทบนเว็บ
 const MAX_LABEL_LENGTH = 20; // label ของ quick reply ยาวได้ไม่เกิน 20 ตัวอักษร
@@ -17,7 +19,7 @@ type LineEvent = {
   message?: { type?: string; text?: string };
 };
 
-type LineMessage =
+export type LineMessage =
   | { type: "text"; text: string; quickReply?: { items: unknown[] } }
   | { type: "image"; originalContentUrl: string; previewImageUrl: string };
 
@@ -30,15 +32,20 @@ export function verifyLineSignature(rawBody: string, signature: string | null): 
   return received.length === expected.length && timingSafeEqual(received, expected);
 }
 
+/** แปลง path ในเว็บเป็น URL เต็มแบบ https ที่ LINE ดึงได้ คืน null เมื่อไม่รู้โดเมนจริง เช่น ตอนรันในเครื่อง */
+export function publicUrl(path: string): string | null {
+  const base =
+    process.env.LINE_PUBLIC_BASE_URL ??
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null);
+  if (!base || !path.startsWith("/")) return null;
+  return `${base.replace(/\/$/, "")}${path}`;
+}
+
 // LINE รับรูปเฉพาะ https แบบ absolute ส่วนรูปใน FAQ เก็บเป็น path ใน public/
 function absoluteImageUrl(imageUrl: string | null): string | null {
   if (!imageUrl) return null;
   if (/^https:\/\//i.test(imageUrl)) return imageUrl;
-  const base =
-    process.env.LINE_PUBLIC_BASE_URL ??
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null);
-  if (!base || !imageUrl.startsWith("/")) return null;
-  return `${base.replace(/\/$/, "")}${imageUrl}`;
+  return publicUrl(imageUrl);
 }
 
 function toLineMessages(reply: CHATREPLY): LineMessage[] {
@@ -65,6 +72,22 @@ async function sendReply(replyToken: string, messages: LineMessage[]) {
   });
   if (!response.ok) {
     throw new Error(`LINE reply failed: ${response.status} ${await response.text().catch(() => "")}`);
+  }
+}
+
+/** ส่งข้อความหาลูกค้าโดยไม่ต้องรอให้ลูกค้าทักก่อน นับโควตาของแผน LINE OA ต่างจาก Reply */
+export async function pushLineMessages(lineUserId: string, messages: LineMessage[]) {
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!token) throw new Error("LINE_CHANNEL_ACCESS_TOKEN is not configured");
+  const response = await fetch(LINE_PUSH_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ to: lineUserId, messages }),
+    // ผู้เรียกรอผลนี้ก่อนตอบลูกค้า LINE ช้าต้องไม่ทำให้หน้าสั่งซื้อค้าง
+    signal: AbortSignal.timeout(PUSH_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    throw new Error(`LINE push failed: ${response.status} ${await response.text().catch(() => "")}`);
   }
 }
 

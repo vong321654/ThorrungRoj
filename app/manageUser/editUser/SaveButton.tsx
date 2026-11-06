@@ -25,11 +25,13 @@ export default function SaveButton({
 
     const result = await saveEditUserData(payload);
     setMessage(result.message);
-    setIsSaving(false);
 
     if (result.success) {
-      router.refresh();
+      router.push("/productPage");
+      return;
     }
+
+    setIsSaving(false);
   }
 
   return (

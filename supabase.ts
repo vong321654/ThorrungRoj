@@ -1223,7 +1223,7 @@ export type Database = {
         | "delivering"
         | "delivered"
         | "cancelled"
-      paymentMethod: "qrScan" | "cash" | "pendingPayment" | "pendingCart"
+      paymentMethod: "qrScan" | "cash" | "pendingPayment" | "pendingCart" | "pendingBoth"
       paymentStatus: "pending" | "paid" | "verified" | "rejected"
       senderType: "user" | "bot"
       slipStatus: "pending" | "verified" | "rejected"
@@ -1369,7 +1369,7 @@ export const Constants = {
         "delivered",
         "cancelled",
       ],
-      paymentMethod: ["qrScan", "cash", "pendingPayment", "pendingCart"],
+      paymentMethod: ["qrScan", "cash", "pendingPayment", "pendingCart", "pendingBoth"],
       paymentStatus: ["pending", "paid", "verified", "rejected"],
       senderType: ["user", "bot"],
       slipStatus: ["pending", "verified", "rejected"],

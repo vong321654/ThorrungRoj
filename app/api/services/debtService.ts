@@ -80,25 +80,24 @@ export async function recordDebtForDeliveredOrder(
   const order = data as unknown as DEBTORDER;
   if (order.status !== ORDERSTATUS.DELIVERED) return { created: 0, warning: null };
 
-  const debtType =
-    order.paymentMethod === PAYMENTMETHOD.PENDING_PAYMENT
-      ? DEBTCHOICE.MONEY
-      : order.paymentMethod === PAYMENTMETHOD.PENDING_CART
-        ? DEBTCHOICE.CART
-        : null;
-  if (!debtType) return { created: 0, warning: null };
+  const existingTypes = new Set((order.debtRecords ?? []).map((debt) => debt.debtType));
+  const wantsMoney = order.paymentMethod === PAYMENTMETHOD.PENDING_PAYMENT || order.paymentMethod === PAYMENTMETHOD.PENDING_BOTH;
+  const wantsCart = order.paymentMethod === PAYMENTMETHOD.PENDING_CART || order.paymentMethod === PAYMENTMETHOD.PENDING_BOTH;
   // จ่ายเงินครบแล้วไม่มียอดให้ค้าง แต่ค้างถังยังต้องบันทึก เพราะจ่ายเงินแล้วก็ยังติดถังเปล่าได้
-  if (debtType === DEBTCHOICE.MONEY && order.paymentStatus === ORDERPAYMENTSTATUS.PAID) return { created: 0, warning: null };
-  if ((order.debtRecords ?? []).some((debt) => debt.debtType === debtType)) return { created: 0, warning: null };
+  const needsMoney = wantsMoney && order.paymentStatus !== ORDERPAYMENTSTATUS.PAID && !existingTypes.has(DEBTCHOICE.MONEY);
+  const needsCart = wantsCart && !existingTypes.has(DEBTCHOICE.CART);
+  if (!needsMoney && !needsCart) return { created: 0, warning: null };
 
+  const debtType = needsMoney && needsCart ? DEBTCHOICE.BOTH : needsMoney ? DEBTCHOICE.MONEY : DEBTCHOICE.CART;
   const records = buildDebtRecords(order, debtType, recordedBy, "บันทึกอัตโนมัติจากวิธีชำระที่ลูกค้าเลือก");
-  if (records.length === 0) {
-    return { created: 0, warning: "ออเดอร์นี้เลือกค้างถังแต่ไม่มีรายการเปลี่ยนถัง จึงไม่ได้บันทึกหนี้" };
-  }
+  const noExchangeWarning = needsCart && !records.some((record) => record.debtType === DEBTCHOICE.CART)
+    ? "ออเดอร์นี้เลือกค้างถังแต่ไม่มีรายการเปลี่ยนถัง จึงไม่ได้บันทึกหนี้ถัง"
+    : null;
+  if (records.length === 0) return { created: 0, warning: noExchangeWarning };
 
   const { error: insertError } = await supabase.from("debtRecords").insert(records);
   if (insertError) return failed;
-  return { created: records.length, warning: null };
+  return { created: records.length, warning: noExchangeWarning };
 }
 
 /** เมื่อหนี้เงินของออเดอร์ครบทุกรายการ ให้ออเดอร์เป็น "ชำระแล้ว" ด้วย สองหน้าจะได้แสดงตรงกัน */

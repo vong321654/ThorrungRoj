@@ -13,6 +13,8 @@ import type {
 import type { SaleType } from "@/app/productPage/_shared/domain/cartItem";
 import { PAYMENTMETHOD, SALETYPE } from "@/app/enums/order";
 import { TANK_TYPE_ID } from "./debtService";
+import { notifyOrderCreated } from "./orderNotifyService";
+import { buildPromptPayQrPath } from "./promptPayService";
 import { getOrderableStock } from "./stockService";
 
 const SALE_TYPES = new Set<SaleType>([SALETYPE.SELL, SALETYPE.EXCHANGE]);
@@ -22,6 +24,7 @@ const PAYMENT_METHODS = new Set<PAYMENTMETHOD>([
   PAYMENTMETHOD.QR_SCAN,
   PAYMENTMETHOD.PENDING_PAYMENT,
   PAYMENTMETHOD.PENDING_CART,
+  PAYMENTMETHOD.PENDING_BOTH,
 ]);
 
 function failure<T>(message: string, status: number): SERVICERESULT<T> {
@@ -167,7 +170,7 @@ export async function createOrder(
 
   // ค้างถังต้องมีรายการเปลี่ยนถังในออเดอร์ ไม่งั้นตอนส่งของจะไม่มีอะไรให้บันทึกหนี้
   if (
-    payload.paymentMethod === PAYMENTMETHOD.PENDING_CART &&
+    (payload.paymentMethod === PAYMENTMETHOD.PENDING_CART || payload.paymentMethod === PAYMENTMETHOD.PENDING_BOTH) &&
     !validOrderItems.some(
       (item) => item.saleType === "exchange" && Number(productsById.get(item.productId)?.typeId) === TANK_TYPE_ID,
     )
@@ -243,6 +246,15 @@ export async function createOrder(
     }
     payment = data as ORDERPAYMENTRECORD;
   }
+
+  // ต้องรอให้ส่งเสร็จก่อนตอบ เพราะ Vercel อาจหยุด function ทันทีหลังคืน response
+  await notifyOrderCreated({
+    orderId: order.id,
+    userId: customer.id,
+    totalAmount,
+    paymentMethod: payload.paymentMethod,
+    items: validOrderItems,
+  });
 
   return {
     result: apiSuccess("Order created successfully", {
@@ -331,6 +343,11 @@ export async function getCustomerOrderById(
       outstandingCarts: (data.debtRecords ?? [])
         .filter((debt) => debt.debtType === "cart" && debt.status !== "paid")
         .reduce((total, debt) => total + Math.max(0, Number(debt.amount) - (debt.debtTransactions ?? []).reduce((returned, transaction) => returned + Number(transaction.amount), 0)), 0),
+      // สำรองไว้บนเว็บ เผื่อลูกค้าบล็อกร้านหรือข้อความใน LINE ส่งไม่ถึง
+      promptPayQrUrl:
+        data.paymentMethod === PAYMENTMETHOD.QR_SCAN && data.paymentStatus !== "paid" && data.status !== "cancelled"
+          ? buildPromptPayQrPath(data.id)
+          : null,
     } as ORDERRECORD),
     status: 200,
   };

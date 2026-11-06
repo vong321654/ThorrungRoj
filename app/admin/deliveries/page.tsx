@@ -19,7 +19,7 @@ const ORDER_LABELS: Record<string, string> = {
   pending: "รอดำเนินการ", preparing: "กำลังเตรียมสินค้า", delivering: "กำลังจัดส่ง",
 };
 const PAYMENT_LABELS: Record<string, string> = {
-  cash: "เงินสด", qrScan: "สแกน QR", pendingPayment: "ค้างชำระ", pendingCart: "ค้างถัง",
+  cash: "เงินสด", qrScan: "สแกน QR", pendingPayment: "ค้างชำระ", pendingCart: "ค้างถัง", pendingBoth: "ค้างทั้งถังและเงิน",
 };
 
 type JobCardProps = {

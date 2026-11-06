@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     auth.adminSupabase
       .from("orders")
       .select("totalAmount, paymentMethod, paymentStatus, status, orderItems(productId, quantity, saleType, products(typeId)), debtRecords(id)")
-      .in("paymentMethod", [PAYMENTMETHOD.PENDING_PAYMENT, PAYMENTMETHOD.PENDING_CART]),
+      .in("paymentMethod", [PAYMENTMETHOD.PENDING_PAYMENT, PAYMENTMETHOD.PENDING_CART, PAYMENTMETHOD.PENDING_BOTH]),
   ]);
 
   if (ordersResult.error || debtsResult.error || debtOrdersResult.error) {
@@ -62,8 +62,10 @@ export async function GET(request: Request) {
     (totals, order) => {
       const hasDebtRecord = (order.debtRecords ?? []).length > 0;
       if (hasDebtRecord || order.paymentStatus === ORDERPAYMENTSTATUS.PAID || order.status === ORDERSTATUS.CANCELLED) return totals;
-      if (order.paymentMethod === PAYMENTMETHOD.PENDING_PAYMENT) totals.outstandingMoney += Number(order.totalAmount);
-      if (order.paymentMethod === PAYMENTMETHOD.PENDING_CART) {
+      if (order.paymentMethod === PAYMENTMETHOD.PENDING_PAYMENT || order.paymentMethod === PAYMENTMETHOD.PENDING_BOTH) {
+        totals.outstandingMoney += Number(order.totalAmount);
+      }
+      if (order.paymentMethod === PAYMENTMETHOD.PENDING_CART || order.paymentMethod === PAYMENTMETHOD.PENDING_BOTH) {
         totals.outstandingCarts += ((order.orderItems ?? []) as unknown as DEBTORDER["orderItems"] ?? [])
           .filter(isCartDebtItem)
           .reduce((sum, item) => sum + Number(item.quantity), 0);

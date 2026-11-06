@@ -52,6 +52,7 @@ export type ORDERRECORD = {
   payments?: ORDERPAYMENTRECORD[];
   outstandingAmount?: number;
   outstandingCarts?: number;
+  promptPayQrUrl?: string | null;
 };
 
 export type CUSTOMERORDERPROFILE = {

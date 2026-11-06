@@ -59,12 +59,12 @@ export async function PATCH(request: Request) {
       }
       values.paymentStatus = ORDERPAYMENTSTATUS.PAID;
     } else if (body.paymentStatus === ORDERPAYMENTSTATUS.AWAITING_PAYMENT) {
-      if (existingOrder.paymentMethod === PAYMENTMETHOD.PENDING_PAYMENT || existingOrder.paymentMethod === PAYMENTMETHOD.PENDING_CART) {
+      if (existingOrder.paymentMethod === PAYMENTMETHOD.PENDING_PAYMENT || existingOrder.paymentMethod === PAYMENTMETHOD.PENDING_CART || existingOrder.paymentMethod === PAYMENTMETHOD.PENDING_BOTH) {
         return Response.json(apiError("A debt payment must be updated to paid instead"), { status: 400 });
       }
       values.paymentStatus = ORDERPAYMENTSTATUS.PENDING;
     } else {
-      if (body.paymentStatus === ORDERPAYMENTSTATUS.PENDING_PAYMENT && existingOrder.status !== ORDERSTATUS.DELIVERED) {
+      if ((body.paymentStatus === ORDERPAYMENTSTATUS.PENDING_PAYMENT || body.paymentStatus === ORDERPAYMENTSTATUS.PENDING_BOTH) && existingOrder.status !== ORDERSTATUS.DELIVERED) {
         return Response.json(apiError("An order can be marked as unpaid only after delivery"), { status: 400 });
       }
       values.paymentStatus = ORDERPAYMENTSTATUS.PENDING;
