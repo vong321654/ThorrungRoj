@@ -15,6 +15,13 @@ export const authPageSx: SxProps<Theme> = {
   py: { xs: 2.5, sm: 4 },
 };
 
+/** หน้าในกรอบแอดมินอยู่ข้าง sidebar จึงต้องขยายเต็มพื้นที่ที่เหลือ การ์ดถึงจะอยู่กึ่งกลาง */
+export const adminPageSx: SxProps<Theme> = {
+  ...authPageSx,
+  flex: 1,
+  minWidth: 0,
+};
+
 export const authCardSx: SxProps<Theme> = {
   bgcolor: "#ffffff",
   border: "1px solid #e0e8e2",

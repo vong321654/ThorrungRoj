@@ -27,6 +27,32 @@ function parseNote(payload: unknown): Pick<ATTENDANCERECORD, "note"> | null {
   return { note: note.trim() || null };
 }
 
+// ไม่ส่ง employeeId หรือส่ง id ตัวเองคือลงเวลาให้ตัวเอง ส่วนการลงเวลาแทนคนอื่นทำได้เฉพาะ superAdmin
+async function resolveTargetEmployeeId(
+  { supabase, employee }: AUTHENTICATEDEMPLOYEE,
+  payload: unknown,
+): Promise<SERVICERESULT<string>> {
+  const requestedId = (payload as { employeeId?: unknown } | null)?.employeeId;
+  if (requestedId === undefined || requestedId === null || requestedId === employee.id) {
+    return { result: apiSuccess("Target employee resolved", employee.id), status: 200 };
+  }
+  if (typeof requestedId !== "string") return failure("Invalid attendance payload", 400);
+  if (employee.role !== ADMINROLE.SUPER_ADMIN) {
+    return failure("Only a super admin can record attendance for another employee", 403);
+  }
+
+  const { data: target, error } = await supabase
+    .from("employees")
+    .select("id, isActive")
+    .eq("id", requestedId)
+    .maybeSingle();
+
+  if (error) return failure("Failed to verify employee account", 500);
+  if (!target) return failure("Employee profile was not found", 404);
+  if (!target.isActive) return failure("Employee account is inactive", 409);
+  return { result: apiSuccess("Target employee resolved", requestedId), status: 200 };
+}
+
 async function authenticateEmployee(
   accessToken: string | null,
 ): Promise<SERVICERESULT<AUTHENTICATEDEMPLOYEE>> {
@@ -120,25 +146,29 @@ export async function clockIn(
   const input = parseNote(payload);
   if (!input) return failure("Invalid attendance payload", 400);
 
-  const { supabase, employee } = auth.result.results;
+  const target = await resolveTargetEmployeeId(auth.result.results, payload);
+  if (target.result.status === "error") return failure(target.result.message, target.status);
+  const employeeId = target.result.results;
+
+  const { supabase } = auth.result.results;
   const { data: openAttendance, error: openError } = await supabase
     .from("workAttendance")
     .select("id")
-    .eq("employeeId", employee.id)
+    .eq("employeeId", employeeId)
     .is("checkOutTime", null)
     .maybeSingle();
 
   if (openError) return failure("Failed to check current attendance", 500);
-  if (openAttendance) return failure("You are already clocked in", 409);
+  if (openAttendance) return failure("Already clocked in", 409);
 
   const { data, error } = await supabase
     .from("workAttendance")
-    .insert({ employeeId: employee.id, note: input.note })
+    .insert({ employeeId, note: input.note })
     .select("id, employeeId, checkInTime, checkOutTime, workDate, note, createdAt")
     .single();
 
   if (error || !data) {
-    if (error?.code === "23505") return failure("You are already clocked in", 409);
+    if (error?.code === "23505") return failure("Already clocked in", 409);
     return failure("Failed to clock in", 500);
   }
 
@@ -155,11 +185,14 @@ export async function clockOut(
   const input = parseNote(payload);
   if (!input) return failure("Invalid attendance payload", 400);
 
-  const { supabase, employee } = auth.result.results;
+  const target = await resolveTargetEmployeeId(auth.result.results, payload);
+  if (target.result.status === "error") return failure(target.result.message, target.status);
+
+  const { supabase } = auth.result.results;
   const { data: openAttendance, error: openError } = await supabase
     .from("workAttendance")
     .select("id")
-    .eq("employeeId", employee.id)
+    .eq("employeeId", target.result.results)
     .is("checkOutTime", null)
     .order("checkInTime", { ascending: false })
     .maybeSingle();

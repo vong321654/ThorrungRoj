@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert, Box, Button, Chip, CircularProgress, Paper, Stack, Table, TableBody, TableCell,
+  Alert, Box, Button, Chip, CircularProgress, MenuItem, Paper, Stack, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, TextField, ToggleButton, ToggleButtonGroup, Typography,
 } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 import type { ATTENDANCERECORD } from "@/app/models/attendance";
-import { ADMINROLE } from "@/app/models/admin";
+import { ADMINROLE, type ADMINDATA } from "@/app/models/admin";
+import { getAdminsList } from "../allFunc";
 import { useRequireAdmin } from "../useRequireAdmin";
 
 type Scope = "mine" | "all";
@@ -27,13 +28,21 @@ export default function AttendancePage() {
   // พนักงานทุกบทบาทกดเข้า-ออกงานได้ ส่วนแอดมินดูของทุกคนได้เพิ่ม
   const { admin, isAllowed } = useRequireAdmin();
   const isManager = admin?.role === ADMINROLE.ADMIN || admin?.role === ADMINROLE.SUPER_ADMIN;
+  const isSuperAdmin = admin?.role === ADMINROLE.SUPER_ADMIN;
   const [scope, setScope] = useState<Scope>("mine");
   const [records, setRecords] = useState<ATTENDANCERECORD[]>([]);
-  const [myRecords, setMyRecords] = useState<ATTENDANCERECORD[]>([]);
+  const [targetRecords, setTargetRecords] = useState<ATTENDANCERECORD[]>([]);
+  const [employees, setEmployees] = useState<ADMINDATA[]>([]);
+  // superAdmin เลือกคนที่จะลงเวลาให้ได้ ถ้ายังไม่เลือกหรือเป็นบทบาทอื่น จะลงเวลาให้ตัวเอง
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const targetEmployeeId = selectedEmployeeId ?? admin?.id;
+  const targetEmployee = employees.find((employee) => employee.id === targetEmployeeId);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingTarget, setIsLoadingTarget] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const latestLoadRef = useRef(0);
 
   const request = useCallback(async function request<T>(path: string, options: RequestInit = {}) {
     const { data } = await createClient().auth.getSession();
@@ -50,30 +59,59 @@ export default function AttendancePage() {
   }, []);
 
   const load = useCallback(async () => {
+    if (!targetEmployeeId) return;
+    // สลับคนเร็วๆ แล้วผลของคนก่อนหน้าอาจมาทีหลัง จึงใช้เฉพาะผลของการโหลดครั้งล่าสุด
+    const loadId = ++latestLoadRef.current;
     try {
-      // ปุ่มเข้า-ออกงานดูจากประวัติของตัวเองเสมอ ไม่ว่าแอดมินจะเปิดดูรายการของทุกคนอยู่หรือไม่
-      const mine = (await request<ATTENDANCERECORD[]>("/api/attend")) ?? [];
-      setMyRecords(mine);
-      setRecords(scope === "all" ? ((await request<ATTENDANCERECORD[]>("/api/attend?scope=all")) ?? []) : mine);
+      // ปุ่มเข้า-ออกงานดูจากประวัติของคนที่เลือกเสมอ ไม่ว่าแอดมินจะเปิดดูรายการของทุกคนอยู่หรือไม่
+      const target = (await request<ATTENDANCERECORD[]>(`/api/attend?employeeId=${encodeURIComponent(targetEmployeeId)}`)) ?? [];
+      const visible = scope === "all" ? ((await request<ATTENDANCERECORD[]>("/api/attend?scope=all")) ?? []) : target;
+      if (loadId !== latestLoadRef.current) return;
+      setTargetRecords(target);
+      setRecords(visible);
       setError(null);
     } catch (loadError) {
+      if (loadId !== latestLoadRef.current) return;
       setError(loadError instanceof Error ? loadError.message : "ไม่สามารถโหลดเวลาทำงานได้");
     } finally {
-      setIsLoading(false);
+      if (loadId === latestLoadRef.current) {
+        setIsLoading(false);
+        setIsLoadingTarget(false);
+      }
     }
-  }, [request, scope]);
+  }, [request, scope, targetEmployeeId]);
 
   useEffect(() => {
     if (isAllowed) void load();
   }, [isAllowed, load]);
 
-  const openRecord = useMemo(() => myRecords.find((record) => record.checkOutTime === null) ?? null, [myRecords]);
+  useEffect(() => {
+    if (!isAllowed || !isSuperAdmin) return;
+    getAdminsList()
+      .then((list) => setEmployees((list ?? []).filter((employee) => employee.isActive)))
+      .catch((listError: unknown) => {
+        setError(listError instanceof Error ? listError.message : "ไม่สามารถโหลดรายชื่อพนักงานได้");
+      });
+  }, [isAllowed, isSuperAdmin]);
+
+  const openRecord = useMemo(() => targetRecords.find((record) => record.checkOutTime === null) ?? null, [targetRecords]);
+
+  function selectEmployee(employeeId: string) {
+    if (employeeId === targetEmployeeId) return;
+    // ล้างสถานะและหมายเหตุของคนเดิม กันกดปุ่มหรือบันทึกหมายเหตุผิดคนระหว่างรอโหลด
+    setTargetRecords([]);
+    setRecords((current) => (scope === "all" ? current : []));
+    setNote("");
+    setError(null);
+    setIsLoadingTarget(true);
+    setSelectedEmployeeId(employeeId);
+  }
 
   async function clock(action: "clockin" | "clockout") {
     setIsSaving(true);
     setError(null);
     try {
-      await request(`/api/attend/${action}`, { method: "POST", body: JSON.stringify({ note }) });
+      await request(`/api/attend/${action}`, { method: "POST", body: JSON.stringify({ note, employeeId: targetEmployeeId }) });
       setNote("");
       await load();
     } catch (clockError) {
@@ -93,17 +131,36 @@ export default function AttendancePage() {
       <Paper sx={{ p: 3, mb: 3 }}>
         <Stack spacing={2}>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <Typography sx={{ fontWeight: 700 }}>{admin?.name || admin?.email}</Typography>
-            {openRecord
-              ? <Chip color="success" label={`เข้างานแล้วเมื่อ ${formatDateTime(openRecord.checkInTime)}`} />
-              : <Chip label="ยังไม่ได้เข้างาน" />}
+            {isSuperAdmin && employees.length > 0 ? (
+              <TextField
+                select
+                size="small"
+                label="ลงเวลาให้"
+                value={targetEmployeeId ?? ""}
+                onChange={(event) => selectEmployee(event.target.value)}
+                sx={{ minWidth: 240 }}
+              >
+                {employees.map((employee) => (
+                  <MenuItem key={employee.id} value={employee.id}>
+                    {employee.name || employee.email}{employee.id === admin?.id ? " (ฉัน)" : ""}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : (
+              <Typography sx={{ fontWeight: 700 }}>{admin?.name || admin?.email}</Typography>
+            )}
+            {isLoadingTarget
+              ? <Chip label="กำลังโหลด..." />
+              : openRecord
+                ? <Chip color="success" label={`เข้างานแล้วเมื่อ ${formatDateTime(openRecord.checkInTime)}`} />
+                : <Chip label="ยังไม่ได้เข้างาน" />}
           </Stack>
           <TextField label="หมายเหตุ (ไม่บังคับ)" value={note} onChange={(event) => setNote(event.target.value)} fullWidth />
           <Stack direction="row" spacing={1}>
-            <Button variant="contained" color="success" disabled={isSaving || openRecord !== null} onClick={() => void clock("clockin")}>
+            <Button variant="contained" color="success" disabled={isSaving || isLoadingTarget || openRecord !== null} onClick={() => void clock("clockin")}>
               เข้างาน
             </Button>
-            <Button variant="contained" color="warning" disabled={isSaving || openRecord === null} onClick={() => void clock("clockout")}>
+            <Button variant="contained" color="warning" disabled={isSaving || isLoadingTarget || openRecord === null} onClick={() => void clock("clockout")}>
               ออกงาน
             </Button>
           </Stack>
@@ -118,7 +175,9 @@ export default function AttendancePage() {
             setRecords([]);
             setScope(value);
           }}>
-          <ToggleButton value="mine">ของฉัน</ToggleButton>
+          <ToggleButton value="mine">
+            {targetEmployeeId === admin?.id ? "ของฉัน" : targetEmployee?.name || targetEmployee?.email}
+          </ToggleButton>
           <ToggleButton value="all">พนักงานทุกคน</ToggleButton>
         </ToggleButtonGroup>
       )}

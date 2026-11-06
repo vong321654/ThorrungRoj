@@ -27,6 +27,9 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import { ADMINROLE } from "@/app/models/admin";
 import { useRequireAdmin } from "../../useRequireAdmin";
 
+// ขยายเต็มพื้นที่ข้าง sidebar แล้วจัดกึ่งกลาง ถ้าจอกว้างกว่า maxWidth
+const PAGE_SX = { flex: 1, minWidth: 0, maxWidth: 800, mx: "auto", p: 4 };
+
 export type AttributeItem = {
   id: number;
   label: string;
@@ -123,14 +126,14 @@ export default function AttributeManager({
 
   if (isLoading || !isAllowed) {
     return (
-      <Box sx={{ p: 4 }}>
+      <Box sx={PAGE_SX}>
         <Typography>กำลังตรวจสอบสิทธิ์...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: 4 }}>
+    <Box sx={PAGE_SX}>
       <Box sx={{ mb: 2 }}>
         <Link href="/admin/product">← กลับไปหน้ารายการสินค้า</Link>
       </Box>

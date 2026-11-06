@@ -8,6 +8,9 @@ export type ADMINLOGINCREDENTIALS = {
 export type CREATEADMINCREDENTIALS = ADMINLOGINCREDENTIALS & {
   email_confirm?: boolean;
   name: string | null;
+  address: string | null;
+  tel: string | null;
+  thaiId: string | null;
   role: ADMINROLE;
   isActive: boolean;
 };

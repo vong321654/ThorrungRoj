@@ -12,10 +12,11 @@ import AdminForm, {
   type AdminFormValues,
 } from "../../components/AdminForm";
 import { getAdminByEmployeeId, saveAdminChanges } from "../../allFunc";
+import { useAdminSession } from "../../AdminSessionContext";
 import { useRequireAdmin } from "../../useRequireAdmin";
 import {
+  adminPageSx,
   authCardSx,
-  authPageSx,
   backLinkSx,
   headingSubtitleSx,
   headingTitleSx,
@@ -25,6 +26,7 @@ export default function EditAdminPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { admin: currentAdmin, isLoading: isSessionLoading } = useRequireAdmin();
+  const { refresh: refreshSession } = useAdminSession();
   const [admin, setAdmin] = useState<ADMINDATA | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -60,11 +62,16 @@ export default function EditAdminPage() {
       const input = {
         id: admin.id,
         name: values.name || null,
+        address: values.address || null,
+        tel: values.tel || null,
+        thaiId: values.thaiId || null,
         ...(canEditRoleAndStatus
           ? { isActive: values.isActive, role: values.role }
           : {}),
       };
       await saveAdminChanges(input);
+      // แก้บัญชีตัวเองแล้วต้องโหลด session ใหม่ ไม่งั้นชื่อใน sidebar ยังเป็นค่าเดิม
+      if (admin.id === currentAdmin?.id) await refreshSession();
       router.replace("/admin");
       router.refresh();
     } catch (error) {
@@ -80,7 +87,7 @@ export default function EditAdminPage() {
 
   if (isLoading) {
     return (
-      <Box component="main" sx={authPageSx}>
+      <Box component="main" sx={adminPageSx}>
         <Typography>Loading employee data...</Typography>
       </Box>
     );
@@ -88,7 +95,7 @@ export default function EditAdminPage() {
 
   if (!admin) {
     return (
-      <Box component="main" sx={{ ...authPageSx, flexDirection: "column", gap: 1.5 }}>
+      <Box component="main" sx={{ ...adminPageSx, flexDirection: "column", gap: 1.5 }}>
         <Typography role="alert">{message ?? "Employee not found"}</Typography>
         <MuiLink component={Link} href="/admin" sx={backLinkSx}>
           Back
@@ -98,7 +105,7 @@ export default function EditAdminPage() {
   }
 
   return (
-    <Box component="main" sx={authPageSx}>
+    <Box component="main" sx={adminPageSx}>
       <Paper component="section" aria-labelledby="editAdminTitle" elevation={0} sx={authCardSx}>
         <MuiLink component={Link} href="/admin" sx={backLinkSx}>
           ← Back to admins
@@ -118,6 +125,9 @@ export default function EditAdminPage() {
           initialValues={{
             email: admin.email ?? "",
             name: admin.name ?? "",
+            address: admin.address ?? "",
+            tel: admin.tel ?? "",
+            thaiId: admin.thaiId ?? "",
             role: ISADMINROLE(admin.role) ? admin.role : ADMINROLE.EMPLOYEE,
             isActive: admin.isActive,
           }}

@@ -8,12 +8,15 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
-import { ADMINROLE } from "@/app/models/admin";
+import { ADMINROLE, ISTHAIID, VALIDATEADMINCONTACT } from "@/app/models/admin";
 import { errorAlertSx, submitButtonSx, textFieldSx } from "@/app/components/UI/authStyles";
 
 export type AdminFormValues = {
   email: string;
   name: string;
+  address: string;
+  tel: string;
+  thaiId: string;
   role: ADMINROLE;
   isActive: boolean;
   password: string;
@@ -40,6 +43,12 @@ export default function AdminForm({
 }: AdminFormProps) {
   const [email, setEmail] = useState(initialValues?.email ?? "");
   const [name, setName] = useState(initialValues?.name ?? "");
+  const [address, setAddress] = useState(initialValues?.address ?? "");
+  const [tel, setTel] = useState(initialValues?.tel ?? "");
+  // บัตรประชาชนกับวีซ่าใช้คอลัมน์เดียวกัน จึงแยกค่าเดิมกลับเข้าช่องที่ถูกต้องตอนเปิดฟอร์ม
+  const initialIdNumber = initialValues?.thaiId ?? "";
+  const [thaiId, setThaiId] = useState(ISTHAIID(initialIdNumber) ? initialIdNumber : "");
+  const [visa, setVisa] = useState(ISTHAIID(initialIdNumber) ? "" : initialIdNumber);
   const [role, setRole] = useState(
     initialValues?.role ?? ADMINROLE.EMPLOYEE,
   );
@@ -60,9 +69,26 @@ export default function AdminForm({
       return;
     }
 
+    if (thaiId.trim() && !ISTHAIID(thaiId.trim())) {
+      setValidationMessage("Thai ID must be exactly 13 digits");
+      return;
+    }
+
+    const contact = {
+      address: address.trim(),
+      tel: tel.trim(),
+      thaiId: (thaiId.trim() || visa.trim()).toUpperCase(),
+    };
+    const contactError = VALIDATEADMINCONTACT(contact);
+    if (contactError) {
+      setValidationMessage(contactError);
+      return;
+    }
+
     await onSubmit({
       email: email.trim(),
       name: name.trim(),
+      ...contact,
       role,
       isActive,
       password,
@@ -105,6 +131,66 @@ export default function AdminForm({
           value={name}
           onChange={(event) => setName(event.target.value)}
           slotProps={{ htmlInput: { maxLength: 100 } }}
+          sx={textFieldSx}
+        />
+
+        <TextField
+          id="adminTel"
+          name="tel"
+          type="tel"
+          label="Phone number"
+          placeholder="08X-XXX-XXXX"
+          autoComplete="off"
+          fullWidth
+          value={tel}
+          onChange={(event) => setTel(event.target.value)}
+          slotProps={{ htmlInput: { maxLength: 20, inputMode: "tel" } }}
+          sx={textFieldSx}
+        />
+
+        <TextField
+          id="adminThaiId"
+          name="thaiId"
+          type="text"
+          label="Thai ID"
+          placeholder="13 digits, no dashes"
+          autoComplete="off"
+          fullWidth
+          disabled={Boolean(visa.trim())}
+          helperText={visa.trim() ? "Clear Visa / Passport no. to enter a Thai ID" : undefined}
+          value={thaiId}
+          onChange={(event) => setThaiId(event.target.value)}
+          slotProps={{ htmlInput: { maxLength: 13, inputMode: "numeric" } }}
+          sx={textFieldSx}
+        />
+
+        <TextField
+          id="adminVisa"
+          name="visa"
+          type="text"
+          label="Visa / Passport no."
+          placeholder="No dashes or spaces"
+          autoComplete="off"
+          fullWidth
+          disabled={Boolean(thaiId.trim())}
+          helperText={thaiId.trim() ? "Clear Thai ID to enter a visa or passport number" : undefined}
+          value={visa}
+          onChange={(event) => setVisa(event.target.value)}
+          slotProps={{ htmlInput: { maxLength: 20 } }}
+          sx={textFieldSx}
+        />
+
+        <TextField
+          id="adminAddress"
+          name="address"
+          label="Address"
+          autoComplete="off"
+          fullWidth
+          multiline
+          minRows={3}
+          value={address}
+          onChange={(event) => setAddress(event.target.value)}
+          slotProps={{ htmlInput: { maxLength: 500 } }}
           sx={textFieldSx}
         />
 

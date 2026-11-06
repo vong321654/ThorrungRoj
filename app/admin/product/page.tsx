@@ -28,6 +28,8 @@ import type { PRODUCT } from "@/app/models/product";
 import type { PRODUCTBAND, PRODUCTTYPE, PRODUCTUNIT } from "@/app/models/productsType";
 
 const ROWS_PER_PAGE = 10;
+// ขยายเต็มพื้นที่ข้าง sidebar แล้วจัดกึ่งกลาง ถ้าจอกว้างกว่า maxWidth
+const PAGE_SX = { flex: 1, minWidth: 0, maxWidth: 1180, mx: "auto", p: 4 };
 
 export default function ProductPage() {
   const { admin, isAllowed } = useRequireAdmin(MANAGER_ONLY);
@@ -114,14 +116,14 @@ export default function ProductPage() {
 
   if (isLoading) {
     return (
-      <Box sx={{ p: 4 }}>
+      <Box sx={PAGE_SX}>
         <Typography>กำลังโหลดข้อมูลสินค้า...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: 4 }}>
+    <Box sx={PAGE_SX}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
         <Typography variant="h5">รายการสินค้า</Typography>
         <Box sx={{ display: "flex", gap: 1 }}>

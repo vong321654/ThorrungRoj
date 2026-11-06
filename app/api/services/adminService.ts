@@ -3,6 +3,7 @@ import { createAuthenticatedClient } from "@/app/api/util/supabase/authenticated
 import {
   ADMINROLE,
   ISADMINROLE,
+  VALIDATEADMINCONTACT,
   type ADMINAUTH,
   type ADMINAUTHFAILURE,
   type ADMINDATA,
@@ -15,6 +16,15 @@ export const adminFields =
   "id, authId, email, name, avatarUrl, isActive, role, address, tel, thaiId, updatedAt";
 
 export type { ADMINAUTH, ADMINAUTHFAILURE } from "@/app/models/admin";
+
+function cleanOptionalText(value: unknown) {
+  return typeof value === "string" ? value.trim() || null : null;
+}
+
+// thaiId เป็น UNIQUE ใน employees ถ้าซ้ำควรบอกสาเหตุ แทนข้อความบันทึกไม่สำเร็จแบบกว้างๆ
+function isDuplicateThaiId(error: { code?: string; message?: string }) {
+  return error.code === "23505" && Boolean(error.message?.includes("thaiId"));
+}
 
 export async function authenticateAdmin(
   accessToken: string,
@@ -73,6 +83,15 @@ export async function createAdmin(auth: ADMINAUTH, input: CREATEADMINCREDENTIALS
     return apiError("Invalid admin credentials");
   }
 
+  // ตรวจก่อนสร้างบัญชีใน Supabase Auth จะได้ไม่ต้องย้อนกลับถ้าข้อมูลไม่ถูกต้อง
+  const contact = {
+    address: cleanOptionalText(input.address),
+    tel: cleanOptionalText(input.tel),
+    thaiId: cleanOptionalText(input.thaiId),
+  };
+  const contactError = VALIDATEADMINCONTACT(contact);
+  if (contactError) return apiError(contactError);
+
   const privilegedAuth = createAdminClient();
   const { data: userData, error: userError } = await privilegedAuth.auth.admin.createUser({
     email: input.email.trim(),
@@ -87,6 +106,7 @@ export async function createAdmin(auth: ADMINAUTH, input: CREATEADMINCREDENTIALS
       authId: userData.user.id,
       email: input.email.trim(),
       name: input.name?.trim() || null,
+      ...contact,
       role: input.role,
       isActive: input.isActive,
       updatedAt: new Date().toISOString(),
@@ -96,7 +116,7 @@ export async function createAdmin(auth: ADMINAUTH, input: CREATEADMINCREDENTIALS
 
   if (error) {
     await privilegedAuth.auth.admin.deleteUser(userData.user.id);
-    return apiError("Failed to create employee profile");
+    return apiError(isDuplicateThaiId(error) ? "This ID number is already in use" : "Failed to create employee profile");
   }
   return apiSuccess("Admin created successfully", { user: userData.user, employee });
 }
@@ -120,6 +140,9 @@ export async function updateAdmin(auth: ADMINAUTH, id: string, input: ADMINUPDAT
     }
   }
 
+  const contactError = VALIDATEADMINCONTACT(values as { address?: string | null; tel?: string | null; thaiId?: string | null });
+  if (contactError) return apiError(contactError);
+
   if (superAdmin) {
     if ("role" in input) {
       if (!ISADMINROLE(input.role)) return apiError("Invalid admin role");
@@ -136,7 +159,7 @@ export async function updateAdmin(auth: ADMINAUTH, id: string, input: ADMINUPDAT
   if (Object.keys(values).length === 0) return apiError("No editable fields supplied");
   values.updatedAt = new Date().toISOString();
   const { data, error } = await auth.adminSupabase.from("employees").update(values).eq("id", id).select(adminFields).single();
-  if (error) return apiError("Failed to update admin");
+  if (error) return apiError(isDuplicateThaiId(error) ? "This ID number is already in use" : "Failed to update admin");
   return apiSuccess("Admin updated successfully", data as ADMINDATA);
 }
 

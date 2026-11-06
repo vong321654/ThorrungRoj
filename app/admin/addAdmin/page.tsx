@@ -14,8 +14,8 @@ import AdminForm, {
 import { addAdmin } from "../allFunc";
 import { useRequireAdmin } from "../useRequireAdmin";
 import {
+  adminPageSx,
   authCardSx,
-  authPageSx,
   backLinkSx,
   headingSubtitleSx,
   headingTitleSx,
@@ -37,6 +37,9 @@ export default function AddAdminPage() {
         password: values.password,
         email_confirm: values.emailConfirm,
         name: values.name || null,
+        address: values.address || null,
+        tel: values.tel || null,
+        thaiId: values.thaiId || null,
         role: values.role,
         isActive: values.isActive,
       });
@@ -52,14 +55,14 @@ export default function AddAdminPage() {
 
   if (isCheckingAccess || !isAllowed) {
     return (
-      <Box component="main" sx={authPageSx}>
+      <Box component="main" sx={adminPageSx}>
         <Typography>Checking admin access...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box component="main" sx={authPageSx}>
+    <Box component="main" sx={adminPageSx}>
       <Paper component="section" aria-labelledby="addAdminTitle" elevation={0} sx={authCardSx}>
         <MuiLink component={Link} href="/admin" sx={backLinkSx}>
           ← Back to admins
