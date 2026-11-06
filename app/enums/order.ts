@@ -3,6 +3,7 @@ export enum PAYMENTMETHOD {
   QR_SCAN = "qrScan",
   PENDING_PAYMENT = "pendingPayment",
   PENDING_CART = "pendingCart",
+  PENDING_BOTH = "pendingBoth",
 }
 
 export enum ORDERPAYMENTSTATUS {
@@ -11,6 +12,7 @@ export enum ORDERPAYMENTSTATUS {
   PENDING = "pending",
   PENDING_PAYMENT = "pendingPayment",
   PENDING_CART = "pendingCart",
+  PENDING_BOTH = "pendingBoth",
 }
 
 export enum ORDERSTATUS {

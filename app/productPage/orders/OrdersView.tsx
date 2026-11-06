@@ -27,6 +27,7 @@ const PAYMENT_LABELS: Record<PAYMENTMETHOD, string> = {
   [PAYMENTMETHOD.QR_SCAN]: "สแกน QR",
   [PAYMENTMETHOD.PENDING_PAYMENT]: "ค้างชำระ",
   [PAYMENTMETHOD.PENDING_CART]: "ค้างถัง",
+  [PAYMENTMETHOD.PENDING_BOTH]: "ค้างทั้งถังและเงิน",
 };
 
 const SALE_TYPE_LABELS = {

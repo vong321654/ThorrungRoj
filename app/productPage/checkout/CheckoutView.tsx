@@ -33,6 +33,7 @@ const PAYMENT_OPTIONS: Array<{ value: PAYMENTMETHOD; label: string; hint: string
   { value: PAYMENTMETHOD.CASH, label: "จ่ายสด", hint: "ชำระเงินสดกับคนส่งเมื่อรับสินค้า" },
   { value: PAYMENTMETHOD.PENDING_PAYMENT, label: "ค้างชำระ", hint: "รับสินค้าก่อน แล้วชำระเงินภายหลังตามที่ตกลงกับร้าน" },
   { value: PAYMENTMETHOD.PENDING_CART, label: "ค้างถัง", hint: "สำหรับรายการเปลี่ยนถัง: รับถังเต็มก่อน แล้วนำถังเปล่ามาคืนภายหลัง" },
+  { value: PAYMENTMETHOD.PENDING_BOTH, label: "ค้างทั้งถังและเงิน", hint: "สำหรับรายการเปลี่ยนถัง: รับถังเต็มก่อน แล้วชำระเงินและนำถังเปล่ามาคืนภายหลัง" },
 ];
 
 function formatBaht(value: number) {

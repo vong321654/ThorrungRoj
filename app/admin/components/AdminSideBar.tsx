@@ -199,17 +199,17 @@ export default function AdminSideBar() {
           <Button
             component={Link}
             href={`/admin/editAdmin/${admin.id}`}
-            variant="outlined"
+            variant="contained"
+            color="warning"
             fullWidth
-            sx={{ ...pillButtonSx, borderColor: "#E6B422" }}
           >
             แก้ไขโปรไฟล์
           </Button>
           <Button
-            variant="outlined"
+            variant="contained"
+            color="error"
             fullWidth
             onClick={() => void handleSignOut()}
-            sx={{ ...pillButtonSx, borderColor: "#E53935" }}
           >
             ออกจากระบบ
           </Button>
