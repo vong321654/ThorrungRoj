@@ -114,7 +114,7 @@ export default function LoginPage() {
         <Box sx={brandMarkSx}>TR</Box>
 
         <Typography id="loginTitle" component="h1" sx={{ ...eyebrowSx, mt: 2.5 }}>
-          ร้านแก๊สทอรุ่งโรจน์
+          ร้านแก๊สท.รุ่งโรจน์
         </Typography>
 
         {hasLoggedOut && (

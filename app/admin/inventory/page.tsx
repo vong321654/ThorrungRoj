@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Select, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import RemoveIcon from "@mui/icons-material/Remove";
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 import type { PRODUCT } from "@/app/models/product";
@@ -10,7 +12,7 @@ import { useRequireAdmin, MANAGER_ONLY } from "../useRequireAdmin";
 
 type InventoryItem = {
   id: string; productId: number; stockStatus: "full" | "empty" | "damaged" | null; itemCondition: "new" | "old" | "normal"; quantityOnHand: number; quantityReserved: number; quantityAvailable: number; minimumStock: number; createdAt: string;
-  products: { id: number; name: string; size: number | string | null } | null;
+  products: { id: number; name: string; size: number | string | null; typeId: number | null } | null;
 };
 
 export default function AdminInventoryPage() {
@@ -27,6 +29,9 @@ export default function AdminInventoryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [decreasingId, setDecreasingId] = useState<string | null>(null);
+  const [decreaseItem, setDecreaseItem] = useState<InventoryItem | null>(null);
+  const [decreaseQuantity, setDecreaseQuantity] = useState("1");
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [editQuantity, setEditQuantity] = useState("");
   const [editMinimumStock, setEditMinimumStock] = useState("");
@@ -67,6 +72,27 @@ export default function AdminInventoryPage() {
     finally { setDeletingId(null); }
   }
 
+  const decreaseLabels = decreaseItem?.stockStatus === "full" ? { from: "ถังเต็ม", to: "ถังเปล่า" } : { from: "ถังเปล่า", to: "ถังเต็ม" };
+  const maxDecrease = decreaseItem ? decreaseItem.quantityOnHand - decreaseItem.quantityReserved : 0;
+  const decreaseAmount = Number(decreaseQuantity);
+  const isDecreaseValid = decreaseQuantity !== "" && Number.isInteger(decreaseAmount) && decreaseAmount >= 1 && decreaseAmount <= maxDecrease;
+
+  function openDecrease(item: InventoryItem) { setDecreaseItem(item); setDecreaseQuantity("1"); }
+
+  function stepDecrease(step: number) {
+    const next = Math.min(Math.max((Number(decreaseQuantity) || 0) + step, 1), Math.max(maxDecrease, 1));
+    setDecreaseQuantity(String(next));
+  }
+
+  async function submitDecrease() {
+    if (!decreaseItem || !isDecreaseValid) return;
+    const item = decreaseItem;
+    setDecreasingId(item.id); setError(null);
+    try { await request(`/api/inventory?id=${encodeURIComponent(item.id)}&action=decrease&quantity=${decreaseAmount}`, { method: "PATCH" }); setDecreaseItem(null); await loadData(); }
+    catch (decreaseError) { setError(decreaseError instanceof Error ? decreaseError.message : `ไม่สามารถลด${decreaseLabels.from}ได้`); setDecreaseItem(null); }
+    finally { setDecreasingId(null); }
+  }
+
   function openEdit(item: InventoryItem) {
     setEditingItem(item); setEditQuantity(String(item.quantityOnHand)); setEditMinimumStock(String(item.minimumStock)); setEditStockStatus(item.stockStatus); setEditItemCondition(item.itemCondition); setEditNote("");
   }
@@ -98,7 +124,31 @@ export default function AdminInventoryPage() {
       <TextField fullWidth label="หมายเหตุ" value={note} onChange={(event) => setNote(event.target.value)} />
       <Button variant="contained" disabled={!productId || Number(quantity) <= 0 || isSaving} onClick={() => void addItem()} sx={{ minWidth: 110 }}>เพิ่มสต็อก</Button>
     </Stack></Paper>
-    {isLoading ? <CircularProgress /> : <TableContainer component={Paper}><Table><TableHead><TableRow><TableCell>สินค้า</TableCell><TableCell>สภาพ</TableCell><TableCell>สถานะ</TableCell><TableCell>คงคลัง</TableCell><TableCell>จองแล้ว</TableCell><TableCell>พร้อมขาย</TableCell><TableCell>ขั้นต่ำ</TableCell><TableCell>เพิ่มเมื่อ</TableCell><TableCell>จัดการ</TableCell></TableRow></TableHead><TableBody>{items.map((item) => <TableRow key={item.id}><TableCell>{item.products?.name || `สินค้า #${item.productId}`}{item.products?.size ? ` ${item.products.size} กก.` : ""}</TableCell><TableCell>{item.itemCondition === "new" ? "ใหม่" : item.itemCondition === "old" ? "เก่า" : "ปกติ"}</TableCell><TableCell>{item.stockStatus === "full" ? "ถังเต็ม" : item.stockStatus === "empty" ? "ถังเปล่า" : item.stockStatus === "damaged" ? "ชำรุด" : "-"}</TableCell><TableCell>{item.quantityOnHand}</TableCell><TableCell>{item.quantityReserved}</TableCell><TableCell>{item.quantityAvailable}</TableCell><TableCell>{item.minimumStock}</TableCell><TableCell>{new Date(item.createdAt).toLocaleString("th-TH")}</TableCell><TableCell><Button size="small" onClick={() => openEdit(item)}>แก้ไข</Button><Button size="small" color="error" disabled={deletingId === item.id} onClick={() => void deleteItem(item)}>{deletingId === item.id ? "กำลังลบ..." : "ลบ"}</Button></TableCell></TableRow>)}{items.length === 0 && <TableRow><TableCell colSpan={9} align="center">ยังไม่มีรายการสต็อก</TableCell></TableRow>}</TableBody></Table></TableContainer>}
-    <Dialog open={!!editingItem} onClose={() => !isSaving && setEditingItem(null)} fullWidth maxWidth="xs"><DialogTitle>แก้ไขรายการสต็อก</DialogTitle><DialogContent sx={{ display: "grid", gap: 2, pt: 2 }}><Select value={editItemCondition} onChange={(event) => setEditItemCondition(event.target.value as InventoryItem["itemCondition"])}><MenuItem value="new">ใหม่</MenuItem><MenuItem value="old">เก่า</MenuItem><MenuItem value="normal">ปกติ</MenuItem></Select><Select displayEmpty value={editStockStatus ?? ""} onChange={(event) => setEditStockStatus(event.target.value ? event.target.value as InventoryItem["stockStatus"] : null)}><MenuItem value="">{isEditingGasCylinder ? "เลือกสถานะถังแก๊ส" : "ไม่ระบุสถานะ"}</MenuItem><MenuItem value="full">ถังเต็ม</MenuItem><MenuItem value="empty">ถังเปล่า</MenuItem><MenuItem value="damaged">ชำรุด</MenuItem></Select><TextField label="จำนวนคงคลัง" type="number" slotProps={{ htmlInput: { min: editingItem?.quantityReserved ?? 0, step: 1 } }} value={editQuantity} onChange={(event) => setEditQuantity(event.target.value)} /><TextField label="สต็อกขั้นต่ำ" type="number" slotProps={{ htmlInput: { min: 0, step: 1 } }} value={editMinimumStock} onChange={(event) => setEditMinimumStock(event.target.value)} /><TextField label="หมายเหตุการปรับสต็อก" value={editNote} onChange={(event) => setEditNote(event.target.value)} multiline minRows={2} /></DialogContent><DialogActions><Button disabled={isSaving} onClick={() => setEditingItem(null)}>ยกเลิก</Button><Button variant="contained" disabled={isSaving || Number(editQuantity) < (editingItem?.quantityReserved ?? 0) || Number(editMinimumStock) < 0 || (isEditingGasCylinder && !editStockStatus)} onClick={() => void saveEdit()}>บันทึก</Button></DialogActions></Dialog>
+    {isLoading ? <CircularProgress /> : <TableContainer component={Paper}><Table><TableHead><TableRow><TableCell>สินค้า</TableCell><TableCell>สภาพ</TableCell><TableCell>สถานะ</TableCell><TableCell>คงคลัง</TableCell><TableCell>จองแล้ว</TableCell><TableCell>พร้อมขาย</TableCell><TableCell>ขั้นต่ำ</TableCell><TableCell>เพิ่มเมื่อ</TableCell><TableCell>จัดการ</TableCell></TableRow></TableHead><TableBody>{items.map((item) => <TableRow key={item.id}><TableCell>{item.products?.name || `สินค้า #${item.productId}`}{item.products?.size ? ` ${item.products.size} กก.` : ""}</TableCell><TableCell>{item.itemCondition === "new" ? "ใหม่" : item.itemCondition === "old" ? "เก่า" : "ปกติ"}</TableCell><TableCell>{item.stockStatus === "full" ? "ถังเต็ม" : item.stockStatus === "empty" ? "ถังเปล่า" : item.stockStatus === "damaged" ? "ชำรุด" : "-"}</TableCell><TableCell>{item.quantityOnHand}</TableCell><TableCell>{item.quantityReserved}</TableCell><TableCell>{item.quantityAvailable}</TableCell><TableCell>{item.minimumStock}</TableCell><TableCell>{new Date(item.createdAt).toLocaleString("th-TH")}</TableCell><TableCell><Stack direction="row" spacing={1} sx={{ whiteSpace: "nowrap" }}>{(item.stockStatus === "full" || item.stockStatus === "empty") && item.products?.typeId === 14 && <Button size="small" variant="contained" color="warning" disableElevation disabled={decreasingId === item.id || item.quantityOnHand <= item.quantityReserved} onClick={() => openDecrease(item)}>{decreasingId === item.id ? "กำลังลด..." : item.stockStatus === "full" ? "ลดถังเต็ม" : "ลดถังเปล่า"}</Button>}<Button size="small" variant="contained" color="primary" disableElevation onClick={() => openEdit(item)}>แก้ไข</Button><Button size="small" variant="contained" color="error" disableElevation disabled={deletingId === item.id} onClick={() => void deleteItem(item)}>{deletingId === item.id ? "กำลังลบ..." : "ลบ"}</Button></Stack></TableCell></TableRow>)}{items.length === 0 && <TableRow><TableCell colSpan={9} align="center">ยังไม่มีรายการสต็อก</TableCell></TableRow>}</TableBody></Table></TableContainer>}
+    <Dialog open={!!decreaseItem} onClose={() => decreasingId === null && setDecreaseItem(null)} fullWidth maxWidth="xs">
+      <DialogTitle>ลด{decreaseLabels.from}</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" sx={{ mb: 2 }}>
+          {decreaseItem?.products?.name ?? ""}{decreaseItem?.products?.size ? ` ${decreaseItem.products.size} กก.` : ""} · เหลือ {decreaseItem?.quantityOnHand ?? 0} ถัง ลดแล้ว{decreaseLabels.to}จะเพิ่มตามจำนวนที่ลด
+        </Typography>
+        <TextField
+          autoFocus fullWidth label="จำนวนถัง" value={decreaseQuantity}
+          onChange={(event) => setDecreaseQuantity(event.target.value.replace(/\D/g, "").slice(0, 6))}
+          onKeyDown={(event) => { if (event.key === "Enter") void submitDecrease(); }}
+          error={decreaseQuantity !== "" && !isDecreaseValid}
+          helperText={decreaseQuantity !== "" && !isDecreaseValid ? `กรอกจำนวนเต็ม 1 ถึง ${maxDecrease}` : `ลดได้สูงสุด ${maxDecrease} ถัง`}
+          slotProps={{ htmlInput: { inputMode: "numeric", pattern: "[0-9]*" } }}
+        />
+        <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+          <Button fullWidth variant="contained" color="error" aria-label="ลดจำนวนลง 1" disabled={decreaseAmount <= 1} onClick={() => stepDecrease(-1)}><RemoveIcon /></Button>
+          <Button fullWidth variant="contained" color="success" aria-label="เพิ่มจำนวนขึ้น 1" disabled={decreaseAmount >= maxDecrease} onClick={() => stepDecrease(1)}><AddIcon /></Button>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button disabled={decreasingId !== null} onClick={() => setDecreaseItem(null)}>ยกเลิก</Button>
+        <Button variant="contained" disabled={!isDecreaseValid || decreasingId !== null} onClick={() => void submitDecrease()}>{decreasingId !== null ? "กำลังบันทึก..." : `ลด${decreaseLabels.from}`}</Button>
+      </DialogActions>
+    </Dialog>
+    <Dialog open={!!editingItem} onClose={() => !isSaving && setEditingItem(null)} fullWidth maxWidth="xs"><DialogTitle>แก้ไขรายการสต็อก</DialogTitle><DialogContent sx={{ display: "grid", gap: 2, pt: 2 }}><Select value={editItemCondition} onChange={(event) => setEditItemCondition(event.target.value as InventoryItem["itemCondition"])}><MenuItem value="new">ใหม่</MenuItem><MenuItem value="old">เก่า</MenuItem><MenuItem value="normal">ปกติ</MenuItem></Select><Select displayEmpty value={editStockStatus ?? ""} onChange={(event) => setEditStockStatus(event.target.value ? event.target.value as InventoryItem["stockStatus"] : null)}><MenuItem value="">{isEditingGasCylinder ? "เลือกสถานะถังแก๊ส" : "ไม่ระบุสถานะ"}</MenuItem><MenuItem value="full">ถังเต็ม</MenuItem><MenuItem value="empty">ถังเปล่า</MenuItem><MenuItem value="damaged">ชำรุด</MenuItem></Select><TextField label="จำนวนคงคลัง" type="number" slotProps={{ htmlInput: { min: editingItem?.quantityReserved ?? 0, step: 1 } }} value={editQuantity} onChange={(event) => setEditQuantity(event.target.value)} helperText={isEditingGasCylinder && editingItem?.stockStatus === editStockStatus && (editStockStatus === "full" || editStockStatus === "empty") ? `ถ้าลดจำนวน ${editStockStatus === "full" ? "ถังเปล่า" : "ถังเต็ม"}จะเพิ่มตามจำนวนที่ลดโดยอัตโนมัติ` : undefined} /><TextField label="สต็อกขั้นต่ำ" type="number" slotProps={{ htmlInput: { min: 0, step: 1 } }} value={editMinimumStock} onChange={(event) => setEditMinimumStock(event.target.value)} /><TextField label="หมายเหตุการปรับสต็อก" value={editNote} onChange={(event) => setEditNote(event.target.value)} multiline minRows={2} /></DialogContent><DialogActions><Button disabled={isSaving} onClick={() => setEditingItem(null)}>ยกเลิก</Button><Button variant="contained" disabled={isSaving || Number(editQuantity) < (editingItem?.quantityReserved ?? 0) || Number(editMinimumStock) < 0 || (isEditingGasCylinder && !editStockStatus)} onClick={() => void saveEdit()}>บันทึก</Button></DialogActions></Dialog>
   </Box>;
 }

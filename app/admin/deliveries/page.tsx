@@ -96,7 +96,15 @@ function JobCard({ job, drivers, canAssign, busy, onUpdate }: JobCardProps) {
             <Typography variant="caption" color="text.secondary">กรอกเวลาที่คาดว่าจะถึง แล้วกด &quot;เริ่มจัดส่ง&quot;</Typography>
           )}
           {status === "delivered" && (
-            <Alert severity="info">ส่งถึงลูกค้าแล้ว รอแอดมินยืนยัน &quot;จัดส่งแล้ว&quot; ในหน้าคำสั่งซื้อเพื่อตัดสต๊อก</Alert>
+            // ปกติส่งถึงแล้วออเดอร์จะปิดและหายจากรายการทันที ที่ยังเห็นคือออเดอร์ที่ยังไม่ถูกปิด (เช่น ตัดสต๊อกไม่สำเร็จ)
+            <Alert severity="warning" action={
+              <Button color="inherit" size="small" disabled={busy}
+                onClick={() => void onUpdate(job.orderId, { status: "delivered", estimatedMinutes: null })}>
+                ยืนยันอีกครั้ง
+              </Button>
+            }>
+              ส่งถึงลูกค้าแล้ว แต่ออเดอร์ยังไม่ถูกปิด กด &quot;ยืนยันอีกครั้ง&quot; เพื่อตัดสต๊อกและเปลี่ยนออเดอร์เป็นจัดส่งแล้ว
+            </Alert>
           )}
         </Stack>
       </CardContent>
@@ -148,8 +156,9 @@ export default function DeliveriesPage() {
     setBusyOrderId(orderId);
     setError(null);
     try {
-      await request("/api/delivery", { method: "PATCH", body: JSON.stringify({ orderId, ...body }) });
+      const saved = await request<{ debtWarning?: string | null }>("/api/delivery", { method: "PATCH", body: JSON.stringify({ orderId, ...body }) });
       await load();
+      if (saved?.debtWarning) setError(saved.debtWarning);
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "ไม่สามารถอัปเดตงานจัดส่งได้");
     } finally {
