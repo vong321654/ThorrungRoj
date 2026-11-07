@@ -9,11 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@line/liff": "2.27.3",
     "@mui/icons-material": "^9.3.1",
     "@mui/material": "^9.3.1",
+    "@mui/material-nextjs": "^9.5.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.0",
     "jsonwebtoken": "^9.0.3",

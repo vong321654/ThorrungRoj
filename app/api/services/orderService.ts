@@ -17,7 +17,7 @@ import { notifyOrderCreated } from "./orderNotifyService";
 import { buildPromptPayQrPath } from "./promptPayService";
 import { getOrderableStock } from "./stockService";
 
-const SALE_TYPES = new Set<SaleType>([SALETYPE.SELL, SALETYPE.EXCHANGE]);
+const SALE_TYPES = new Set<SaleType>([SALETYPE.SELL, SALETYPE.EXCHANGE, SALETYPE.REFILL]);
 // ค้างชำระ/ค้างถัง ไม่สร้างรายการชำระเงิน แอดมินจะบันทึกหนี้ในหน้า "หนี้ค้าง" หลังจัดส่งแล้ว
 const PAYMENT_METHODS = new Set<PAYMENTMETHOD>([
   PAYMENTMETHOD.CASH,
@@ -179,8 +179,10 @@ export async function createOrder(
   }
 
   // ซื้อถังและเปลี่ยนถังใช้ถังเต็มจากคลังเดียวกัน จึงรวมจำนวนต่อ productId ก่อนเทียบสต๊อก
+  // ฝากเติมใช้ถังของลูกค้า ไม่กินถังเต็มในคลัง จึงไม่นับ
   const requestedByProduct = new Map<number, number>();
   for (const item of validOrderItems) {
+    if (item.saleType === SALETYPE.REFILL) continue;
     requestedByProduct.set(item.productId, (requestedByProduct.get(item.productId) ?? 0) + item.quantity);
   }
   const stock = await getOrderableStock(productIds);

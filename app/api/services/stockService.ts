@@ -25,7 +25,9 @@ export async function getOrderableStock(productIds?: number[]) {
   let openOrderQuery = supabase
     .from("orderItems")
     .select("productId, quantity, orders!inner(status)")
-    .in("orders.status", OPEN_ORDER_STATUSES);
+    .in("orders.status", OPEN_ORDER_STATUSES)
+    // ฝากเติมใช้ถังของลูกค้า ไม่ได้กันถังเต็มในคลังไว้
+    .neq("saleType", "refill");
   if (productIds) {
     inventoryQuery = inventoryQuery.in("productId", productIds);
     openOrderQuery = openOrderQuery.in("productId", productIds);

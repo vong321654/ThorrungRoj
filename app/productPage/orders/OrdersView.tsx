@@ -33,7 +33,7 @@ const PAYMENT_LABELS: Record<PAYMENTMETHOD, string> = {
 const SALE_TYPE_LABELS = {
   sell: "ซื้อถัง",
   exchange: "เปลี่ยนถัง",
-  refill: "เติมแก๊ส",
+  refill: "ฝากเติม",
 } as const;
 
 function formatBaht(value: number) {
