@@ -6,6 +6,7 @@ import { CartProvider, useCart } from "./CartContext";
 import ThemeRegistry from "./ThemeRegistry";
 import CartDrawer from "./components/CartDrawer";
 import CategoryNavBar from "./components/CategoryNavBar";
+import PrivacyPolicyDialog from "./components/PrivacyPolicyDialog";
 import ShopContactFooter from "./components/ShopContactFooter";
 import SiteTopBar from "./components/SiteTopBar";
 import { useRouter } from "next/navigation";
@@ -45,6 +46,7 @@ export default function ProductShell({ children }: { children: ReactNode }) {
           <ShopContactFooter />
         </Box>
         <CartDrawerConnected />
+        <PrivacyPolicyDialog />
       </CartProvider>
     </ThemeRegistry>
   );

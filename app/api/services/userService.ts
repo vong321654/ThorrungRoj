@@ -19,7 +19,7 @@ export async function getUserById(
   const cookieStore = await cookies();
   const { data, error } = await createClient(cookieStore)
     .from("users")
-    .select("id, lineUserId, name, avatarUrl, address, isActive")
+    .select("id, lineUserId, name, avatarUrl, address, isActive, privacyPolicyVersion")
     .eq("id", userId)
     .maybeSingle();
 
@@ -130,24 +130,46 @@ export async function syncUserFromSupabaseLineAuth(
 
   // OAuth callback runs on the server while the customer record may not yet
   // exist, so this narrowly scoped provisioning operation remains privileged.
-  const { data, error } = await createAdminClient()
+  const supabase = createAdminClient();
+
+  // ลูกค้าใหม่เท่านั้นที่รับชื่อจาก LINE และเริ่มต้นเป็น active
+  // ลูกค้าเดิมต้องไม่ถูกเขียนทับ ไม่งั้นชื่อที่แก้เองจะหายและบัญชีที่ร้านปิดจะกลับมาใช้ได้ (PDPA มาตรา 35, 36)
+  const { error: insertError } = await supabase.from("users").upsert(
+    {
+      authId: authUser.id,
+      lineUserId,
+      name: displayName ?? "LINE User",
+      lineDisplayName: displayName,
+      avatarUrl,
+    },
+    { onConflict: "lineUserId", ignoreDuplicates: true },
+  );
+  if (insertError) return apiError("Failed to sync LINE user");
+
+  const { data, error } = await supabase
     .from("users")
-    .upsert(
-      {
-        authId: authUser.id,
-        lineUserId,
-        name: displayName ?? "LINE User",
-        lineDisplayName: displayName,
-        avatarUrl,
-        isActive: true,
-        updatedAt: new Date().toISOString(),
-      },
-      { onConflict: "lineUserId" },
-    )
+    .update({
+      authId: authUser.id,
+      ...(displayName ? { lineDisplayName: displayName } : {}),
+      updatedAt: new Date().toISOString(),
+    })
+    .eq("lineUserId", lineUserId)
     .select("*")
     .single();
-
   if (error) return apiError("Failed to sync LINE user");
+
+  // avatarUrl เป็น null หมายถึงลูกค้าไม่มีรูปหรือคัดค้านการใช้รูปแล้ว จึงอัปเดตเฉพาะรูปที่มีอยู่ (PDPA มาตรา 32)
+  if (avatarUrl && data.avatarUrl && avatarUrl !== data.avatarUrl) {
+    const { data: updated, error: avatarError } = await supabase
+      .from("users")
+      .update({ avatarUrl })
+      .eq("id", data.id)
+      .select("*")
+      .single();
+    if (avatarError) return apiError("Failed to sync LINE user");
+    return apiSuccess("LINE user synchronized successfully", updated);
+  }
+
   return apiSuccess("LINE user synchronized successfully", data);
 }
 
@@ -176,12 +198,36 @@ export async function getCurrentUser(
     : createClient(await cookies());
   const { data, error } = await profileClient
     .from("users")
-    .select("id, lineUserId, name, avatarUrl, address, isActive")
+    .select("id, lineUserId, name, avatarUrl, address, isActive, privacyPolicyVersion")
     .eq("authId", authUser.id)
     .maybeSingle();
 
   if (error) return apiError("Failed to fetch current user");
   return apiSuccess(data ? "User retrieved successfully" : "User not found", data);
+}
+
+export async function acknowledgePrivacyPolicy(
+  accessToken: string,
+  version: string,
+): Promise<{ result: APIRESULT<null>; status: number }> {
+  const { data: authData, error: authError } = await createAuthenticatedClient(accessToken)
+    .auth.getUser(accessToken);
+  if (authError || !authData.user) {
+    return { result: apiError("Invalid session"), status: 401 };
+  }
+
+  // เขียนด้วย service role เพราะลูกค้าแก้คอลัมน์หลักฐานนี้เองไม่ได้ เวลาจึงมาจากเซิร์ฟเวอร์เท่านั้น
+  const now = new Date().toISOString();
+  const { data, error } = await createAdminClient()
+    .from("users")
+    .update({ privacyPolicyVersion: version, privacyAcknowledgedAt: now, updatedAt: now })
+    .eq("authId", authData.user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { result: apiError("Failed to save acknowledgement"), status: 500 };
+  if (!data) return { result: apiError("Customer profile was not found"), status: 404 };
+  return { result: apiSuccess("Privacy policy acknowledged", null), status: 200 };
 }
 export async function updateUser(
   userId: USERID,

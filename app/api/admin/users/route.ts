@@ -4,6 +4,8 @@ import type { ADMINUSERUPDATEPAYLOAD, ADMINUSERUPDATEVALUES } from "@/app/models
 import { authenticateAdmin } from "../authorization";
 import { isAdminOrSuperAdmin } from "@/app/api/services/adminService";
 
+const CUSTOMER_FIELDS = "id, name, phone, email, address, avatarUrl, contactName, shopName, customerType, isActive, createdAt";
+
 export async function GET(request: Request) {
   const auth = await authenticateAdmin(request);
   if (auth instanceof Response) return auth;
@@ -11,7 +13,8 @@ export async function GET(request: Request) {
 
   const { data, error } = await auth.adminSupabase
     .from("users")
-    .select("id, name, phone, email, address, contactName, shopName, customerType, isActive, createdAt")
+    .select(CUSTOMER_FIELDS)
+    .not("lineUserId", "like", "erased:%")
     .order("createdAt", { ascending: false });
 
   if (error) return Response.json(apiError("Failed to fetch users"), { status: 500 });
@@ -55,6 +58,8 @@ export async function PATCH(request: Request) {
     if (typeof body.isActive !== "boolean") return Response.json(apiError("Invalid active status"), { status: 400 });
     values.isActive = body.isActive;
   }
+  // ลูกค้าคัดค้านการใช้รูปโปรไฟล์ ลบได้อย่างเดียว ค่า null นี้ทำให้การเข้าสู่ระบบครั้งถัดไปไม่ดึงรูปกลับมา
+  if (body.avatarUrl === null) values.avatarUrl = null;
   if (Object.keys(values).length === 0) {
     return Response.json(apiError("No editable fields supplied"), { status: 400 });
   }
@@ -64,7 +69,7 @@ export async function PATCH(request: Request) {
     .from("users")
     .update(values)
     .eq("id", body.id)
-    .select("id, name, phone, email, address, contactName, shopName, customerType, isActive, createdAt")
+    .select(CUSTOMER_FIELDS)
     .maybeSingle();
 
   if (error) return Response.json(apiError("Failed to update user"), { status: 500 });
@@ -88,7 +93,7 @@ export async function DELETE(request: Request) {
     .from("users")
     .update({ isActive: false, updatedAt: new Date().toISOString() })
     .eq("id", id)
-    .select("id, name, phone, email, address, contactName, shopName, customerType, isActive, createdAt")
+    .select(CUSTOMER_FIELDS)
     .maybeSingle();
 
   if (error) return Response.json(apiError("Failed to delete user"), { status: 500 });

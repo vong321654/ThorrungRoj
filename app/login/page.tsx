@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/api/util/supabase/client";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import MuiLink from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import {
@@ -173,7 +175,10 @@ export default function LoginPage() {
             textAlign: "center",
           }}
         >
-          ระบบจะไม่เปิดเผยข้อมูลเข้าสู่ระบบของคุณแก่บุคคลอื่น
+          เมื่อเข้าสู่ระบบ ร้านจะเก็บและใช้ข้อมูลของคุณตาม{" "}
+          <MuiLink component={Link} href="/privacy" color="inherit">
+            นโยบายความเป็นส่วนตัว
+          </MuiLink>
         </Typography>
       </Paper>
     </Box>

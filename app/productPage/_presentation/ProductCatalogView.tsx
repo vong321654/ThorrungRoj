@@ -28,7 +28,8 @@ export default function ProductCatalogView() {
       name: `${product.brandLabel} ${product.weightKg}กก.`,
       price,
       saleType,
-      availableQuantity: product.availableQuantity ?? 0,
+      // null = ไม่จำกัดตามสต๊อก เพราะฝากเติมใช้ถังของลูกค้า
+      availableQuantity: saleType === "refill" ? null : product.availableQuantity ?? 0,
     });
   }
 

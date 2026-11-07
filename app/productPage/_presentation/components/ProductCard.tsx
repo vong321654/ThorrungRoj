@@ -21,7 +21,8 @@ type ProductCardProps = {
 
 const SALE_TYPE_OPTIONS: Array<{ value: SaleType; label: string }> = [
   { value: "sell", label: "ซื้อถัง" },
-  { value: "exchange", label: "เปลี่ยนถัง" }
+  { value: "exchange", label: "เปลี่ยนถัง" },
+  { value: "refill", label: "ฝากเติม" }
 ];
 
 export default function ProductCard({ product, onSelect }: ProductCardProps) {
@@ -36,6 +37,12 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
       : saleType === "exchange"
         ? product.exchangePrice
         : product.refillPrice;
+  // ฝากเติมใช้ถังของลูกค้า จึงสั่งได้แม้ถังเต็มในร้านหมด
+  const isRefill = saleType === "refill";
+  // สินค้าที่ร้านยังไม่ตั้งราคาเติมจะไม่แสดงตัวเลือกนี้
+  const saleTypeOptions = SALE_TYPE_OPTIONS.filter(
+    (option) => option.value !== "refill" || product.refillPrice > 0,
+  );
 
   return (
     <Card variant="outlined" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -68,7 +75,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
           onChange={(event) => setSaleType(event.target.value as SaleType)}
           sx={{ mt: 1 }}
         >
-          {SALE_TYPE_OPTIONS.map((option) => (
+          {saleTypeOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
               {option.label}
             </MenuItem>
@@ -77,9 +84,15 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
           ราคา : {selectedPrice.toLocaleString("th-TH")} บาท
         </Typography>
-        <Typography variant="body2" color={availableQuantity > 0 ? "success.main" : "error.main"} sx={{ mt: 0.5, fontWeight: 600 }}>
-          คงเหลือ: {availableQuantity.toLocaleString("th-TH")} ถัง
-        </Typography>
+        {isRefill ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            ร้านเติมแก๊สใส่ถังเดิมของคุณ
+          </Typography>
+        ) : (
+          <Typography variant="body2" color={availableQuantity > 0 ? "success.main" : "error.main"} sx={{ mt: 0.5, fontWeight: 600 }}>
+            คงเหลือ: {availableQuantity.toLocaleString("th-TH")} ถัง
+          </Typography>
+        )}
       </CardContent>
       <CardActions sx={{ justifyContent: "center", pb: 2 }}>
         <Button
@@ -88,7 +101,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
           size="small"
           sx={{ borderRadius: 5, px: 3 }}
           onClick={() => onSelect(product, saleType)}
-          disabled={!Number.isFinite(selectedPrice) || selectedPrice <= 0 || availableQuantity <= 0}
+          disabled={!Number.isFinite(selectedPrice) || selectedPrice <= 0 || (!isRefill && availableQuantity <= 0)}
         >
           เลือก
         </Button>

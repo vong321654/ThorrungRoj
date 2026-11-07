@@ -1010,12 +1010,15 @@ export type Database = {
           createdAt: string
           customerType: string
           email: string | null
+          erasedAt: string | null
           id: string
           isActive: boolean
           lineDisplayName: string | null
           lineUserId: string
           name: string
           phone: string | null
+          privacyAcknowledgedAt: string | null
+          privacyPolicyVersion: string | null
           shopName: string | null
           updatedAt: string
         }
@@ -1027,12 +1030,15 @@ export type Database = {
           createdAt?: string
           customerType?: string
           email?: string | null
+          erasedAt?: string | null
           id?: string
           isActive?: boolean
           lineDisplayName?: string | null
           lineUserId: string
           name: string
           phone?: string | null
+          privacyAcknowledgedAt?: string | null
+          privacyPolicyVersion?: string | null
           shopName?: string | null
           updatedAt?: string
         }
@@ -1044,12 +1050,15 @@ export type Database = {
           createdAt?: string
           customerType?: string
           email?: string | null
+          erasedAt?: string | null
           id?: string
           isActive?: boolean
           lineDisplayName?: string | null
           lineUserId?: string
           name?: string
           phone?: string | null
+          privacyAcknowledgedAt?: string | null
+          privacyPolicyVersion?: string | null
           shopName?: string | null
           updatedAt?: string
         }
@@ -1175,6 +1184,12 @@ export type Database = {
         }
         Returns: Json
       }
+      eraseCustomerData: { Args: { pUserId: string }; Returns: string }
+      listExpiredTransferSlips: {
+        Args: { pLimit: number }
+        Returns: { id: string; slipImageUrl: string }[]
+      }
+      runPrivacyRetention: { Args: never; Returns: Json }
       reject_qr_payment_slip_as_admin: {
         Args: { p_payment_id: string; p_reason: string; p_slip_id: string }
         Returns: Json

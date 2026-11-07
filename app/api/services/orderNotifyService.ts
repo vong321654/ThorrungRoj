@@ -5,7 +5,7 @@ import { createAdminClient } from "@/app/api/util/supabase/admin";
 import { publicUrl, pushLineMessages, type LineMessage } from "./lineBotService";
 import { buildPromptPayQrPath } from "./promptPayService";
 
-const SALE_LABELS: Record<string, string> = { sell: "ซื้อถัง", exchange: "เปลี่ยนถัง", refill: "เติมแก๊ส" };
+const SALE_LABELS: Record<string, string> = { sell: "ซื้อถัง", exchange: "เปลี่ยนถัง", refill: "ฝากเติม" };
 
 type ORDERNOTIFICATION = {
   orderId: string;

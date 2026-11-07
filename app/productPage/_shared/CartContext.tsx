@@ -24,8 +24,11 @@ const CartContext = createContext<CartContextValue | null>(null);
 
 function getProductQuantity(lines: CartLine[], productId: number | null) {
   if (productId === null) return 0;
+  // รายการที่ไม่จำกัดตามสต๊อก (เช่น ฝากเติม) ไม่กินโควตาถังเต็มของสินค้าเดียวกัน
   return lines.reduce(
-    (total, line) => total + (line.item.productId === productId ? line.quantity : 0),
+    (total, line) =>
+      total +
+      (line.item.productId === productId && line.item.availableQuantity !== null ? line.quantity : 0),
     0,
   );
 }

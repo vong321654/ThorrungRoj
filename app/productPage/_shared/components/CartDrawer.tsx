@@ -28,7 +28,7 @@ function getSaleTypeLabel(item: CartLine["item"]) {
   if (item.source === "part") return "อะไหล่";
   if (item.saleType === "sell") return "ซื้อถัง";
   if (item.saleType === "exchange") return "เปลี่ยนถัง";
-  if (item.saleType === "refill") return "เติมแก๊ส";
+  if (item.saleType === "refill") return "ฝากเติม";
   return "ยังไม่พร้อมจำหน่าย";
 }
 
@@ -45,7 +45,7 @@ export default function CartDrawer({
 }: CartDrawerProps) {
   const quantityByProduct = new Map<number, number>();
   for (const line of lines) {
-    if (line.item.productId === null) continue;
+    if (line.item.productId === null || line.item.availableQuantity === null) continue;
     quantityByProduct.set(
       line.item.productId,
       (quantityByProduct.get(line.item.productId) ?? 0) + line.quantity,

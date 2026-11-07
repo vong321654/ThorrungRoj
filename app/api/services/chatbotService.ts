@@ -113,7 +113,7 @@ async function buildPriceAnswer(message: string): Promise<{ text: string; matche
     const prices = [
       ["ซื้อถัง", formatBaht(product.sellPrice)],
       ["เปลี่ยนถัง", formatBaht(product.exchangePrice)],
-      ["เติมแก๊ส", formatBaht(product.refillPrice)],
+      ["ฝากเติม", formatBaht(product.refillPrice)],
     ]
       .filter(([, price]) => price !== null)
       .map(([type, price]) => `${type} ${price}`);

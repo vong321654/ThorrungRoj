@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Alert, Box, Button, CircularProgress, MenuItem, Paper, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
+import { Alert, Box, Button, Chip, CircularProgress, MenuItem, Paper, Select, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
+import { ADMINROLE } from "@/app/models/admin";
 import { useRequireAdmin, MANAGER_ONLY } from "../useRequireAdmin";
 
 type AdminOrder = {
   id: string; totalAmount: number | string; paymentMethod: string | null; paymentStatus: string; status: string; deliveryAddress: string | null; createdAt: string;
   users: { name: string; phone: string | null; shopName: string | null } | null;
   payments?: Array<{ id: string; method: string; status: string; transferSlips: Array<{ id: string; status: string; createdAt: string }> }>;
+  // API ส่งมาเฉพาะ superAdmin
+  orderItems?: Array<{ id: string; productNameSnapshot: string; quantity: number; saleType: string }>;
 };
 
 type OrderUpdateResult = Pick<AdminOrder, "id" | "paymentMethod" | "paymentStatus" | "status"> & {
@@ -37,6 +40,28 @@ const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   cancelled: "ยกเลิก",
 };
 
+// ใช้ "ซื้อใหม่" เพราะรายการซื้อครอบคลุมทั้งถังและอะไหล่
+const SALE_TYPE_CHIPS: Record<string, { label: string; color: "default" | "info" | "warning" }> = {
+  sell: { label: "ซื้อใหม่", color: "default" },
+  exchange: { label: "เปลี่ยนถัง", color: "info" },
+  refill: { label: "ฝากเติม", color: "warning" },
+};
+
+function OrderItemsCell({ items }: { items: NonNullable<AdminOrder["orderItems"]> }) {
+  if (items.length === 0) return <TableCell>-</TableCell>;
+  return <TableCell sx={{ minWidth: 220 }}>
+    <Stack spacing={0.75}>
+      {items.map((item) => {
+        const chip = SALE_TYPE_CHIPS[item.saleType] ?? { label: item.saleType, color: "default" as const };
+        return <Box key={item.id} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Chip size="small" label={chip.label} color={chip.color} />
+          <Typography variant="body2">{item.productNameSnapshot} × {item.quantity}</Typography>
+        </Box>;
+      })}
+    </Stack>
+  </TableCell>;
+}
+
 function getOrderPaymentStatus(order: AdminOrder): OrderPaymentStatus {
   if (order.paymentStatus === "paid") return "paid";
   if (order.paymentMethod === "pendingPayment") return "pendingPayment";
@@ -46,7 +71,8 @@ function getOrderPaymentStatus(order: AdminOrder): OrderPaymentStatus {
 }
 
 export default function AdminOrdersPage() {
-  const { isAllowed } = useRequireAdmin(MANAGER_ONLY);
+  const { admin, isAllowed } = useRequireAdmin(MANAGER_ONLY);
+  const isSuperAdmin = admin?.role === ADMINROLE.SUPER_ADMIN;
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -127,6 +153,6 @@ export default function AdminOrdersPage() {
     <Typography variant="h5" sx={{ mb: 2 }}>คำสั่งซื้อ</Typography>
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
     {debtNotice && <Alert severity="success" sx={{ mb: 2 }}>{debtNotice}</Alert>}
-    {isLoading ? <CircularProgress /> : !error && orders.length === 0 ? <Paper sx={{ p: 3 }}>ยังไม่มีคำสั่งซื้อ</Paper> : <TableContainer component={Paper}><Table><TableHead><TableRow><TableCell>วันที่</TableCell><TableCell>ลูกค้า</TableCell><TableCell>ยอดรวม</TableCell><TableCell>วิธีชำระเงิน</TableCell><TableCell>สถานะชำระเงิน</TableCell><TableCell>ตรวจสอบการชำระ</TableCell><TableCell>อัปเดตการชำระเงิน</TableCell><TableCell>สถานะคำสั่งซื้อ</TableCell><TableCell>อัปเดตออเดอร์</TableCell></TableRow></TableHead><TableBody>{orders.map((order) => <TableRow key={order.id}><TableCell>{new Date(order.createdAt).toLocaleString("th-TH")}</TableCell><TableCell>{order.users?.shopName || order.users?.name || "-"}</TableCell><TableCell>{Number(order.totalAmount).toLocaleString("th-TH")} บาท</TableCell><TableCell>{order.paymentMethod === "cash" ? "เงินสด" : order.paymentMethod === "qrScan" ? "สแกน QR" : order.paymentMethod === "pendingPayment" ? "ค้างชำระ" : order.paymentMethod === "pendingCart" ? "ค้างถัง" : order.paymentMethod === "pendingBoth" ? "ค้างทั้งถังและเงิน" : "-"}</TableCell><TableCell>{PAYMENT_STATUS_LABELS[getOrderPaymentStatus(order)]}</TableCell><TableCell>{order.paymentMethod === "qrScan" ? <Button size="small" component={Link} href={`/admin/orders/${order.id}`}>ดูสลิป QR</Button> : "-"}</TableCell><TableCell><Select size="small" value={getOrderPaymentStatus(order)} disabled={updatingOrderId === order.id || order.paymentMethod === "qrScan"} onChange={(event) => void updatePaymentStatus(order.id, event.target.value as OrderPaymentStatus)}>{(Object.entries(PAYMENT_STATUS_LABELS) as [OrderPaymentStatus, string][]).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></TableCell><TableCell>{ORDER_STATUS_LABELS[order.status as OrderStatus] ?? order.status}</TableCell><TableCell><Select size="small" value={ORDER_STATUS_LABELS[order.status as OrderStatus] ? order.status : "pending"} disabled={updatingOrderId === order.id} onChange={(event) => void updateOrderStatus(order.id, event.target.value as OrderStatus)}>{(Object.entries(ORDER_STATUS_LABELS) as [OrderStatus, string][]).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></TableCell></TableRow>)}</TableBody></Table></TableContainer>}
+    {isLoading ? <CircularProgress /> : !error && orders.length === 0 ? <Paper sx={{ p: 3 }}>ยังไม่มีคำสั่งซื้อ</Paper> : <TableContainer component={Paper}><Table><TableHead><TableRow><TableCell>วันที่</TableCell><TableCell>ลูกค้า</TableCell>{isSuperAdmin && <TableCell>รายการ</TableCell>}<TableCell>ยอดรวม</TableCell><TableCell>วิธีชำระเงิน</TableCell><TableCell>สถานะชำระเงิน</TableCell><TableCell>ตรวจสอบการชำระ</TableCell><TableCell>อัปเดตการชำระเงิน</TableCell><TableCell>สถานะคำสั่งซื้อ</TableCell><TableCell>อัปเดตออเดอร์</TableCell></TableRow></TableHead><TableBody>{orders.map((order) => <TableRow key={order.id}><TableCell>{new Date(order.createdAt).toLocaleString("th-TH")}</TableCell><TableCell>{order.users?.shopName || order.users?.name || "-"}</TableCell>{isSuperAdmin && <OrderItemsCell items={order.orderItems ?? []} />}<TableCell>{Number(order.totalAmount).toLocaleString("th-TH")} บาท</TableCell><TableCell>{order.paymentMethod === "cash" ? "เงินสด" : order.paymentMethod === "qrScan" ? "สแกน QR" : order.paymentMethod === "pendingPayment" ? "ค้างชำระ" : order.paymentMethod === "pendingCart" ? "ค้างถัง" : order.paymentMethod === "pendingBoth" ? "ค้างทั้งถังและเงิน" : "-"}</TableCell><TableCell>{PAYMENT_STATUS_LABELS[getOrderPaymentStatus(order)]}</TableCell><TableCell>{order.paymentMethod === "qrScan" ? <Button size="small" component={Link} href={`/admin/orders/${order.id}`}>ดูสลิป QR</Button> : "-"}</TableCell><TableCell><Select size="small" value={getOrderPaymentStatus(order)} disabled={updatingOrderId === order.id || order.paymentMethod === "qrScan"} onChange={(event) => void updatePaymentStatus(order.id, event.target.value as OrderPaymentStatus)}>{(Object.entries(PAYMENT_STATUS_LABELS) as [OrderPaymentStatus, string][]).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></TableCell><TableCell>{ORDER_STATUS_LABELS[order.status as OrderStatus] ?? order.status}</TableCell><TableCell><Select size="small" value={ORDER_STATUS_LABELS[order.status as OrderStatus] ? order.status : "pending"} disabled={updatingOrderId === order.id} onChange={(event) => void updateOrderStatus(order.id, event.target.value as OrderStatus)}>{(Object.entries(ORDER_STATUS_LABELS) as [OrderStatus, string][]).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></TableCell></TableRow>)}</TableBody></Table></TableContainer>}
   </Box>;
 }

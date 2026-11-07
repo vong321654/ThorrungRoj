@@ -17,6 +17,9 @@ CREATE TABLE public.users (
   contactName text,
   shopName text,
   customerType text NOT NULL DEFAULT 'individual'::text CHECK ("customerType" = ANY (ARRAY['individual'::text, 'shop'::text])),
+  privacyPolicyVersion text,
+  privacyAcknowledgedAt timestamp with time zone,
+  erasedAt timestamp with time zone,
   CONSTRAINT users_pkey PRIMARY KEY (id),
   CONSTRAINT users_authId_fkey FOREIGN KEY (authId) REFERENCES auth.users(id)
 );
@@ -403,6 +406,9 @@ BEGIN
   FOR v_item IN
     SELECT * FROM public."orderItems" WHERE "orderId" = p_order_id ORDER BY "productId", id
   LOOP
+    -- Refills fill the customer's own cylinder, so no shop stock moves.
+    CONTINUE WHEN v_item."saleType" = 'refill';
+
     SELECT * INTO v_inventory
     FROM public."inventoryProducts"
     WHERE "productId" = v_item."productId" AND "stockStatus" = 'full'

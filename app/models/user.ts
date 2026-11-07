@@ -16,11 +16,14 @@ export type USER = {
   contactName: string | null;
   shopName: string | null;
   customerType: string;
+  privacyPolicyVersion: string | null;
+  privacyAcknowledgedAt: string | null;
+  erasedAt: string | null;
 };
 
 export type CURRENTUSER = Pick<
   USER,
-  "id" | "lineUserId" | "name" | "avatarUrl" | "address" | "isActive"
+  "id" | "lineUserId" | "name" | "avatarUrl" | "address" | "isActive" | "privacyPolicyVersion"
 >;
 
 export type UPDATEUSERPAYLOAD = Pick<USER, "name" | "email" | "phone" | "address">;
