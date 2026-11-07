@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <Container component="main" maxWidth="md" sx={{ py: 3 }}>
+    <Container component="main" maxWidth="md" sx={{ py: { xs: 2, sm: 3 } }}>
       <Typography component="h1" variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
         นโยบายความเป็นส่วนตัว
       </Typography>

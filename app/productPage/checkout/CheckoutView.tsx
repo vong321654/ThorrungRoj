@@ -36,6 +36,8 @@ const PAYMENT_OPTIONS: Array<{ value: PAYMENTMETHOD; label: string; hint: string
   { value: PAYMENTMETHOD.PENDING_BOTH, label: "ค้างทั้งถังและเงิน", hint: "สำหรับรายการเปลี่ยนถัง: รับถังเต็มก่อน แล้วชำระเงินและนำถังเปล่ามาคืนภายหลัง" },
 ];
 
+const sectionSx = { p: { xs: 2, sm: 2.5 } };
+
 function formatBaht(value: number) {
   return `${value.toLocaleString("th-TH")} บาท`;
 }
@@ -184,7 +186,7 @@ export default function CheckoutView() {
 
   if (cart.cartLines.length === 0) {
     return (
-      <Container maxWidth="sm" sx={{ py: 6, flexGrow: 1 }}>
+      <Container maxWidth="sm" sx={{ py: { xs: 3, sm: 6 }, flexGrow: 1 }}>
         <Paper sx={{ p: 3, textAlign: "center" }}>
           <Typography variant="h6">ไม่มีสินค้าในตะกร้า</Typography>
           <Button sx={{ mt: 2 }} variant="contained" onClick={() => router.push("/productPage")}>
@@ -196,7 +198,7 @@ export default function CheckoutView() {
   }
 
   return (
-    <Container component="main" maxWidth="md" sx={{ py: 4, flexGrow: 1 }}>
+    <Container component="main" maxWidth="md" sx={{ py: { xs: 2, sm: 3, md: 4 }, flexGrow: 1 }}>
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>
         ยืนยันคำสั่งซื้อ
       </Typography>
@@ -204,13 +206,13 @@ export default function CheckoutView() {
         <Stack spacing={2}>
           {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
-          <Paper sx={{ p: 2.5 }}>
+          <Paper sx={sectionSx}>
             <Typography variant="h6" sx={{ mb: 1 }}>รายการสินค้า</Typography>
             {cart.cartLines.map((line) => (
               <Box key={line.item.id} sx={{ py: 1.25 }}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
-                  <Typography>{line.item.name} × {line.quantity}</Typography>
-                  <Typography sx={{ fontWeight: 600 }}>
+                  <Typography sx={{ minWidth: 0, overflowWrap: "anywhere" }}>{line.item.name} × {line.quantity}</Typography>
+                  <Typography sx={{ flexShrink: 0, fontWeight: 600, whiteSpace: "nowrap" }}>
                     {formatBaht((line.item.price ?? 0) * line.quantity)}
                   </Typography>
                 </Box>
@@ -226,7 +228,7 @@ export default function CheckoutView() {
             </Typography>
           </Paper>
 
-          <Paper sx={{ p: 2.5 }}>
+          <Paper sx={sectionSx}>
             <TextField
               label="ที่อยู่จัดส่ง"
               value={deliveryAddress}
@@ -247,8 +249,8 @@ export default function CheckoutView() {
             />
           </Paper>
 
-          <Paper sx={{ p: 2.5 }}>
-            <FormControl>
+          <Paper sx={sectionSx}>
+            <FormControl fullWidth>
               <FormLabel>วิธีชำระเงิน</FormLabel>
               <RadioGroup
                 value={paymentMethod}
@@ -265,14 +267,15 @@ export default function CheckoutView() {
                         <Typography variant="caption" color="text.secondary">{option.hint}</Typography>
                       </Box>
                     }
-                    sx={{ alignItems: "flex-start", mb: 1 }}
+                    sx={{ alignItems: "flex-start", mb: 1, mr: 0 }}
                   />
                 ))}
               </RadioGroup>
             </FormControl>
           </Paper>
 
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ justifyContent: "flex-end" }}>
+          {/* มือถือปุ่มเรียงแนวตั้ง โดยให้ปุ่มยืนยันอยู่บนสุด */}
+          <Stack direction={{ xs: "column-reverse", sm: "row" }} spacing={1.5} useFlexGap sx={{ justifyContent: "flex-end" }}>
             <Button variant="outlined" onClick={() => router.back()} disabled={isSubmitting}>
               กลับไปแก้ไขตะกร้า
             </Button>

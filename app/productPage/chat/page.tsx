@@ -22,11 +22,15 @@ export default function ChatPage() {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nextId = useRef(1);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, isSending]);
+  // เลื่อนเฉพาะกล่องแชท ถ้าใช้ scrollIntoView ทั้งหน้าจะกระโดดลงตอนเปิดบนมือถือ
+  function scrollPanelToBottom() {
+    const panel = panelRef.current;
+    panel?.scrollTo({ top: panel.scrollHeight, behavior: "smooth" });
+  }
+
+  useEffect(scrollPanelToBottom, [messages, isSending]);
 
   async function send(text: string) {
     const message = text.trim();
@@ -65,9 +69,22 @@ export default function ChatPage() {
   }
 
   return (
-    <Container component="main" maxWidth="sm" sx={{ py: 3, flexGrow: 1, display: "flex", flexDirection: "column" }}>
+    <Container component="main" maxWidth="sm" sx={{ py: { xs: 2, sm: 3 }, flexGrow: 1, display: "flex", flexDirection: "column" }}>
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>แชทบอทช่วยเหลือ</Typography>
-      <Paper variant="outlined" sx={{ flexGrow: 1, p: 2, minHeight: 360, maxHeight: "60vh", overflowY: "auto", bgcolor: "#f9fafb" }}>
+      <Paper
+        ref={panelRef}
+        variant="outlined"
+        sx={{
+          flexGrow: 1,
+          p: { xs: 1.5, sm: 2 },
+          minHeight: { xs: 280, sm: 360 },
+          maxHeight: { xs: "50vh", sm: "60vh" },
+          overflowY: "auto",
+          bgcolor: "#f9fafb",
+          // มือถือแนวนอนจอเตี้ย ต้องเหลือพื้นที่ให้ช่องพิมพ์
+          "@media (max-height: 500px)": { minHeight: 180, maxHeight: "50vh" },
+        }}
+      >
         <Stack spacing={1.5}>
           {messages.map((message) => (
             <Box key={message.id} sx={{ display: "flex", justifyContent: message.from === "user" ? "flex-end" : "flex-start" }}>
@@ -88,7 +105,10 @@ export default function ChatPage() {
                 <Typography variant="body2" component="div">{message.text}</Typography>
                 {message.imageUrl && (
                   <Box component="img" src={message.imageUrl} alt="ภาพประกอบ" loading="lazy"
-                    sx={{ mt: 1, maxWidth: "100%", borderRadius: 1 }}
+                    // จำกัดตามความสูงจอ กันรูปดันข้อความคำตอบหลุดจากกล่องแชทบนจอเตี้ย
+                    sx={{ display: "block", mt: 1, maxWidth: "100%", maxHeight: "30vh", objectFit: "contain", borderRadius: 1 }}
+                    // รูปโหลดเสร็จแล้วข้อความสูงขึ้น ต้องเลื่อนตามอีกครั้ง
+                    onLoad={scrollPanelToBottom}
                     onError={(event) => { event.currentTarget.style.display = "none"; }} />
                 )}
               </Box>
@@ -97,15 +117,34 @@ export default function ChatPage() {
           {isSending && (
             <Typography variant="caption" color="text.secondary">กำลังพิมพ์...</Typography>
           )}
-          <div ref={bottomRef} />
         </Stack>
       </Paper>
 
       {error && <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>}
 
-      <Stack direction="row" spacing={1} sx={{ mt: 1.5, flexWrap: "wrap", rowGap: 1 }}>
+      {/* มือถือ: เลื่อนข้างแถวเดียว เพื่อไม่ให้ดันช่องพิมพ์ลงไปนอกจอ */}
+      <Stack
+        direction="row"
+        spacing={1}
+        useFlexGap
+        sx={{
+          mt: 1.5,
+          flexWrap: { xs: "nowrap", sm: "wrap" },
+          overflowX: { xs: "auto", sm: "visible" },
+          scrollbarWidth: "none",
+          "&::-webkit-scrollbar": { display: "none" },
+        }}
+      >
         {quickReplies.map((reply) => (
-          <Chip key={reply} label={reply} variant="outlined" clickable disabled={isSending} onClick={() => void send(reply)} />
+          <Chip
+            key={reply}
+            label={reply}
+            variant="outlined"
+            clickable
+            disabled={isSending}
+            onClick={() => void send(reply)}
+            sx={{ flexShrink: 0, "@media (pointer: coarse)": { height: 40, borderRadius: 5 } }}
+          />
         ))}
       </Stack>
 
@@ -118,7 +157,7 @@ export default function ChatPage() {
           fullWidth
           slotProps={{ htmlInput: { maxLength: 500 } }}
         />
-        <Button type="submit" variant="contained" disabled={isSending || !input.trim()}>ส่ง</Button>
+        <Button type="submit" variant="contained" disabled={isSending || !input.trim()} sx={{ flexShrink: 0 }}>ส่ง</Button>
       </Box>
     </Container>
   );

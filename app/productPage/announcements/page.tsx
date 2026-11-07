@@ -32,7 +32,7 @@ export default function CustomerAnnouncementsPage() {
   }, []);
 
   return (
-    <Container component="main" maxWidth="md" sx={{ py: 4, flexGrow: 1 }}>
+    <Container component="main" maxWidth="md" sx={{ py: { xs: 2, sm: 3, md: 4 }, flexGrow: 1 }}>
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>โปรโมชั่นและประกาศจากร้าน</Typography>
       {isLoading ? <CircularProgress /> : error ? <Alert severity="error">{error}</Alert> : (
         <Stack spacing={2}>
@@ -41,18 +41,18 @@ export default function CustomerAnnouncementsPage() {
             <Card key={item.id} variant="outlined">
               {item.imageUrl && (
                 <Box component="img" src={item.imageUrl} alt={item.title} loading="lazy"
-                  sx={{ width: "100%", maxHeight: 280, objectFit: "cover", display: "block" }}
+                  sx={{ width: "100%", maxHeight: { xs: 200, sm: 280, md: 360 }, objectFit: "cover", display: "block" }}
                   onError={(event) => { event.currentTarget.style.display = "none"; }} />
               )}
               <CardContent>
-                <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
+                <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap", mb: 1 }}>
                   <Chip size="small" color={item.type === ANNOUNCEMENTTYPE.PROMOTION ? "error" : "default"} label={TYPE_LABELS[item.type] ?? item.type} />
                   <Typography variant="caption" color="text.secondary">
                     {new Date(item.publishedAt ?? item.createdAt).toLocaleDateString("th-TH", { dateStyle: "long" })}
                   </Typography>
                 </Stack>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>{item.title}</Typography>
-                {item.content && <Typography sx={{ mt: 1, whiteSpace: "pre-wrap" }}>{item.content}</Typography>}
+                <Typography variant="h6" sx={{ fontSize: { xs: "1.0625rem", sm: "1.25rem" }, fontWeight: 700, overflowWrap: "anywhere" }}>{item.title}</Typography>
+                {item.content && <Typography sx={{ mt: 1, overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>{item.content}</Typography>}
                 {item.expiresAt && (
                   <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
                     ถึงวันที่ {new Date(item.expiresAt).toLocaleDateString("th-TH", { dateStyle: "long" })}

@@ -14,6 +14,9 @@ type ProductFiltersProps = {
   onChange: (patch: Partial<ProductFilterState>) => void;
 };
 
+// จอมือถือ: ตัวกรองสองช่องแบ่งครึ่งแถวเดียวกัน จอใหญ่ใช้ขนาดคงที่
+const filterControlSx = { flex: { xs: "1 1 0", sm: "0 0 180px" }, minWidth: 0 };
+
 export default function ProductFilters({ filter, options, onChange }: ProductFiltersProps) {
   function handleBrandChange(event: SelectChangeEvent) {
     const value = event.target.value;
@@ -26,8 +29,8 @@ export default function ProductFilters({ filter, options, onChange }: ProductFil
   }
 
   return (
-    <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap", px: { xs: 2, md: 3 }, py: 2 }}>
-      <FormControl size="small" sx={{ minWidth: 180 }}>
+    <Box sx={{ display: "flex", gap: { xs: 1.5, sm: 3 }, px: { xs: 2, md: 3 }, py: 2 }}>
+      <FormControl size="small" sx={filterControlSx}>
         <Typography variant="caption" sx={{ mb: 0.5, fontWeight: 600 }}>
           ยี่ห้อถัง
         </Typography>
@@ -45,7 +48,7 @@ export default function ProductFilters({ filter, options, onChange }: ProductFil
         </Select>
       </FormControl>
 
-      <FormControl size="small" sx={{ minWidth: 180 }}>
+      <FormControl size="small" sx={filterControlSx}>
         <Typography variant="caption" sx={{ mb: 0.5, fontWeight: 600 }}>
           น้ำหนักของถัง
         </Typography>
