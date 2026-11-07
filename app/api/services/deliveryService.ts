@@ -15,6 +15,7 @@ import { createAdminClient } from "@/app/api/util/supabase/admin";
 import { createAuthenticatedClient } from "@/app/api/util/supabase/authenticated";
 import { apiError, apiSuccess } from "../response";
 import { isAdminOrSuperAdmin } from "./adminService";
+import { recordDebtForDeliveredOrder } from "./debtService";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 // ออเดอร์ที่ยังต้องจัดส่ง
@@ -234,7 +235,7 @@ function parseUpdate(payload: unknown) {
 export async function updateDelivery(
   auth: ADMINAUTH,
   payload: unknown,
-): Promise<SERVICERESULT<DELIVERYTRACKING>> {
+): Promise<SERVICERESULT<DELIVERYTRACKING & { debtWarning: string | null }>> {
   const parsed = parseUpdate(payload);
   if (!parsed.ok) return failure(parsed.message, 400);
 
@@ -281,6 +282,19 @@ export async function updateDelivery(
     if (!driver) return failure("Driver not found or inactive", 400);
   }
 
+  // ส่งถึงแล้ว = ออเดอร์จัดส่งแล้ว: ตัดสต๊อกและปิดออเดอร์ในทรานแซกชันเดียวกับปุ่ม "จัดส่งแล้ว" ในหน้าคำสั่งซื้อ
+  // ทำก่อนบันทึกสถานะขนส่ง ถ้าถังเต็มไม่พอจะได้ไม่ค้างว่า "ส่งถึงแล้ว" ทั้งที่ออเดอร์ยังไม่ปิด
+  // ฟังก์ชันล็อกแถวออเดอร์และปฏิเสธออเดอร์ที่จัดส่งแล้ว/ยกเลิก จึงไม่ตัดสต๊อกซ้ำแม้กดพร้อมกันสองหน้า
+  // ใช้ service role เพราะคนส่งที่เป็นพนักงานเรียก fulfill_order_as_admin (เฉพาะแอดมิน) ไม่ได้ สิทธิ์ตรวจแล้วข้างบน
+  if (parsed.status === "delivered") {
+    const { error: fulfillError } = await supabase
+      .rpc("fulfill_order_and_deduct_inventory", { p_order_id: parsed.orderId, p_admin_id: auth.admin.id })
+      .single();
+    if (fulfillError) {
+      return failure("Unable to mark as delivered because inventory could not be updated (not enough full cylinders?)", 400);
+    }
+  }
+
   const now = new Date().toISOString();
   const values: Record<string, unknown> = { updatedAt: now };
   if (parsed.status !== undefined) values.status = parsed.status;
@@ -296,12 +310,12 @@ export async function updateDelivery(
     : supabase.from("deliveryTracking").insert({ orderId: parsed.orderId, ...values });
   const { data: saved, error: saveError } = await query.select(TRACKING_FIELDS).single();
   if (saveError || !saved) {
+    if (parsed.status === "delivered") return failure("Order was marked as delivered but the delivery status could not be saved", 500);
     if (saveError?.code === "23505") return failure("Delivery was just created by someone else, please retry", 409);
     return failure("Failed to save delivery", 500);
   }
 
   // เริ่มนำส่งแล้ว ให้สถานะออเดอร์ที่ลูกค้าเห็นเป็น "กำลังจัดส่ง"
-  // ส่วน "จัดส่งแล้ว" ของออเดอร์ต้องให้แอดมินยืนยัน เพราะต้องตัดสต๊อกในคลังพร้อมกัน
   // เงื่อนไข status ในคำสั่ง update กันกรณีแอดมินเพิ่งยืนยัน "จัดส่งแล้ว"/ยกเลิก ระหว่างที่เรากำลังบันทึก
   // (ถ้าเขียนทับเป็น delivering จะทำให้ออเดอร์ถูกตัดสต๊อกซ้ำได้)
   if (parsed.status === "inTransit" && ["pending", "preparing"].includes(order.status as string)) {
@@ -315,7 +329,14 @@ export async function updateDelivery(
     }
   }
 
+  // บันทึกหนี้อัตโนมัติ (ค้างเงิน/ค้างถัง) เหมือนการยืนยันจัดส่งในหน้าคำสั่งซื้อ
+  // ออเดอร์ปิดและตัดสต๊อกไปแล้ว ถ้าขั้นนี้พลาดจึงแจ้งเตือนแทนการตอบ error ไม่ให้กดซ้ำ
+  let debtWarning: string | null = null;
+  if (parsed.status === "delivered") {
+    debtWarning = (await recordDebtForDeliveredOrder(supabase, parsed.orderId, auth.admin.id)).warning;
+  }
+
   const row = saved as TrackingRow;
   const names = await loadDriverNames([row.driverId]);
-  return { result: apiSuccess("Delivery updated", toTracking(row, names)), status: 200 };
+  return { result: apiSuccess("Delivery updated", { ...toTracking(row, names), debtWarning }), status: 200 };
 }

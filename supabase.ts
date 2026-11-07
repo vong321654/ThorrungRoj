@@ -1143,6 +1143,10 @@ export type Database = {
         Returns: boolean
       }
       currentuserownsorder: { Args: { p_order_id: string }; Returns: boolean }
+      decrease_cylinder_as_admin: {
+        Args: { p_inventory_id: string; p_quantity?: number }
+        Returns: Json
+      }
       delete_inventory_as_admin: {
         Args: { p_inventory_id: string }
         Returns: Json
