@@ -16,8 +16,8 @@ type PartCardProps = {
 export default function PartCard({ part, onSelect }: PartCardProps) {
   return (
     <Card variant="outlined" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <Box sx={{ height: 140, bgcolor: "#e5e7eb", borderTop: "6px solid #b91c1c" }} />
-      <CardContent sx={{ flexGrow: 1, textAlign: "center", pb: 0 }}>
+      <Box sx={{ height: { xs: 90, sm: 140 }, bgcolor: "#e5e7eb", borderTop: "6px solid #b91c1c" }} />
+      <CardContent sx={{ flexGrow: 1, textAlign: "center", px: { xs: 1.25, sm: 2 }, pb: 0 }}>
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {part.name}
         </Typography>
@@ -32,12 +32,12 @@ export default function PartCard({ part, onSelect }: PartCardProps) {
           คงเหลือ: {part.availableQuantity.toLocaleString("th-TH")} ชิ้น
         </Typography>
       </CardContent>
-      <CardActions sx={{ justifyContent: "center", pb: 2 }}>
+      <CardActions sx={{ justifyContent: "center", px: { xs: 1.25, sm: 1 }, pb: { xs: 1.25, sm: 2 } }}>
         <Button
           variant="contained"
           color="error"
           size="small"
-          sx={{ borderRadius: 5, px: 3 }}
+          sx={{ borderRadius: 5, px: 3, width: { xs: "100%", sm: "auto" } }}
           onClick={() => onSelect(part)}
           disabled={part.availableQuantity <= 0}
         >

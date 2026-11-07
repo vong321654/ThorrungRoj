@@ -3,9 +3,37 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import Avatar from "@mui/material/Avatar";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import ListSubheader from "@mui/material/ListSubheader";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import Typography from "@mui/material/Typography";
 import type { CURRENTUSER } from "@/app/models/user";
 import LogoutButton from "./LogoutButton";
 import { createClient } from "@/app/api/util/supabase/client";
+
+// ต้องตรงกับ belowHeaderMinHeightSx ใน UI/authStyles.ts
+const HEADER_HEIGHT = 64;
+
+const avatarSx = {
+  bgcolor: "#15803d",
+  border: "2px solid #dcfce7",
+  fontSize: "0.875rem",
+  fontWeight: 700,
+  height: 40,
+  width: 40,
+};
+
+const headerActionSx = {
+  fontSize: "0.875rem",
+  fontWeight: 600,
+  minHeight: 44,
+  textTransform: "none",
+  whiteSpace: "nowrap",
+};
 
 type CurrentUserResponse = {
   status: "success" | "error";
@@ -75,6 +103,7 @@ function loadCurrentUser() {
 export default function Header() {
   const pathname = usePathname();
   const [user, setUser] = useState<CURRENTUSER | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
 
   const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
 
@@ -104,33 +133,91 @@ export default function Header() {
   if (isAdminPath) return null;
 
   const initial = user?.name?.trim().charAt(0).toUpperCase() || "U";
+  const displayName = user?.name || "ผู้ใช้";
+  const avatar = (
+    <Avatar
+      src={user?.avatarUrl ?? undefined}
+      alt={`รูปโปรไฟล์ ${displayName}`}
+      slotProps={{ img: { referrerPolicy: "no-referrer" } }}
+      sx={avatarSx}
+    >
+      {initial}
+    </Avatar>
+  );
 
   return (
-    <header className="site-header">
-      <div className="site-header__brand">ร้านแก๊สทอรุ่งโรจน์</div>
+    <Box
+      component="header"
+      sx={{
+        alignItems: "center",
+        bgcolor: "#ffffff",
+        borderBottom: "1px solid #e5e7eb",
+        display: "flex",
+        gap: 1,
+        justifyContent: "space-between",
+        minHeight: HEADER_HEIGHT,
+        px: { xs: 2, sm: 3, md: 6 },
+        py: 1,
+      }}
+    >
+      <Typography
+        component="div"
+        noWrap
+        sx={{ color: "#166534", fontSize: { xs: "1rem", sm: "1.125rem" }, fontWeight: 700, minWidth: 0 }}
+      >
+        ร้านแก๊สทอรุ่งโรจน์
+      </Typography>
 
       {user && (
-        <div className="site-header__user" aria-label={`ผู้ใช้ ${user.name ?? "ผู้ใช้"}`}>
-          <span className="site-header__user-name">{user.name || "ผู้ใช้"}</span>
-          {user.avatarUrl ? (
-            <img
-              className="site-header__avatar"
-              src={user.avatarUrl}
-              alt={`รูปโปรไฟล์ ${user.name ?? "ผู้ใช้"}`}
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <span className="site-header__avatar site-header__avatar--fallback" aria-hidden="true">
-              {initial}
-            </span>
-          )}
-          <Link className="site-header__edit" href="/manageUser/editUser">
-            แก้ไขข้อมูลส่วนตัว
-          </Link>
-          <LogoutButton />
-        </div>
-      )}
+        <>
+          {/* แท็บเล็ตขึ้นไป: แสดงปุ่มเรียงในแถบเลย ส่วนชื่อแสดงเมื่อจอกว้างพอ (md) */}
+          <Box
+            aria-label={`ผู้ใช้ ${displayName}`}
+            sx={{ alignItems: "center", display: { xs: "none", sm: "flex" }, flexShrink: 0, gap: 1.25 }}
+          >
+            <Typography
+              noWrap
+              sx={{ color: "#374151", display: { xs: "none", md: "block" }, fontSize: "0.9375rem", fontWeight: 600, maxWidth: 180 }}
+            >
+              {displayName}
+            </Typography>
+            {avatar}
+            <Button component={Link} href="/manageUser/editUser" variant="outlined" color="success" sx={headerActionSx}>
+              แก้ไขข้อมูลส่วนตัว
+            </Button>
+            <LogoutButton sx={headerActionSx} />
+          </Box>
 
-    </header>
+          {/* มือถือ: แถบกว้างไม่พอ จึงรวมคำสั่งไว้ในเมนูที่เปิดจากรูปโปรไฟล์ */}
+          <IconButton
+            aria-label="เมนูบัญชีผู้ใช้"
+            aria-haspopup="menu"
+            aria-expanded={menuAnchor ? "true" : undefined}
+            onClick={(event) => setMenuAnchor(event.currentTarget)}
+            sx={{ display: { xs: "inline-flex", sm: "none" }, flexShrink: 0, height: 44, p: 0, width: 44 }}
+          >
+            {avatar}
+          </IconButton>
+          <Menu
+            anchorEl={menuAnchor}
+            open={Boolean(menuAnchor)}
+            onClose={() => setMenuAnchor(null)}
+            anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+            transformOrigin={{ horizontal: "right", vertical: "top" }}
+          >
+            <ListSubheader
+              component="div"
+              sx={{ lineHeight: 2.5, maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+            >
+              {displayName}
+            </ListSubheader>
+            <MenuItem component={Link} href="/manageUser/editUser" onClick={() => setMenuAnchor(null)} sx={{ minHeight: 44 }}>
+              แก้ไขข้อมูลส่วนตัว
+            </MenuItem>
+            <LogoutButton asMenuItem sx={{ color: "error.main", minHeight: 44 }} />
+          </Menu>
+        </>
+      )}
+    </Box>
   );
 }

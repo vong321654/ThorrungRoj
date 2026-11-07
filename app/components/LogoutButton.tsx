@@ -2,8 +2,17 @@
 
 import { useState } from "react";
 import liff from "@line/liff";
+import Button from "@mui/material/Button";
+import MenuItem from "@mui/material/MenuItem";
+import type { SxProps, Theme } from "@mui/material/styles";
 
-export default function LogoutButton() {
+type LogoutButtonProps = {
+  /** แสดงเป็นรายการในเมนูบัญชีของจอมือถือ แทนปุ่มปกติ */
+  asMenuItem?: boolean;
+  sx?: SxProps<Theme>;
+};
+
+export default function LogoutButton({ asMenuItem = false, sx }: LogoutButtonProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   async function handleLogout() {
@@ -23,14 +32,26 @@ export default function LogoutButton() {
     }
   }
 
+  const label = isLoggingOut ? "กำลังออกจากระบบ..." : "ออกจากระบบ";
+
+  if (asMenuItem) {
+    return (
+      <MenuItem onClick={handleLogout} disabled={isLoggingOut} sx={sx}>
+        {label}
+      </MenuItem>
+    );
+  }
+
   return (
-    <button
-      className="site-header__logout"
+    <Button
       type="button"
+      variant="outlined"
+      color="error"
       onClick={handleLogout}
       disabled={isLoggingOut}
+      sx={sx}
     >
-      {isLoggingOut ? "กำลังออกจากระบบ..." : "ออกจากระบบ"}
-    </button>
+      {label}
+    </Button>
   );
 }

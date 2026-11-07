@@ -46,7 +46,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
 
   return (
     <Card variant="outlined" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <Box sx={{ height: 140, p: 2, display: "flex", justifyContent: "center", bgcolor: "#f9fafb" }}>
+      <Box sx={{ height: { xs: 110, sm: 140 }, p: { xs: 1, sm: 2 }, display: "flex", justifyContent: "center", bgcolor: "#f9fafb" }}>
         {imageUrl ? (
           <Box
             component="img"
@@ -57,12 +57,12 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
             sx={{ width: "100%", height: "100%", objectFit: "contain" }}
           />
         ) : (
-          <Box sx={{ width: 90 }}>
+          <Box sx={{ width: { xs: 70, sm: 90 } }}>
             <GasCylinderGlyph accentColor={accentColor} label={product.brandLabel.charAt(0)} />
           </Box>
         )}
       </Box>
-      <CardContent sx={{ flexGrow: 1, textAlign: "center", pb: 0 }}>
+      <CardContent sx={{ flexGrow: 1, textAlign: "center", px: { xs: 1.25, sm: 2 }, pb: 0 }}>
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {product.brandLabel} {product.weightKg}กก.
         </Typography>
@@ -73,7 +73,15 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
           label="รูปแบบการซื้อ"
           value={saleType}
           onChange={(event) => setSaleType(event.target.value as SaleType)}
-          sx={{ mt: 1 }}
+          sx={{
+            mt: 1,
+            // การ์ดบนมือถือแคบ ลด padding เพื่อให้ "เปลี่ยนถัง" แสดงครบไม่ถูกตัด
+            "& .MuiSelect-select.MuiSelect-select": {
+              pl: { xs: 1, sm: 1.75 },
+              pr: { xs: 3, sm: 4 },
+              "@media (max-width: 319.95px)": { pl: 0.5 },
+            },
+          }}
         >
           {saleTypeOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
@@ -94,12 +102,12 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
           </Typography>
         )}
       </CardContent>
-      <CardActions sx={{ justifyContent: "center", pb: 2 }}>
+      <CardActions sx={{ justifyContent: "center", px: { xs: 1.25, sm: 1 }, pb: { xs: 1.25, sm: 2 } }}>
         <Button
           variant="contained"
           color="error"
           size="small"
-          sx={{ borderRadius: 5, px: 3 }}
+          sx={{ borderRadius: 5, px: 3, width: { xs: "100%", sm: "auto" } }}
           onClick={() => onSelect(product, saleType)}
           disabled={!Number.isFinite(selectedPrice) || selectedPrice <= 0 || (!isRefill && availableQuantity <= 0)}
         >

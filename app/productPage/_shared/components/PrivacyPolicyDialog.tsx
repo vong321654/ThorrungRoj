@@ -7,6 +7,8 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import type { Theme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/models/api";
 import type { CURRENTUSER } from "@/app/models/user";
@@ -27,6 +29,7 @@ export default function PrivacyPolicyDialog() {
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isPhone = useMediaQuery((theme: Theme) => theme.breakpoints.down("sm"), { noSsr: true });
 
   useEffect(() => {
     let isCancelled = false;
@@ -89,7 +92,7 @@ export default function PrivacyPolicyDialog() {
   }
 
   return (
-    <Dialog open={open} scroll="paper" fullWidth maxWidth="sm" aria-labelledby="privacyPolicyTitle">
+    <Dialog open={open} scroll="paper" fullWidth fullScreen={isPhone} maxWidth="sm" aria-labelledby="privacyPolicyTitle">
       <DialogTitle id="privacyPolicyTitle" sx={{ fontWeight: 700 }}>
         นโยบายความเป็นส่วนตัว
       </DialogTitle>

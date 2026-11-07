@@ -11,6 +11,7 @@ import ShopContactFooter from "./components/ShopContactFooter";
 import SiteTopBar from "./components/SiteTopBar";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/api/util/supabase/client";
+import { belowHeaderMinHeightSx } from "@/app/components/UI/authStyles";
 
 function CartDrawerConnected() {
   const cart = useCart();
@@ -39,7 +40,7 @@ export default function ProductShell({ children }: { children: ReactNode }) {
   return (
     <ThemeRegistry>
       <CartProvider>
-        <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh", bgcolor: "background.default" }}>
+        <Box sx={{ ...belowHeaderMinHeightSx, display: "flex", flexDirection: "column", bgcolor: "background.default" }}>
           <SiteTopBar />
           <CategoryNavBar />
           {children}
