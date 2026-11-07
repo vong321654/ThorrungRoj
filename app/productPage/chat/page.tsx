@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Alert, Box, Button, Chip, Container, Paper, Stack, TextField, Typography } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
+import { GREETING_ANSWER, QUICK_REPLIES } from "@/app/api/services/chatbotFaq";
 
 type ChatMessage = { id: number; from: "user" | "bot"; text: string; imageUrl?: string | null };
 type ChatReply = { reply: string; imageUrl: string | null; quickReplies: string[] };
@@ -11,13 +12,12 @@ type ChatReply = { reply: string; imageUrl: string | null; quickReplies: string[
 const WELCOME: ChatMessage = {
   id: 0,
   from: "bot",
-  text: "สวัสดีครับ ผมเป็นแชทบอทของก๊าซทอรุ่งโรจน์ ถามราคาสินค้าหรือปัญหาการใช้แก๊สได้เลยครับ เช่น \"ราคาถัง 15 กก.\" หรือ \"หัวปรับรั่ว\"",
+  text: GREETING_ANSWER,
 };
-const DEFAULT_QUICK_REPLIES = ["ราคาถังแก๊ส", "หัวปรับแก๊สรั่ว", "เตาแก๊สจุดไม่ติด", "ได้กลิ่นแก๊ส", "วิธีสั่งซื้อ", "การชำระเงิน"];
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
-  const [quickReplies, setQuickReplies] = useState<string[]>(DEFAULT_QUICK_REPLIES);
+  const [quickReplies, setQuickReplies] = useState<string[]>(QUICK_REPLIES);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -152,7 +152,7 @@ export default function ChatPage() {
         <TextField
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="พิมพ์คำถาม เช่น ราคาถัง 15 กก."
+          placeholder="เช่น มีถัง 15 กก. ไหม, แก๊สไม่ออก"
           size="small"
           fullWidth
           slotProps={{ htmlInput: { maxLength: 500 } }}
