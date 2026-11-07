@@ -13,6 +13,7 @@ import {
   isGreeting,
   isPriceQuestion,
   isPromotionQuestion,
+  isPartsQuestion,
   isStockQuestion,
   matchFaq,
   matchUrgentFaq,
@@ -27,7 +28,7 @@ const MAX_PROMOTIONS = 3;
 // คำที่ไม่ได้บอกว่าถามสินค้าอะไร ตัดทิ้งก่อนเอาคำที่เหลือไปเทียบชื่อสินค้า
 const PRODUCT_FILLER_WORDS = [
   ...PRICE_KEYWORDS, "ของ", "ครับ", "ค่ะ", "คะ", "หน่อย", "ขอ", "ถาม", "ที่", "คือ", "เป็น",
-  "ถัง", "แก๊ส", "ก๊าซ", "สินค้า", "อะไหล่", "ทั้งหมด",
+  "ถัง", "แก๊ส", "แก็ส", "ก๊าซ", "สินค้า", "อะไหล่", "อุปกรณ์", "ทั้งหมด", "เกี่ยวกับ", "จำหน่าย", "ชนิด", "ประเภท", "ใน",
   "หรือเปล่า", "รึเปล่า", "หรือไม่", "ป่าว", "ไหม", "มั้ย", "มั๊ย", "มีขาย", "มี", "ขาย", "เหลือ", "หมด", "กี่",
   "ยัง", "สต็อก", "สต๊อก", "พร้อมส่ง", "อะไร", "บ้าง", "ตอนนี้", "ร้าน",
 ];
@@ -124,14 +125,14 @@ async function buildProductAnswer(message: string): Promise<{ text: string; matc
 
   const matched = [...new Map([...nameMatches, ...tankMatches].map((product) => [product.id, product])).values()];
   // ไม่ได้ระบุรุ่น: ถามอะไหล่ก็แสดงอะไหล่ ถามสินค้าก็แสดงทั้งหมด นอกนั้นแสดงถังแก๊สซึ่งเป็นสินค้าหลัก
-  const askedParts = text.includes("อะไหล่");
+  const askedParts = isPartsQuestion(message);
   const askedAllProducts = text.includes("สินค้า");
   const defaultList = askedParts
     ? rows.filter((product) => product.typeId === PART_TYPE_ID)
     : askedAllProducts
       ? rows
       : rows.filter((product) => product.typeId === TANK_TYPE_ID);
-  const defaultLabel = askedParts ? "อะไหล่" : askedAllProducts ? "สินค้า" : "ถังแก๊ส";
+  const defaultLabel = askedParts ? "อะไหล่และอุปกรณ์แก๊ส" : askedAllProducts ? "สินค้า" : "ถังแก๊ส";
   const list = matched.length > 0 ? matched : defaultList;
   if (list.length === 0) return { text: `ขณะนี้ยังไม่มีข้อมูลสินค้า กรุณาโทรสอบถามร้าน: ${SHOP_PHONES}`, matched: false };
 
