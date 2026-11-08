@@ -14,6 +14,8 @@ export type CHECKOUTPAYLOAD = {
   paymentMethod: PAYMENTMETHOD;
   deliveryAddress?: string;
   note?: string;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
 };
 
 export type ORDERITEMRECORD = {
@@ -46,6 +48,8 @@ export type ORDERRECORD = {
   paymentStatus: string;
   status: string;
   deliveryAddress: string | null;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
   note: string | null;
   createdAt: string;
   orderItems?: ORDERITEMRECORD[];
