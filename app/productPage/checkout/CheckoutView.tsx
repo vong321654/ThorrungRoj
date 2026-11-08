@@ -21,6 +21,8 @@ import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 import type { CURRENTUSER } from "@/app/models/user";
 import { PAYMENTMETHOD, type ORDERRECORD } from "@/app/models/order";
+import { isInThailand, type DELIVERYLOCATION } from "@/app/util/deliveryLocation";
+import DeliveryLocationPicker from "./DeliveryLocationPicker";
 
 type InventoryItem = {
   productId: number | string;
@@ -47,6 +49,7 @@ export default function CheckoutView() {
   const router = useRouter();
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [note, setNote] = useState("");
+  const [deliveryLocation, setDeliveryLocation] = useState<DELIVERYLOCATION | null>(null);
   // ไม่เลือกค่าเริ่มต้นให้ ลูกค้าต้องตัดสินใจเองว่าจะจ่ายแบบไหน
   const [paymentMethod, setPaymentMethod] = useState<PAYMENTMETHOD | "">("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,6 +108,10 @@ export default function CheckoutView() {
     }
     if (!deliveryAddress.trim()) {
       setErrorMessage("กรุณาระบุที่อยู่จัดส่ง");
+      return;
+    }
+    if (deliveryLocation && !isInThailand(deliveryLocation)) {
+      setErrorMessage("หมุดจัดส่งอยู่นอกประเทศไทย กรุณาปักหมุดใหม่หรือลบหมุด");
       return;
     }
     if (!paymentMethod) {
@@ -168,7 +175,14 @@ export default function CheckoutView() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ items, deliveryAddress, note, paymentMethod }),
+        body: JSON.stringify({
+          items,
+          deliveryAddress,
+          note,
+          paymentMethod,
+          deliveryLat: deliveryLocation?.lat ?? null,
+          deliveryLng: deliveryLocation?.lng ?? null,
+        }),
       });
       const result = (await response.json()) as APIRESULT<ORDERRECORD>;
       if (!response.ok || result.status === "error") {
@@ -238,6 +252,14 @@ export default function CheckoutView() {
               fullWidth
               required
             />
+            <Box sx={{ mt: 2 }}>
+              <DeliveryLocationPicker
+                value={deliveryLocation}
+                onChange={setDeliveryLocation}
+                address={deliveryAddress}
+                disabled={isSubmitting}
+              />
+            </Box>
             <TextField
               label="หมายเหตุ"
               value={note}

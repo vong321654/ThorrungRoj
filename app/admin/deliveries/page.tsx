@@ -6,9 +6,10 @@ import {
 } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
-import type { DELIVERYDRIVER, DELIVERYJOB, DELIVERYSTATUS } from "@/app/models/delivery";
+import type { DELIVERYDRIVER, DELIVERYETADETAIL, DELIVERYJOB, DELIVERYSTATUS } from "@/app/models/delivery";
 import { ADMINROLE } from "@/app/models/admin";
 import { useRequireAdmin } from "../useRequireAdmin";
+import { googleMapsDirectionsUrl, googleMapsSearchUrl } from "@/app/util/deliveryLocation";
 
 const DELIVERY_LABELS: Record<DELIVERYSTATUS, string> = {
   pending: "รอจัดส่ง",
@@ -34,9 +35,17 @@ function JobCard({ job, drivers, canAssign, busy, onUpdate }: JobCardProps) {
   const tracking = job.tracking;
   const [eta, setEta] = useState(tracking?.estimatedMinutes != null ? String(tracking.estimatedMinutes) : "");
   const status = tracking?.status ?? "pending";
+  // มีหมุด = ระบบคำนวณเวลาจากร้านถึงบ้านลูกค้าได้ ไม่มีหมุดต้องกรอกเวลาเอง
+  const hasPin = job.deliveryLat !== null && job.deliveryLng !== null;
+  const etaEmpty = eta.trim() === "";
 
   function etaValue() {
-    return eta.trim() === "" ? null : Number(eta);
+    return etaEmpty ? null : Number(eta);
+  }
+
+  // กรอกเวลาเองแล้วใช้ค่าที่กรอก ยังไม่กรอกและมีหมุดให้ระบบคำนวณ
+  function startEta() {
+    return etaEmpty && hasPin ? "auto" : etaValue();
   }
 
   return (
@@ -55,6 +64,23 @@ function JobCard({ job, drivers, canAssign, busy, onUpdate }: JobCardProps) {
             <Typography variant="body2">โทร: <a href={`tel:${job.customerPhone}`}>{job.customerPhone}</a></Typography>
           )}
           <Typography variant="body2">ที่อยู่: {job.deliveryAddress ?? "-"}</Typography>
+          {job.deliveryLat !== null && job.deliveryLng !== null ? (
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }} useFlexGap>
+              <Button size="small" variant="contained" component="a" target="_blank" rel="noopener noreferrer"
+                href={googleMapsDirectionsUrl({ lat: job.deliveryLat, lng: job.deliveryLng })}>
+                นำทางไปหมุดลูกค้า
+              </Button>
+              <Typography variant="caption" color="text.secondary">ลูกค้าปักหมุดไว้</Typography>
+            </Stack>
+          ) : job.deliveryAddress ? (
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }} useFlexGap>
+              <Button size="small" variant="outlined" component="a" target="_blank" rel="noopener noreferrer"
+                href={googleMapsSearchUrl(job.deliveryAddress)}>
+                ค้นหาที่อยู่ในแผนที่
+              </Button>
+              <Typography variant="caption" color="text.secondary">ลูกค้าไม่ได้ปักหมุด ตำแหน่งอาจไม่ตรง</Typography>
+            </Stack>
+          ) : null}
           <Typography variant="body2" color="text.secondary">
             {job.items.map((item) => `${item.name} × ${item.quantity}`).join(", ") || "-"}
             {" · "}{job.totalAmount.toLocaleString("th-TH")} บาท
@@ -75,13 +101,19 @@ function JobCard({ job, drivers, canAssign, busy, onUpdate }: JobCardProps) {
             <TextField size="small" label="จะถึงในอีก (นาที)" type="number" value={eta} disabled={busy}
               slotProps={{ htmlInput: { min: 0, max: 600 } }} sx={{ maxWidth: 200 }}
               onChange={(event) => setEta(event.target.value)} />
-            <Button size="small" variant="outlined" disabled={busy || eta.trim() === ""}
+            <Button size="small" variant="outlined" disabled={busy || etaEmpty}
               onClick={() => void onUpdate(job.orderId, { estimatedMinutes: etaValue() })}>
               อัปเดตเวลา
             </Button>
+            {hasPin && status !== "delivered" && (
+              <Button size="small" variant="outlined" color="secondary" disabled={busy}
+                onClick={() => void onUpdate(job.orderId, { estimatedMinutes: "auto" })}>
+                คำนวณเวลาอัตโนมัติ
+              </Button>
+            )}
             {status === "pending" && (
-              <Button size="small" variant="contained" disabled={busy || eta.trim() === ""}
-                onClick={() => void onUpdate(job.orderId, { status: "inTransit", estimatedMinutes: etaValue() })}>
+              <Button size="small" variant="contained" disabled={busy || (etaEmpty && !hasPin)}
+                onClick={() => void onUpdate(job.orderId, { status: "inTransit", estimatedMinutes: startEta() })}>
                 เริ่มจัดส่ง
               </Button>
             )}
@@ -92,8 +124,12 @@ function JobCard({ job, drivers, canAssign, busy, onUpdate }: JobCardProps) {
               </Button>
             )}
           </Stack>
-          {status === "pending" && eta.trim() === "" && (
-            <Typography variant="caption" color="text.secondary">กรอกเวลาที่คาดว่าจะถึง แล้วกด &quot;เริ่มจัดส่ง&quot;</Typography>
+          {status === "pending" && etaEmpty && (
+            <Typography variant="caption" color="text.secondary">
+              {hasPin
+                ? "กด \"เริ่มจัดส่ง\" ระบบจะคำนวณเวลาจากร้านถึงหมุดลูกค้าให้ (เวลาขับรถ + เผื่อ 5 นาที) หรือกรอกเวลาเองก็ได้"
+                : "ลูกค้าไม่ได้ปักหมุด กรุณากรอกเวลาที่คาดว่าจะถึง แล้วกด \"เริ่มจัดส่ง\""}
+            </Typography>
           )}
           {status === "delivered" && (
             // ปกติส่งถึงแล้วออเดอร์จะปิดและหายจากรายการทันที ที่ยังเห็นคือออเดอร์ที่ยังไม่ถูกปิด (เช่น ตัดสต๊อกไม่สำเร็จ)
@@ -118,6 +154,7 @@ export default function DeliveriesPage() {
   const [jobs, setJobs] = useState<DELIVERYJOB[]>([]);
   const [drivers, setDrivers] = useState<DELIVERYDRIVER[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
 
@@ -155,10 +192,24 @@ export default function DeliveriesPage() {
   async function update(orderId: string, body: Record<string, unknown>) {
     setBusyOrderId(orderId);
     setError(null);
+    setNotice(null);
     try {
-      const saved = await request<{ debtWarning?: string | null }>("/api/delivery", { method: "PATCH", body: JSON.stringify({ orderId, ...body }) });
+      const saved = await request<{
+        debtWarning?: string | null;
+        estimatedMinutes?: number | null;
+        etaDetail?: DELIVERYETADETAIL | null;
+      }>("/api/delivery", { method: "PATCH", body: JSON.stringify({ orderId, ...body }) });
       await load();
       if (saved?.debtWarning) setError(saved.debtWarning);
+      // แจ้งที่มาของเวลาที่ระบบคำนวณ ให้คนส่งตัดสินใจได้ว่าจะแก้ทับหรือไม่
+      if (saved?.etaDetail && saved.estimatedMinutes != null) {
+        const { distanceKm, source, bufferMinutes } = saved.etaDetail;
+        setNotice(
+          source === "osrm"
+            ? `คำนวณได้ ${saved.estimatedMinutes} นาที (ระยะทางถนนจากร้าน ${distanceKm} กม. + เผื่อ ${bufferMinutes} นาที) คำนวณจากร้าน ถ้าออกจากที่อื่นให้แก้เวลาเอง`
+            : `บริการเส้นทางไม่ตอบ จึงประมาณจากระยะทางตรงได้ ${saved.estimatedMinutes} นาที (ประมาณ ${distanceKm} กม. + เผื่อ ${bufferMinutes} นาที) ตรวจสอบและแก้เวลาได้`,
+        );
+      }
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "ไม่สามารถอัปเดตงานจัดส่งได้");
     } finally {
@@ -175,6 +226,7 @@ export default function DeliveriesPage() {
         <Button onClick={() => void load()}>รีเฟรช</Button>
       </Stack>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {notice && <Alert severity="info" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
       <Stack spacing={2}>
         {jobs.length === 0 && (
           <Alert severity="info">{isManager ? "ไม่มีงานจัดส่งที่ค้างอยู่" : "ยังไม่มีงานที่ได้รับมอบหมาย"}</Alert>

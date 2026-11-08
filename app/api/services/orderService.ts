@@ -16,6 +16,7 @@ import { TANK_TYPE_ID } from "./debtService";
 import { notifyOrderCreated } from "./orderNotifyService";
 import { buildPromptPayQrPath } from "./promptPayService";
 import { getOrderableStock } from "./stockService";
+import { parseDeliveryLocation, toDeliveryLocation } from "@/app/util/deliveryLocation";
 
 const SALE_TYPES = new Set<SaleType>([SALETYPE.SELL, SALETYPE.EXCHANGE, SALETYPE.REFILL]);
 // ค้างชำระ/ค้างถัง ไม่สร้างรายการชำระเงิน แอดมินจะบันทึกหนี้ในหน้า "หนี้ค้าง" หลังจัดส่งแล้ว
@@ -67,7 +68,21 @@ async function authenticateCustomer(accessToken: string | null) {
   };
 }
 
-function parseCheckoutPayload(value: unknown): CHECKOUTPAYLOAD | null {
+type PARSEDCHECKOUT = { ok: true; payload: CHECKOUTPAYLOAD } | { ok: false; message: string };
+
+function parseCheckoutPayload(value: unknown): PARSEDCHECKOUT {
+  const payload = parseCheckoutBody(value);
+  if (!payload) return { ok: false, message: "Invalid checkout payload" };
+  const raw = value as { deliveryLat?: unknown; deliveryLng?: unknown };
+  const location = parseDeliveryLocation(raw.deliveryLat, raw.deliveryLng);
+  if (!location.ok) return { ok: false, message: location.message };
+  return {
+    ok: true,
+    payload: { ...payload, deliveryLat: location.location?.lat ?? null, deliveryLng: location.location?.lng ?? null },
+  };
+}
+
+function parseCheckoutBody(value: unknown): CHECKOUTPAYLOAD | null {
   if (!value || typeof value !== "object") return null;
   const payload = value as Partial<CHECKOUTPAYLOAD>;
   if (!Array.isArray(payload.items) || payload.items.length === 0 || payload.items.length > 50) {
@@ -105,6 +120,12 @@ function parseCheckoutPayload(value: unknown): CHECKOUTPAYLOAD | null {
   };
 }
 
+// numeric จาก PostgREST อาจมาเป็นสตริง แปลงให้เป็นตัวเลขหรือ null ก่อนส่งให้หน้าเว็บ
+function coordinateFields(row: { deliveryLat?: unknown; deliveryLng?: unknown }) {
+  const location = toDeliveryLocation(row.deliveryLat, row.deliveryLng);
+  return { deliveryLat: location?.lat ?? null, deliveryLng: location?.lng ?? null };
+}
+
 function getUnitPrice(product: PRODUCTPRICINGROW, saleType: SaleType) {
   if (saleType === "exchange") return Number(product.exchangePrice);
   if (saleType === "refill") return Number(product.refillPrice);
@@ -120,8 +141,9 @@ export async function createOrder(
     return failure<ORDERRECORD>(auth.result.message, auth.status);
   }
 
-  const payload = parseCheckoutPayload(rawPayload);
-  if (!payload) return failure<ORDERRECORD>("Invalid checkout payload", 400);
+  const parsed = parseCheckoutPayload(rawPayload);
+  if (!parsed.ok) return failure<ORDERRECORD>(parsed.message, 400);
+  const payload = parsed.payload;
 
   const combinedItems = new Map<string, CHECKOUTITEMINPUT>();
   for (const item of payload.items) {
@@ -215,10 +237,12 @@ export async function createOrder(
       totalAmount,
       paymentMethod: payload.paymentMethod,
       deliveryAddress,
+      deliveryLat: payload.deliveryLat ?? null,
+      deliveryLng: payload.deliveryLng ?? null,
       note: payload.note || null,
     })
     .select(
-      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, note, createdAt",
+      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, deliveryLat, deliveryLng, note, createdAt",
     )
     .single();
 
@@ -261,6 +285,7 @@ export async function createOrder(
   return {
     result: apiSuccess("Order created successfully", {
       ...order,
+      ...coordinateFields(order),
       totalAmount: Number(order.totalAmount),
       orderItems: insertedItems.map((item) => ({
         ...item,
@@ -286,7 +311,7 @@ export async function getCustomerOrders(
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, note, createdAt, orderItems(id, productId, productNameSnapshot, quantity, unitPrice, totalPrice, saleType), payments(id, method, status, transferSlips(id, status, createdAt))",
+      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, deliveryLat, deliveryLng, note, createdAt, orderItems(id, productId, productNameSnapshot, quantity, unitPrice, totalPrice, saleType), payments(id, method, status, transferSlips(id, status, createdAt))",
     )
     .eq("userId", auth.result.results.id)
     .order("createdAt", { ascending: false });
@@ -295,6 +320,7 @@ export async function getCustomerOrders(
 
   const orders = (data ?? []).map((order) => ({
     ...order,
+    ...coordinateFields(order),
     totalAmount: Number(order.totalAmount),
     orderItems: (order.orderItems ?? []).map((item) => ({
       ...item,
@@ -321,7 +347,7 @@ export async function getCustomerOrderById(
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, note, createdAt, updatedAt, orderItems(id, productId, productNameSnapshot, quantity, unitPrice, totalPrice, saleType), payments(id, method, status, verifiedAt, transferSlips(id, status, rejectReason, createdAt)), debtRecords(debtType, amount, status, debtTransactions(amount))",
+      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, deliveryLat, deliveryLng, note, createdAt, updatedAt, orderItems(id, productId, productNameSnapshot, quantity, unitPrice, totalPrice, saleType), payments(id, method, status, verifiedAt, transferSlips(id, status, rejectReason, createdAt)), debtRecords(debtType, amount, status, debtTransactions(amount))",
     )
     .eq("id", orderId)
     .eq("userId", auth.result.results.id)
@@ -332,6 +358,7 @@ export async function getCustomerOrderById(
   return {
     result: apiSuccess("Order details retrieved successfully", {
       ...data,
+      ...coordinateFields(data),
       totalAmount: Number(data.totalAmount),
       orderItems: (data.orderItems ?? []).map((item) => ({
         ...item,
