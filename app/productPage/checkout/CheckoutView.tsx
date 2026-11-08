@@ -38,6 +38,23 @@ const PAYMENT_OPTIONS: Array<{ value: PAYMENTMETHOD; label: string; hint: string
   { value: PAYMENTMETHOD.PENDING_BOTH, label: "ค้างทั้งถังและเงิน", hint: "สำหรับรายการเปลี่ยนถัง: รับถังเต็มก่อน แล้วชำระเงินและนำถังเปล่ามาคืนภายหลัง" },
 ];
 
+const DEBT_METHODS = [PAYMENTMETHOD.PENDING_PAYMENT, PAYMENTMETHOD.PENDING_CART, PAYMENTMETHOD.PENDING_BOTH];
+
+/**
+ * วิธีชำระที่เลือกไม่ได้ตามประเภทการซื้อในตะกร้า
+ * - ซื้อถัง (sell) และฝากเติม (refill): ห้ามค้างทุกแบบ ต้องจ่ายสดหรือสแกนจ่ายเท่านั้น
+ */
+function getDisabledPaymentMethods(saleTypes: Array<string | null | undefined>) {
+  const disabled = new Map<PAYMENTMETHOD, string>();
+  if (saleTypes.includes("refill")) {
+    for (const method of DEBT_METHODS) disabled.set(method, "ไม่สามารถเลือกได้เมื่อมีรายการฝากเติม");
+  }
+  if (saleTypes.includes("sell")) {
+    for (const method of DEBT_METHODS) disabled.set(method, "ไม่สามารถเลือกได้เมื่อมีรายการซื้อถัง");
+  }
+  return disabled;
+}
+
 const sectionSx = { p: { xs: 2, sm: 2.5 } };
 
 function formatBaht(value: number) {
@@ -54,6 +71,11 @@ export default function CheckoutView() {
   const [paymentMethod, setPaymentMethod] = useState<PAYMENTMETHOD | "">("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const disabledPaymentMethods = getDisabledPaymentMethods(cart.cartLines.map((line) => line.item.saleType));
+  // ถ้าตะกร้าเปลี่ยนจนวิธีที่เลือกไว้ใช้ไม่ได้ ให้ถือว่ายังไม่ได้เลือก
+  const selectedPaymentMethod =
+    paymentMethod && !disabledPaymentMethods.has(paymentMethod) ? paymentMethod : "";
 
   useEffect(() => {
     let isMounted = true;
@@ -114,7 +136,7 @@ export default function CheckoutView() {
       setErrorMessage("หมุดจัดส่งอยู่นอกประเทศไทย กรุณาปักหมุดใหม่หรือลบหมุด");
       return;
     }
-    if (!paymentMethod) {
+    if (!selectedPaymentMethod) {
       setErrorMessage("กรุณาเลือกวิธีชำระเงิน");
       return;
     }
@@ -179,7 +201,7 @@ export default function CheckoutView() {
           items,
           deliveryAddress,
           note,
-          paymentMethod,
+          paymentMethod: selectedPaymentMethod,
           deliveryLat: deliveryLocation?.lat ?? null,
           deliveryLng: deliveryLocation?.lng ?? null,
         }),
@@ -275,23 +297,29 @@ export default function CheckoutView() {
             <FormControl fullWidth>
               <FormLabel>วิธีชำระเงิน</FormLabel>
               <RadioGroup
-                value={paymentMethod}
+                value={selectedPaymentMethod}
                 onChange={(event) => setPaymentMethod(event.target.value as PAYMENTMETHOD)}
               >
-                {PAYMENT_OPTIONS.map((option) => (
-                  <FormControlLabel
-                    key={option.value}
-                    value={option.value}
-                    control={<Radio />}
-                    label={
-                      <Box>
-                        <Typography>{option.label}</Typography>
-                        <Typography variant="caption" color="text.secondary">{option.hint}</Typography>
-                      </Box>
-                    }
-                    sx={{ alignItems: "flex-start", mb: 1, mr: 0 }}
-                  />
-                ))}
+                {PAYMENT_OPTIONS.map((option) => {
+                  const disabledReason = disabledPaymentMethods.get(option.value);
+                  return (
+                    <FormControlLabel
+                      key={option.value}
+                      value={option.value}
+                      control={<Radio />}
+                      disabled={Boolean(disabledReason)}
+                      label={
+                        <Box>
+                          <Typography>{option.label}</Typography>
+                          <Typography variant="caption" color={disabledReason ? "error" : "text.secondary"}>
+                            {disabledReason ?? option.hint}
+                          </Typography>
+                        </Box>
+                      }
+                      sx={{ alignItems: "flex-start", mb: 1, mr: 0 }}
+                    />
+                  );
+                })}
               </RadioGroup>
             </FormControl>
           </Paper>
@@ -301,7 +329,7 @@ export default function CheckoutView() {
             <Button variant="outlined" onClick={() => router.back()} disabled={isSubmitting}>
               กลับไปแก้ไขตะกร้า
             </Button>
-            <Button type="submit" variant="contained" disabled={isSubmitting || !paymentMethod}>
+            <Button type="submit" variant="contained" disabled={isSubmitting || !selectedPaymentMethod}>
               {isSubmitting ? "กำลังบันทึก..." : "ยืนยันคำสั่งซื้อ"}
             </Button>
           </Stack>
