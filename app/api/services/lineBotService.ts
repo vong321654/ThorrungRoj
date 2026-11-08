@@ -7,7 +7,9 @@ import { buildChatReply, type CHATREPLY } from "./chatbotService";
 
 const LINE_REPLY_URL = "https://api.line.me/v2/bot/message/reply";
 const LINE_PUSH_URL = "https://api.line.me/v2/bot/message/push";
+const LINE_BROADCAST_URL = "https://api.line.me/v2/bot/message/broadcast";
 const PUSH_TIMEOUT_MS = 5000;
+const BROADCAST_TIMEOUT_MS = 10000;
 const MAX_TEXT_LENGTH = 5000; // ข้อความ LINE ยาวได้ไม่เกิน 5,000 ตัวอักษร
 const MAX_INPUT_LENGTH = 500; // เท่ากับขีดจำกัดของแชทบนเว็บ
 const MAX_LABEL_LENGTH = 20; // label ของ quick reply ยาวได้ไม่เกิน 20 ตัวอักษร
@@ -21,7 +23,15 @@ type LineEvent = {
 
 export type LineMessage =
   | { type: "text"; text: string; quickReply?: { items: unknown[] } }
-  | { type: "image"; originalContentUrl: string; previewImageUrl: string };
+  | { type: "image"; originalContentUrl: string; previewImageUrl: string }
+  // Flex Message = ข้อความแบบการ์ด (รูป หัวข้อ ปุ่ม) altText คือข้อความที่โชว์ในแจ้งเตือนและรายการแชท
+  | { type: "flex"; altText: string; contents: Record<string, unknown> };
+
+export class LineApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
 
 /** ตรวจลายเซ็น x-line-signature = base64(HMAC-SHA256(channelSecret, rawBody)) */
 export function verifyLineSignature(rawBody: string, signature: string | null): boolean {
@@ -89,6 +99,31 @@ export async function pushLineMessages(lineUserId: string, messages: LineMessage
   if (!response.ok) {
     throw new Error(`LINE push failed: ${response.status} ${await response.text().catch(() => "")}`);
   }
+}
+
+/**
+ * ส่งข้อความถึงเพื่อนทุกคนของ LINE OA ในครั้งเดียว นับโควตาข้อความตามจำนวนเพื่อน (เพื่อน 100 คน = 100 ข้อความ)
+ * retryKey (UUID) กันส่งซ้ำ: ถ้าคำขอแรก timeout แต่ LINE รับไปแล้ว การส่งซ้ำด้วย key เดิมภายใน 24 ชม. จะได้ 409 แทนการส่งซ้ำ
+ */
+export async function broadcastLineMessages(messages: LineMessage[], retryKey?: string) {
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!token) throw new LineApiError("LINE_CHANNEL_ACCESS_TOKEN is not configured", 0);
+  const response = await fetch(LINE_BROADCAST_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...(retryKey ? { "X-Line-Retry-Key": retryKey } : {}),
+    },
+    body: JSON.stringify({ messages }),
+    signal: AbortSignal.timeout(BROADCAST_TIMEOUT_MS),
+  });
+  // 409 = คำขอที่ใช้ retryKey นี้ถูกรับไปแล้ว ถือว่าส่งสำเร็จ
+  if (response.ok || response.status === 409) return;
+  throw new LineApiError(
+    `LINE broadcast failed: ${response.status} ${await response.text().catch(() => "")}`,
+    response.status,
+  );
 }
 
 // ผูกบทสนทนากับลูกค้าด้วย lineUserId (ต้องอยู่ provider เดียวกับ LIFF) ไม่เจอผู้ใช้หรือบันทึกพลาดก็ไม่กระทบการตอบ
