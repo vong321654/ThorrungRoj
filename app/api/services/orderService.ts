@@ -190,6 +190,18 @@ export async function createOrder(
 
   const validOrderItems = orderItems.filter((item) => item !== null);
 
+  // ซื้อถังและฝากเติมห้ามค้างทุกแบบ (ต้องตรงกับหน้า checkout)
+  const isDebtMethod =
+    payload.paymentMethod === PAYMENTMETHOD.PENDING_PAYMENT ||
+    payload.paymentMethod === PAYMENTMETHOD.PENDING_CART ||
+    payload.paymentMethod === PAYMENTMETHOD.PENDING_BOTH;
+  if (isDebtMethod && validOrderItems.some((item) => item.saleType === SALETYPE.SELL)) {
+    return failure<ORDERRECORD>("ออเดอร์ที่มีรายการซื้อถังไม่สามารถเลือกค้างชำระหรือค้างถังได้", 400);
+  }
+  if (isDebtMethod && validOrderItems.some((item) => item.saleType === SALETYPE.REFILL)) {
+    return failure<ORDERRECORD>("ออเดอร์ที่มีรายการฝากเติมไม่สามารถเลือกค้างชำระหรือค้างถังได้", 400);
+  }
+
   // ค้างถังต้องมีรายการเปลี่ยนถังในออเดอร์ ไม่งั้นตอนส่งของจะไม่มีอะไรให้บันทึกหนี้
   if (
     (payload.paymentMethod === PAYMENTMETHOD.PENDING_CART || payload.paymentMethod === PAYMENTMETHOD.PENDING_BOTH) &&
