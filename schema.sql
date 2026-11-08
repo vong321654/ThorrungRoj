@@ -50,6 +50,7 @@ CREATE TABLE public.announcements (
   publishedAt timestamp with time zone,
   expiresAt timestamp with time zone,
   createdAt timestamp with time zone NOT NULL DEFAULT now(),
+  lineNotifiedAt timestamp with time zone,
   CONSTRAINT announcements_pkey PRIMARY KEY (id),
   CONSTRAINT announcements_postedBy_fkey FOREIGN KEY (postedBy) REFERENCES public.employees(id)
 );
