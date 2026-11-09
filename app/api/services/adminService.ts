@@ -193,3 +193,71 @@ export async function deleteAdmin(auth: ADMINAUTH, id: string) {
   if (error) return apiError("Failed to deactivate admin");
   return apiSuccess("Admin deactivated successfully", data);
 }
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_BULK_DELETE = 50;
+
+export type BULKDELETEADMINRESULT = {
+  deleted: string[];
+  failed: Array<{ id: string; email: string | null; reason: string }>;
+};
+
+/**
+ * ลบผู้ดูแลหลายคนแบบถาวร (แถว employees + บัญชีล็อกอินใน Supabase Auth) เฉพาะ super admin
+ * - workAttendance ของคนนั้นถูกลบตาม (ON DELETE CASCADE)
+ * - ถ้าเคยสร้าง/แก้สินค้า แบรนด์ หรือบันทึกรับชำระหนี้ DB จะไม่ให้ลบ (FK) คนนั้นจะอยู่ใน failed พร้อมเหตุผล
+ * ทำทีละคน คนที่ลบไม่ได้ไม่ทำให้คนอื่นล้มไปด้วย
+ */
+export async function deleteAdminsPermanently(auth: ADMINAUTH, rawIds: unknown) {
+  if (!isSuperAdmin(auth)) return apiError("Only a super admin can delete admins");
+  if (!Array.isArray(rawIds) || rawIds.length === 0) return apiError("กรุณาเลือกผู้ดูแลที่ต้องการลบ");
+  const ids = [...new Set(rawIds.filter((id): id is string => typeof id === "string" && UUID_PATTERN.test(id)))];
+  if (ids.length !== rawIds.length) return apiError("รายการที่เลือกไม่ถูกต้อง");
+  if (ids.length > MAX_BULK_DELETE) return apiError(`ลบได้ครั้งละไม่เกิน ${MAX_BULK_DELETE} คน`);
+  if (ids.includes(auth.admin.id)) return apiError("ไม่สามารถลบบัญชีของตัวเองได้");
+
+  // RLS ของ employees ไม่ให้ลบผ่าน token ตรวจสิทธิ์ super admin ข้างบนแล้วจึงใช้ service role
+  const privileged = createAdminClient();
+  const { data: targets, error: loadError } = await privileged
+    .from("employees")
+    .select("id, authId, email")
+    .in("id", ids);
+  if (loadError) return apiError("Failed to load admins");
+
+  const result: BULKDELETEADMINRESULT = { deleted: [], failed: [] };
+  const found = new Map((targets ?? []).map((row) => [row.id as string, row]));
+
+  for (const id of ids) {
+    const target = found.get(id);
+    if (!target) {
+      result.failed.push({ id, email: null, reason: "ไม่พบผู้ดูแลนี้" });
+      continue;
+    }
+    const email = (target.email as string | null) ?? null;
+
+    // ต้องลบแถว employees ก่อน เพราะ FK employees.authId -> auth.users ไม่มี ON DELETE CASCADE
+    const { error: deleteError } = await privileged.from("employees").delete().eq("id", id);
+    if (deleteError) {
+      result.failed.push({
+        id,
+        email,
+        reason: deleteError.code === "23503"
+          ? "มีข้อมูลที่อ้างถึงคนนี้อยู่ (เช่น สินค้า แบรนด์ หรือรายการรับชำระหนี้) ใช้ปิดใช้งานแทน"
+          : "ลบไม่สำเร็จ",
+      });
+      continue;
+    }
+
+    if (target.authId) {
+      const { error: authDeleteError } = await privileged.auth.admin.deleteUser(target.authId as string);
+      // แถว employees หายแล้ว บัญชีที่ค้างอยู่ล็อกอินเข้าหน้าแอดมินไม่ได้อยู่ดี แต่แจ้งไว้ให้ไปลบใน Supabase
+      if (authDeleteError) {
+        result.failed.push({ id, email, reason: "ลบข้อมูลผู้ดูแลแล้ว แต่ลบบัญชีล็อกอินไม่สำเร็จ กรุณาลบใน Supabase Auth" });
+        continue;
+      }
+    }
+    result.deleted.push(id);
+  }
+
+  return apiSuccess("Admins deleted", result);
+}
