@@ -89,6 +89,11 @@ export default function CheckoutView() {
   const selectedPaymentMethod =
     paymentMethod && !disabledPaymentMethods.has(paymentMethod) ? paymentMethod : "";
 
+  const disabledPaymentMethods = getDisabledPaymentMethods(cart.cartLines.map((line) => line.item.saleType));
+  // ถ้าตะกร้าเปลี่ยนจนวิธีที่เลือกไว้ใช้ไม่ได้ ให้ถือว่ายังไม่ได้เลือก
+  const selectedPaymentMethod =
+    paymentMethod && !disabledPaymentMethods.has(paymentMethod) ? paymentMethod : "";
+
   useEffect(() => {
     let isMounted = true;
 
@@ -148,7 +153,7 @@ export default function CheckoutView() {
       setErrorMessage("หมุดจัดส่งอยู่นอกประเทศไทย กรุณาปักหมุดใหม่หรือลบหมุด");
       return;
     }
-    if (!paymentMethod) {
+    if (!selectedPaymentMethod) {
       setErrorMessage("กรุณาเลือกวิธีชำระเงิน");
       return;
     }
@@ -213,7 +218,7 @@ export default function CheckoutView() {
           items,
           deliveryAddress,
           note,
-          paymentMethod,
+          paymentMethod: selectedPaymentMethod,
           deliveryLat: deliveryLocation?.lat ?? null,
           deliveryLng: deliveryLocation?.lng ?? null,
         }),
