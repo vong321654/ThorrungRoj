@@ -8,7 +8,14 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { isInThailand, SHOP_LOCATION, type DELIVERYLOCATION } from "@/app/util/deliveryLocation";
+import {
+  isInDeliveryArea,
+  isInThailand,
+  MAX_DELIVERY_RADIUS_KM,
+  OUT_OF_AREA_MESSAGE,
+  SHOP_LOCATION,
+  type DELIVERYLOCATION,
+} from "@/app/util/deliveryLocation";
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 
@@ -103,6 +110,15 @@ export default function DeliveryLocationPicker({ value, onChange, address, disab
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>',
         }).addTo(map);
 
+        // วงรัศมีจัดส่ง ให้ลูกค้าเห็นก่อนปักว่าร้านส่งถึงแค่ไหน (interactive: false เพื่อให้แตะในวงแล้วปักหมุดได้)
+        L.circle(SHOP_LOCATION, {
+          radius: MAX_DELIVERY_RADIUS_KM * 1000,
+          color: "#2e7d32",
+          weight: 2,
+          fillOpacity: 0.06,
+          interactive: false,
+        }).addTo(map);
+
         map.on("click", (event) => {
           if (disabledRef.current) return;
           pinVersionRef.current += 1;
@@ -112,7 +128,7 @@ export default function DeliveryLocationPicker({ value, onChange, address, disab
         mapRef.current = map;
         setMapReady(true);
       } catch {
-        if (!cancelled) setMapError("โหลดแผนที่ไม่สำเร็จ คุณยังสั่งซื้อได้โดยใช้ที่อยู่ที่กรอกไว้");
+        if (!cancelled) setMapError("โหลดแผนที่ไม่สำเร็จ กรุณากด \"ใช้ตำแหน่งปัจจุบัน\" เพื่อปักหมุด หรือปิดแล้วเปิดหน้านี้ใหม่");
       }
     })();
 
@@ -255,14 +271,19 @@ export default function DeliveryLocationPicker({ value, onChange, address, disab
     }
   }
 
-  const outsideThailand = value !== null && !isInThailand(value);
+  const outsideArea = value !== null && !isInDeliveryArea(value);
 
   return (
     <Stack spacing={1.25}>
       <Box>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>ปักหมุดจุดส่งของ (ไม่บังคับ)</Typography>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+          ปักหมุดจุดส่งของ <Box component="span" sx={{ color: "error.main" }}>*</Box>
+        </Typography>
         <Typography variant="body2" color="text.secondary">
-          กดปักหมุดจากที่อยู่ที่กรอก ใช้ตำแหน่งปัจจุบัน หรือแตะบนแผนที่ แล้วลากหมุดให้ตรงหน้าบ้านหรือร้าน ช่วยให้คนส่งหาเจอเร็วขึ้น
+          กดใช้ตำแหน่งปัจจุบัน หรือแตะบนแผนที่ แล้วลากหมุดให้ตรงหน้าบ้านหรือร้าน (ต้องปักหมุดก่อนสั่งซื้อ)
+        </Typography>
+        <Typography variant="body2" color="success.main">
+          วงสีเขียวคือพื้นที่จัดส่ง (รัศมี {MAX_DELIVERY_RADIUS_KM} กม. จากร้าน)
         </Typography>
       </Box>
 
@@ -295,11 +316,11 @@ export default function DeliveryLocationPicker({ value, onChange, address, disab
           type="button"
           variant="outlined"
           onClick={() => void pinFromAddress()}
-          disabled={disabled || geocoding || locating || !!mapError || !address.trim()}
+          disabled={disabled || geocoding || locating || !address.trim()}
         >
           {geocoding ? "กำลังค้นหาที่อยู่..." : "ปักหมุดจากที่อยู่ที่กรอก"}
         </Button>
-        <Button type="button" variant="contained" color="success" onClick={locateCurrentPosition} disabled={disabled || locating || geocoding || !!mapError}>
+        <Button type="button" variant="contained" color="success" onClick={locateCurrentPosition} disabled={disabled || locating || geocoding}>
           {locating ? "กำลังหาตำแหน่ง..." : "ใช้ตำแหน่งปัจจุบัน"}
         </Button>
         {value && (
@@ -310,8 +331,8 @@ export default function DeliveryLocationPicker({ value, onChange, address, disab
       </Stack>
 
       {gpsMessage && <Alert severity={gpsMessage.severity}>{gpsMessage.text}</Alert>}
-      {outsideThailand && <Alert severity="error">หมุดอยู่นอกประเทศไทย กรุณาปักหมุดใหม่</Alert>}
-      {value && !outsideThailand && (
+      {outsideArea && <Alert severity="error">{OUT_OF_AREA_MESSAGE} กรุณาปักหมุดใหม่</Alert>}
+      {value && !outsideArea && (
         <Typography variant="caption" color="text.secondary">
           ปักหมุดแล้ว: {value.lat.toFixed(6)}, {value.lng.toFixed(6)}
         </Typography>

@@ -6,6 +6,11 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
@@ -21,7 +26,7 @@ import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 import type { CURRENTUSER } from "@/app/models/user";
 import { PAYMENTMETHOD, type ORDERRECORD } from "@/app/models/order";
-import { isInThailand, type DELIVERYLOCATION } from "@/app/util/deliveryLocation";
+import { isInDeliveryArea, OUT_OF_AREA_MESSAGE, type DELIVERYLOCATION } from "@/app/util/deliveryLocation";
 import DeliveryLocationPicker from "./DeliveryLocationPicker";
 
 type InventoryItem = {
@@ -71,6 +76,13 @@ export default function CheckoutView() {
   const [paymentMethod, setPaymentMethod] = useState<PAYMENTMETHOD | "">("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [outOfAreaOpen, setOutOfAreaOpen] = useState(false);
+
+  // เตือนทันทีที่ปักหมุดนอกพื้นที่ ไม่ต้องรอให้ลูกค้ากรอกจนเสร็จแล้วค่อยรู้ตอนกดสั่งซื้อ
+  function handleLocationChange(location: DELIVERYLOCATION | null) {
+    setDeliveryLocation(location);
+    if (location && !isInDeliveryArea(location)) setOutOfAreaOpen(true);
+  }
 
   const disabledPaymentMethods = getDisabledPaymentMethods(cart.cartLines.map((line) => line.item.saleType));
   // ถ้าตะกร้าเปลี่ยนจนวิธีที่เลือกไว้ใช้ไม่ได้ ให้ถือว่ายังไม่ได้เลือก
@@ -128,12 +140,12 @@ export default function CheckoutView() {
       setErrorMessage("ตะกร้ามีสินค้าที่ยังไม่พร้อมสั่งซื้อ");
       return;
     }
-    if (!deliveryAddress.trim()) {
-      setErrorMessage("กรุณาระบุที่อยู่จัดส่ง");
+    if (!deliveryLocation) {
+      setErrorMessage("กรุณาปักหมุดจุดส่งของก่อนสั่งซื้อ");
       return;
     }
-    if (deliveryLocation && !isInThailand(deliveryLocation)) {
-      setErrorMessage("หมุดจัดส่งอยู่นอกประเทศไทย กรุณาปักหมุดใหม่หรือลบหมุด");
+    if (!isInDeliveryArea(deliveryLocation)) {
+      setOutOfAreaOpen(true);
       return;
     }
     if (!selectedPaymentMethod) {
@@ -202,8 +214,8 @@ export default function CheckoutView() {
           deliveryAddress,
           note,
           paymentMethod: selectedPaymentMethod,
-          deliveryLat: deliveryLocation?.lat ?? null,
-          deliveryLng: deliveryLocation?.lng ?? null,
+          deliveryLat: deliveryLocation.lat,
+          deliveryLng: deliveryLocation.lng,
         }),
       });
       const result = (await response.json()) as APIRESULT<ORDERRECORD>;
@@ -265,23 +277,22 @@ export default function CheckoutView() {
           </Paper>
 
           <Paper sx={sectionSx}>
+            <DeliveryLocationPicker
+              value={deliveryLocation}
+              onChange={handleLocationChange}
+              address={deliveryAddress}
+              disabled={isSubmitting}
+            />
             <TextField
-              label="ที่อยู่จัดส่ง"
+              label="รายละเอียดที่อยู่ / จุดสังเกต (ไม่บังคับ)"
+              helperText="เช่น บ้านเลขที่ ชื่อซอย สีบ้าน ใกล้ร้านอะไร ช่วยให้คนส่งหาเจอง่ายขึ้น"
               value={deliveryAddress}
               onChange={(event) => setDeliveryAddress(event.target.value)}
               multiline
-              minRows={3}
+              minRows={2}
               fullWidth
-              required
+              sx={{ mt: 2 }}
             />
-            <Box sx={{ mt: 2 }}>
-              <DeliveryLocationPicker
-                value={deliveryLocation}
-                onChange={setDeliveryLocation}
-                address={deliveryAddress}
-                disabled={isSubmitting}
-              />
-            </Box>
             <TextField
               label="หมายเหตุ"
               value={note}
@@ -335,6 +346,20 @@ export default function CheckoutView() {
           </Stack>
         </Stack>
       </Box>
+
+      <Dialog open={outOfAreaOpen} onClose={() => setOutOfAreaOpen(false)} aria-labelledby="outOfAreaTitle">
+        <DialogTitle id="outOfAreaTitle">อยู่นอกระยะการจัดส่ง</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {OUT_OF_AREA_MESSAGE} จึงยังสั่งซื้อไม่ได้ กรุณาลากหมุดเข้ามาในวงสีเขียวบนแผนที่ หรือติดต่อร้านโดยตรง
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" onClick={() => setOutOfAreaOpen(false)} autoFocus>
+            ปักหมุดใหม่
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
