@@ -54,7 +54,7 @@ async function authenticateCustomer(accessToken: string | null) {
 
   const { data: customer, error } = await authenticatedSupabase
     .from("users")
-    .select("id, address, isActive")
+    .select("id, address, isActive, customerType, customerTypeChosenAt")
     .eq("authId", authData.user.id)
     .maybeSingle();
 
@@ -135,6 +135,8 @@ function getUnitPrice(product: PRODUCTPRICINGROW, saleType: SaleType) {
 export async function createOrder(
   accessToken: string | null,
   rawPayload: unknown,
+  // โดเมนที่ลูกค้าใช้สั่งซื้อ ใช้ทำลิงก์รูป QR ให้ LINE ดึงได้แน่นอน
+  publicBase: string | null = null,
 ): Promise<SERVICERESULT<ORDERRECORD>> {
   const auth = await authenticateCustomer(accessToken);
   if (auth.result.status === "error") {
@@ -159,7 +161,7 @@ export async function createOrder(
   const supabase = createAuthenticatedClient(accessToken!);
   const { data: products, error: productsError } = await supabase
     .from("products")
-    .select("id, name, sellPrice, exchangePrice, refillPrice, isActive, typeId")
+    .select("id, name, sellPrice, exchangePrice, refillPrice, shopExchangePrice, shopRefillPrice, isActive, typeId")
     .in("id", productIds);
 
   if (productsError) return failure<ORDERRECORD>("Failed to validate products", 500);
@@ -173,7 +175,7 @@ export async function createOrder(
   const orderItems = items.map((item) => {
     const product = productsById.get(item.productId);
     if (!product || !product.isActive) return null;
-    const unitPrice = getUnitPrice(product, item.saleType);
+    const unitPrice = getUnitPrice(product, item.saleType, customerType);
     if (!Number.isFinite(unitPrice) || unitPrice <= 0) return null;
     return {
       productId: item.productId,
@@ -189,6 +191,18 @@ export async function createOrder(
   }
 
   const validOrderItems = orderItems.filter((item) => item !== null);
+
+  // ซื้อถังและฝากเติมห้ามค้างทุกแบบ (ต้องตรงกับหน้า checkout)
+  const isDebtMethod =
+    payload.paymentMethod === PAYMENTMETHOD.PENDING_PAYMENT ||
+    payload.paymentMethod === PAYMENTMETHOD.PENDING_CART ||
+    payload.paymentMethod === PAYMENTMETHOD.PENDING_BOTH;
+  if (isDebtMethod && validOrderItems.some((item) => item.saleType === SALETYPE.SELL)) {
+    return failure<ORDERRECORD>("ออเดอร์ที่มีรายการซื้อถังไม่สามารถเลือกค้างชำระหรือค้างถังได้", 400);
+  }
+  if (isDebtMethod && validOrderItems.some((item) => item.saleType === SALETYPE.REFILL)) {
+    return failure<ORDERRECORD>("ออเดอร์ที่มีรายการฝากเติมไม่สามารถเลือกค้างชำระหรือค้างถังได้", 400);
+  }
 
   // ค้างถังต้องมีรายการเปลี่ยนถังในออเดอร์ ไม่งั้นตอนส่งของจะไม่มีอะไรให้บันทึกหนี้
   if (
@@ -226,9 +240,8 @@ export async function createOrder(
     (total, item) => total + item.unitPrice * item.quantity,
     0,
   );
-  const customer = auth.result.results;
-  const deliveryAddress = payload.deliveryAddress || customer.address;
-  if (!deliveryAddress) return failure<ORDERRECORD>("Delivery address is required", 400);
+  // ไม่บังคับแล้ว เพราะบังคับปักหมุดแทน (ตรวจใน parseCheckoutPayload)
+  const deliveryAddress = payload.deliveryAddress || customer.address || null;
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
@@ -240,6 +253,7 @@ export async function createOrder(
       deliveryLat: payload.deliveryLat ?? null,
       deliveryLng: payload.deliveryLng ?? null,
       note: payload.note || null,
+      customerType,
     })
     .select(
       "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, deliveryLat, deliveryLng, note, createdAt",
@@ -279,8 +293,9 @@ export async function createOrder(
     userId: customer.id,
     totalAmount,
     paymentMethod: payload.paymentMethod,
+    customerType,
     items: validOrderItems,
-  });
+  }, publicBase);
 
   return {
     result: apiSuccess("Order created successfully", {

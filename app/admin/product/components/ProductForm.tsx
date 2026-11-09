@@ -26,6 +26,8 @@ export type ProductFormValues = {
   sellPrice: string;
   exchangePrice: string;
   refillPrice: string;
+  shopExchangePrice: string;
+  shopRefillPrice: string;
   isActive: boolean;
   // undefined = ผู้ใช้ไม่มีสิทธิ์แก้รูป จึงไม่ส่ง imageUrl ไปกับ payload เลย
   imageUrl?: string | null;
@@ -64,6 +66,8 @@ export default function ProductForm({
   const [sellPrice, setSellPrice] = useState(initialValues?.sellPrice ?? "");
   const [exchangePrice, setExchangePrice] = useState(initialValues?.exchangePrice ?? "");
   const [refillPrice, setRefillPrice] = useState(initialValues?.refillPrice ?? "");
+  const [shopExchangePrice, setShopExchangePrice] = useState(initialValues?.shopExchangePrice ?? "");
+  const [shopRefillPrice, setShopRefillPrice] = useState(initialValues?.shopRefillPrice ?? "");
   const [isActive, setIsActive] = useState(initialValues?.isActive ?? true);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -107,6 +111,12 @@ export default function ProductForm({
       return;
     }
 
+    const prices = [sellPrice, exchangePrice, refillPrice, shopExchangePrice, shopRefillPrice];
+    if (prices.some((price) => price.trim() !== "" && (!Number.isFinite(Number(price)) || Number(price) < 0))) {
+      setValidationMessage("ราคาต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป");
+      return;
+    }
+
     await onSubmit({
       name: name.trim(),
       brandId,
@@ -116,6 +126,8 @@ export default function ProductForm({
       sellPrice: sellPrice.trim(),
       exchangePrice: exchangePrice.trim(),
       refillPrice: refillPrice.trim(),
+      shopExchangePrice: shopExchangePrice.trim(),
+      shopRefillPrice: shopRefillPrice.trim(),
       isActive,
       ...(canUploadImage ? { imageUrl: displayedImageUrl } : {}),
     });
@@ -203,16 +215,32 @@ export default function ProductForm({
         />
 
         <TextField
-          label="ราคาแลก"
+          label="ราคาเปลี่ยนถัง"
           value={exchangePrice}
           onChange={(event) => setExchangePrice(event.target.value)}
           fullWidth
         />
 
         <TextField
-          label="ราคาเติม"
+          label="ราคาฝากเติม"
           value={refillPrice}
           onChange={(event) => setRefillPrice(event.target.value)}
+          fullWidth
+        />
+
+        <TextField
+          label="ราคาเปลี่ยนถัง (ร้านค้า)"
+          value={shopExchangePrice}
+          onChange={(event) => setShopExchangePrice(event.target.value)}
+          helperText="เว้นว่างหรือ 0 = ร้านค้าใช้ราคาเปลี่ยนถังปกติ"
+          fullWidth
+        />
+
+        <TextField
+          label="ราคาฝากเติม (ร้านค้า)"
+          value={shopRefillPrice}
+          onChange={(event) => setShopRefillPrice(event.target.value)}
+          helperText="เว้นว่างหรือ 0 = ร้านค้าใช้ราคาฝากเติมปกติ"
           fullWidth
         />
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, MenuItem, Stack, TextField, Typography,
 } from "@mui/material";
@@ -28,10 +28,11 @@ type JobCardProps = {
   drivers: DELIVERYDRIVER[];
   canAssign: boolean;
   busy: boolean;
+  isNew: boolean;
   onUpdate: (orderId: string, body: Record<string, unknown>) => Promise<void>;
 };
 
-function JobCard({ job, drivers, canAssign, busy, onUpdate }: JobCardProps) {
+function JobCard({ job, drivers, canAssign, busy, isNew, onUpdate }: JobCardProps) {
   const tracking = job.tracking;
   const [eta, setEta] = useState(tracking?.estimatedMinutes != null ? String(tracking.estimatedMinutes) : "");
   const status = tracking?.status ?? "pending";
@@ -49,10 +50,11 @@ function JobCard({ job, drivers, canAssign, busy, onUpdate }: JobCardProps) {
   }
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" sx={isNew ? { borderColor: "primary.main", borderWidth: 2 } : undefined}>
       <CardContent>
         <Stack spacing={1.5}>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+            {isNew && <Chip size="small" color="primary" label="ใหม่" />}
             <Typography sx={{ fontWeight: 700 }}>{job.customerName ?? "ลูกค้า"}</Typography>
             <Chip size="small" label={ORDER_LABELS[job.orderStatus] ?? job.orderStatus} />
             <Chip size="small" color={status === "inTransit" ? "primary" : status === "delivered" ? "success" : "default"}
@@ -157,6 +159,11 @@ export default function DeliveriesPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
+  const [newJobIds, setNewJobIds] = useState<Set<string>>(new Set());
+  // null = ยังไม่เคยโหลด รอบแรกไม่นับว่าเป็นงานใหม่
+  const knownJobIdsRef = useRef<Set<string> | null>(null);
+  // กำลังกดอัปเดตงานอยู่ ให้รอบอัตโนมัติข้ามไปก่อน update จะโหลดใหม่เองหลังบันทึก
+  const busyRef = useRef(false);
 
   const request = useCallback(async function request<T>(path: string, options: RequestInit = {}) {
     const { data } = await createClient().auth.getSession();
@@ -172,14 +179,22 @@ export default function DeliveriesPage() {
     return result.results;
   }, []);
 
-  const load = useCallback(async () => {
+  // background = รอบอัปเดตอัตโนมัติ ไม่แตะ error เพื่อไม่ลบคำเตือน (เช่น debtWarning) ที่ผู้ใช้ยังอ่านไม่จบ
+  const load = useCallback(async (background = false) => {
     try {
       const scope = isManager ? "all" : "mine";
-      setJobs((await request<DELIVERYJOB[]>(`/api/delivery?scope=${scope}`)) ?? []);
+      const loaded = (await request<DELIVERYJOB[]>(`/api/delivery?scope=${scope}`)) ?? [];
+      const known = knownJobIdsRef.current;
+      if (known) {
+        const added = loaded.filter((job) => !known.has(job.orderId)).map((job) => job.orderId);
+        if (added.length > 0) setNewJobIds((current) => new Set([...current, ...added]));
+      }
+      knownJobIdsRef.current = new Set(loaded.map((job) => job.orderId));
+      setJobs(loaded);
       if (isManager) setDrivers((await request<DELIVERYDRIVER[]>("/api/delivery?drivers=1")) ?? []);
-      setError(null);
+      if (!background) setError(null);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "ไม่สามารถโหลดงานจัดส่งได้");
+      if (!background) setError(loadError instanceof Error ? loadError.message : "ไม่สามารถโหลดงานจัดส่งได้");
     } finally {
       setIsLoading(false);
     }
@@ -189,8 +204,14 @@ export default function DeliveriesPage() {
     if (isAllowed) void load();
   }, [isAllowed, load]);
 
+  const refreshInBackground = useCallback(async () => {
+    if (!busyRef.current) await load(true);
+  }, [load]);
+  useAutoRefresh(refreshInBackground, isAllowed);
+
   async function update(orderId: string, body: Record<string, unknown>) {
     setBusyOrderId(orderId);
+    busyRef.current = true;
     setError(null);
     setNotice(null);
     try {
@@ -213,6 +234,7 @@ export default function DeliveriesPage() {
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "ไม่สามารถอัปเดตงานจัดส่งได้");
     } finally {
+      busyRef.current = false;
       setBusyOrderId(null);
     }
   }
@@ -225,6 +247,12 @@ export default function DeliveriesPage() {
         <Typography variant="h5">{isManager ? "งานจัดส่งทั้งหมด" : "งานจัดส่งของฉัน"}</Typography>
         <Button onClick={() => void load()}>รีเฟรช</Button>
       </Stack>
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>อัปเดตอัตโนมัติทุก 15 วินาที</Typography>
+      {newJobIds.size > 0 && (
+        <Alert severity="info" sx={{ mb: 2 }} onClose={() => setNewJobIds(new Set())}>
+          มีงานจัดส่งใหม่ {newJobIds.size} รายการ (การ์ดที่มีป้าย &quot;ใหม่&quot;)
+        </Alert>
+      )}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {notice && <Alert severity="info" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
       <Stack spacing={2}>
@@ -239,6 +267,7 @@ export default function DeliveriesPage() {
             drivers={drivers}
             canAssign={isManager}
             busy={busyOrderId === job.orderId}
+            isNew={newJobIds.has(job.orderId)}
             onUpdate={update}
           />
         ))}

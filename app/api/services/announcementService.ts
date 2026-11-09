@@ -5,15 +5,19 @@ import {
   ISANNOUNCEMENTTYPE,
   type ANNOUNCEMENT,
   type ANNOUNCEMENTPAYLOAD,
+  type ANNOUNCEMENTSAVERESULT,
   type ANNOUNCEMENTUPDATEVALUES,
   type ANNOUNCEMENTWRITEVALUES,
 } from "@/app/models/announcement";
 import { createPublicClient } from "@/app/api/util/supabase/public";
 import { apiError, apiSuccess } from "../response";
 import { isAdminOrSuperAdmin } from "./adminService";
+import { notifyAnnouncementIfNeeded } from "./announcementNotifyService";
 
 const ANNOUNCEMENTFIELDS =
   "id, postedBy, title, content, imageUrl, type, isPublished, publishedAt, expiresAt, createdAt";
+// หน้าแอดมินต้องรู้ว่าส่งเข้า LINE แล้วหรือยัง หน้าลูกค้าไม่จำเป็นต้องเห็น
+const ADMINANNOUNCEMENTFIELDS = `${ANNOUNCEMENTFIELDS}, lineNotifiedAt`;
 
 function failure<T>(message: string, status: number): SERVICERESULT<T> {
   return { result: apiError(message), status };
@@ -148,7 +152,7 @@ export async function getAllAnnouncements(
 
   const query = auth.supabase
     .from("announcements")
-    .select(ANNOUNCEMENTFIELDS)
+    .select(ADMINANNOUNCEMENTFIELDS)
     .order("createdAt", { ascending: false });
 
   if (id) {
@@ -169,7 +173,7 @@ export async function getAllAnnouncements(
 export async function createAnnouncement(
   auth: ADMINAUTH,
   payload: unknown,
-): Promise<SERVICERESULT<ANNOUNCEMENT>> {
+): Promise<SERVICERESULT<ANNOUNCEMENTSAVERESULT>> {
   if (!isAdminOrSuperAdmin(auth)) {
     return failure("Only admins can create announcements", 403);
   }
@@ -187,14 +191,15 @@ export async function createAnnouncement(
       isPublished,
       publishedAt: isPublished ? new Date().toISOString() : null,
     })
-    .select(ANNOUNCEMENTFIELDS)
+    .select(ADMINANNOUNCEMENTFIELDS)
     .single();
 
   if (error || !data) {
     return databaseFailure("Failed to create announcement", error ?? {});
   }
+  const notified = await notifyAnnouncementIfNeeded(auth.supabase, data as ANNOUNCEMENT);
   return {
-    result: apiSuccess("Announcement created successfully", data as ANNOUNCEMENT),
+    result: apiSuccess("Announcement created successfully", { ...notified.announcement, lineNotifyError: notified.lineNotifyError }),
     status: 201,
   };
 }
@@ -203,7 +208,7 @@ export async function updateAnnouncement(
   auth: ADMINAUTH,
   id: string,
   payload: unknown,
-): Promise<SERVICERESULT<ANNOUNCEMENT>> {
+): Promise<SERVICERESULT<ANNOUNCEMENTSAVERESULT>> {
   if (!isAdminOrSuperAdmin(auth)) {
     return failure("Only admins can update announcements", 403);
   }
@@ -231,13 +236,15 @@ export async function updateAnnouncement(
     .from("announcements")
     .update(values)
     .eq("id", id)
-    .select(ANNOUNCEMENTFIELDS)
+    .select(ADMINANNOUNCEMENTFIELDS)
     .maybeSingle();
 
   if (error) return databaseFailure("Failed to update announcement", error);
   if (!data) return failure("Announcement not found", 404);
+  // ร่าง → เผยแพร่ ครั้งแรกจะส่งเข้า LINE ส่วนประกาศที่เคยส่งแล้วจะไม่ส่งซ้ำ (ดู lineNotifiedAt)
+  const notified = await notifyAnnouncementIfNeeded(auth.supabase, data as ANNOUNCEMENT);
   return {
-    result: apiSuccess("Announcement updated successfully", data as ANNOUNCEMENT),
+    result: apiSuccess("Announcement updated successfully", { ...notified.announcement, lineNotifyError: notified.lineNotifyError }),
     status: 200,
   };
 }

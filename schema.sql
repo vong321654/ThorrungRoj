@@ -20,6 +20,8 @@ CREATE TABLE public.users (
   privacyPolicyVersion text,
   privacyAcknowledgedAt timestamp with time zone,
   erasedAt timestamp with time zone,
+  customerTypeChosenAt timestamp with time zone,
+  shopRequestStatus text CHECK ("shopRequestStatus" IS NULL OR ("shopRequestStatus" = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text]))),
   CONSTRAINT users_pkey PRIMARY KEY (id),
   CONSTRAINT users_authId_fkey FOREIGN KEY (authId) REFERENCES auth.users(id)
 );
@@ -50,6 +52,7 @@ CREATE TABLE public.announcements (
   publishedAt timestamp with time zone,
   expiresAt timestamp with time zone,
   createdAt timestamp with time zone NOT NULL DEFAULT now(),
+  lineNotifiedAt timestamp with time zone,
   CONSTRAINT announcements_pkey PRIMARY KEY (id),
   CONSTRAINT announcements_postedBy_fkey FOREIGN KEY (postedBy) REFERENCES public.employees(id)
 );
@@ -77,6 +80,7 @@ CREATE TABLE public.orders (
   note text,
   createdAt timestamp with time zone NOT NULL DEFAULT now(),
   updatedAt timestamp with time zone NOT NULL DEFAULT now(),
+  customerType text NOT NULL DEFAULT 'individual'::text CHECK ("customerType" = ANY (ARRAY['individual'::text, 'shop'::text])),
   CONSTRAINT orders_pkey PRIMARY KEY (id),
   CONSTRAINT orders_userId_fkey FOREIGN KEY (userId) REFERENCES public.users(id)
 );
@@ -253,6 +257,8 @@ CREATE TABLE public.products (
   refillPrice numeric DEFAULT '0'::numeric,
   imageUrl text,
   isActive boolean NOT NULL,
+  shopExchangePrice numeric NOT NULL DEFAULT 0,
+  shopRefillPrice numeric NOT NULL DEFAULT 0,
   CONSTRAINT products_pkey PRIMARY KEY (id),
   CONSTRAINT FK_products_brand FOREIGN KEY (brandId) REFERENCES public.productsBrand(id),
   CONSTRAINT FK_products_type FOREIGN KEY (typeId) REFERENCES public.productsType(id),

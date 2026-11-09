@@ -11,6 +11,7 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { belowHeaderMinHeightSx } from "@/app/components/UI/authStyles";
 import type { USER } from "@/app/models/user";
+import { loginUrlWithNext } from "@/app/util/loginRedirect";
 import { getEditUserData } from "./allFunc";
 import EditUserFields from "./EditUserFields";
 
@@ -45,7 +46,7 @@ export default function EditUser() {
         if (isCancelled) return;
 
         if (!result) {
-          router.replace("/login");
+          router.replace(loginUrlWithNext("/manageUser/editUser"));
           return;
         }
 
