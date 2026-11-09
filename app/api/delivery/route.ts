@@ -8,6 +8,9 @@ import {
 } from "@/app/api/services/deliveryService";
 import { getBearerToken } from "@/app/api/util/supabase/authenticated";
 
+// คำนวณเวลาจัดส่งต้องเรียกบริการเส้นทาง OSRM (รอคิว 1 ครั้ง/วินาที + timeout 5 วินาที)
+export const maxDuration = 20;
+
 // GET ?orderId=...   ลูกค้า/คนส่ง/แอดมิน ดูสถานะขนส่งของออเดอร์เดียว
 // GET ?scope=all     แอดมิน ดูงานส่งทั้งหมดที่ยังไม่เสร็จ
 // GET ?scope=mine    พนักงาน ดูงานที่ได้รับมอบหมาย

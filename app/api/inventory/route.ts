@@ -1,6 +1,7 @@
 import { apiError } from "../response";
 import {
   addInventoryItem,
+  decreaseCylinder,
   deleteInventoryItem,
   getAllInventoryItems,
   getInventoryItemById,
@@ -58,8 +59,13 @@ export async function PATCH(request: Request) {
   const auth = await authenticateAdmin(request);
   if (auth instanceof Response) return auth;
   if (!isAdminOrSuperAdmin(auth)) return Response.json(apiError("Only admins can manage inventory"), { status: 403 });
-  const id = new URL(request.url).searchParams.get("id");
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
   if (!id?.trim()) return Response.json(apiError("Inventory id is required"), { status: 400 });
+  if (searchParams.get("action") === "decrease") {
+    const result = await decreaseCylinder(id, Number(searchParams.get("quantity") ?? 1), auth.supabase);
+    return Response.json(result.result, { status: result.status });
+  }
   const body = (await request.json().catch(() => null)) as CREATEINVENTORYPAYLOAD | null;
   if (!body || typeof body !== "object") return Response.json(apiError("Invalid inventory payload"), { status: 400 });
   const result = await updateInventoryItem(id, body, auth.supabase);

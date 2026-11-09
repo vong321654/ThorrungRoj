@@ -45,6 +45,8 @@ export class SupabaseProductRepository implements ProductRepository {
         sellPrice: Number(product.sellPrice),
         exchangePrice: Number(product.exchangePrice),
         refillPrice: Number(product.refillPrice),
+        shopExchangePrice: Number(product.shopExchangePrice) || 0,
+        shopRefillPrice: Number(product.shopRefillPrice) || 0,
         availableQuantity: availableByProduct.get(product.id) ?? 0,
         imageUrl: product.imageUrl?.trim() || null,
       }));

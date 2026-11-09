@@ -1,5 +1,6 @@
 import type { SaleType } from "@/app/productPage/_shared/domain/cartItem";
 import { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD } from "@/app/enums/order";
+import type { CUSTOMERTYPE } from "@/app/enums/customer";
 
 export { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD };
 
@@ -14,6 +15,8 @@ export type CHECKOUTPAYLOAD = {
   paymentMethod: PAYMENTMETHOD;
   deliveryAddress?: string;
   note?: string;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
 };
 
 export type ORDERITEMRECORD = {
@@ -46,7 +49,10 @@ export type ORDERRECORD = {
   paymentStatus: string;
   status: string;
   deliveryAddress: string | null;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
   note: string | null;
+  customerType?: CUSTOMERTYPE;
   createdAt: string;
   orderItems?: ORDERITEMRECORD[];
   payments?: ORDERPAYMENTRECORD[];
@@ -59,6 +65,8 @@ export type CUSTOMERORDERPROFILE = {
   id: string;
   address: string | null;
   isActive: boolean;
+  customerType: string;
+  customerTypeChosenAt: string | null;
 };
 
 export type PRODUCTPRICINGROW = {
@@ -67,6 +75,8 @@ export type PRODUCTPRICINGROW = {
   sellPrice: number | string;
   exchangePrice: number | string | null;
   refillPrice: number | string | null;
+  shopExchangePrice: number | string | null;
+  shopRefillPrice: number | string | null;
   isActive: boolean;
   typeId: number;
 };

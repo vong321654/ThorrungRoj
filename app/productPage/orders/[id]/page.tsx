@@ -8,6 +8,7 @@ import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 import type { ORDERRECORD } from "@/app/models/order";
 import type { DELIVERYTRACKING } from "@/app/models/delivery";
+import { googleMapsSearchUrl, toDeliveryLocation } from "@/app/util/deliveryLocation";
 
 const sectionSx = { p: { xs: 2, sm: 2.5 } };
 const DELIVERY_LABELS: Record<string, string> = { pending: "รอจัดส่ง", inTransit: "กำลังนำส่ง", delivered: "ส่งถึงแล้ว" };
@@ -25,11 +26,11 @@ async function fetchDeliveryTracking(orderId: string) {
   return result.results;
 }
 
-// เวลาที่เหลือ = เวลาที่คนส่งคาดไว้ ลบเวลาที่ผ่านไปตั้งแต่ตั้งค่า (ไม่ต่ำกว่า 0)
-function remainingMinutes(tracking: DELIVERYTRACKING, now: number) {
-  if (tracking.estimatedMinutes === null || !tracking.etaSetAt) return null;
-  const elapsed = Math.floor((now - new Date(tracking.etaSetAt).getTime()) / 60000);
-  return Math.max(0, tracking.estimatedMinutes - Math.max(0, elapsed));
+// แสดงเวลาที่คนส่ง/ระบบประเมินไว้ตรง ๆ ไม่นับถอยหลัง พร้อมบอกว่าประเมินไว้เมื่อไร
+function formatEtaSetAt(etaSetAt: string | null) {
+  if (!etaSetAt) return null;
+  const date = new Date(etaSetAt);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
 }
 
 const ORDER_LABELS: Record<string, string> = { pending: "รอดำเนินการ", preparing: "กำลังเตรียมสินค้า", delivering: "กำลังจัดส่ง", delivered: "จัดส่งแล้ว", cancelled: "ยกเลิกแล้ว" };
@@ -83,12 +84,8 @@ export default function CustomerOrderDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [tracking, setTracking] = useState<DELIVERYTRACKING | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-
-  // ใช้เวลาของเซิร์ฟเวอร์เป็นฐาน แล้วบวกเวลาที่ผ่านไปในเครื่อง กันนาฬิกาโทรศัพท์เดินเพี้ยน
   const applyTracking = useCallback((next: DELIVERYTRACKING | null) => {
     setTracking(next);
-    setNow(next ? new Date(next.serverNow).getTime() : Date.now());
   }, []);
 
   const loadOrder = useCallback(async () => {
@@ -126,7 +123,9 @@ export default function CustomerOrderDetailPage() {
     return () => window.clearInterval(timer);
   }, [id, isDelivering, applyTracking]);
 
-  const minutesLeft = tracking ? remainingMinutes(tracking, now) : null;
+  const etaMinutes = tracking?.estimatedMinutes ?? null;
+  const etaSetAtLabel = formatEtaSetAt(tracking?.etaSetAt ?? null);
+  const pinnedLocation = order ? toDeliveryLocation(order.deliveryLat, order.deliveryLng) : null;
 
   return <Container component="main" maxWidth="sm" sx={{ py: { xs: 2, sm: 3, md: 4 }, flexGrow: 1 }}>
     <Button component={Link} href="/productPage/orders" sx={{ mb: 2 }}>← กลับประวัติคำสั่งซื้อ</Button>

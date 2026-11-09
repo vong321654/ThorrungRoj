@@ -6,6 +6,8 @@ import { CartProvider, useCart } from "./CartContext";
 import ThemeRegistry from "./ThemeRegistry";
 import CartDrawer from "./components/CartDrawer";
 import CategoryNavBar from "./components/CategoryNavBar";
+import { CustomerProfileProvider } from "./CustomerProfileContext";
+import CustomerTypeDialog from "./components/CustomerTypeDialog";
 import PrivacyPolicyDialog from "./components/PrivacyPolicyDialog";
 import ShopContactFooter from "./components/ShopContactFooter";
 import SiteTopBar from "./components/SiteTopBar";

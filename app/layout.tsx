@@ -7,8 +7,8 @@ import "./components/UI/globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ก๊าซทอรุ่งโรจน์",
-  description: "ระบบจัดการร้านแก๊สทอรุ่งโรจน์",
+  title: "ร้านแก๊สท.รุ่งโรจน์",
+  description: "ระบบจัดการร้านแก๊สท.รุ่งโรจน์",
 };
 
 export default function RootLayout({

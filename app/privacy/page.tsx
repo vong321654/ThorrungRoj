@@ -4,7 +4,7 @@ import Typography from "@mui/material/Typography";
 import PrivacyPolicyContent from "./PrivacyPolicyContent";
 
 export const metadata: Metadata = {
-  title: "นโยบายความเป็นส่วนตัว | ก๊าซทอรุ่งโรจน์",
+  title: "นโยบายความเป็นส่วนตัว | ร้านแก๊สท.รุ่งโรจน์",
 };
 
 export default function PrivacyPage() {
