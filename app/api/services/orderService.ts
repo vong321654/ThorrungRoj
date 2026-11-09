@@ -78,9 +78,11 @@ function parseCheckoutPayload(value: unknown): PARSEDCHECKOUT {
   const raw = value as { deliveryLat?: unknown; deliveryLng?: unknown };
   const location = parseDeliveryLocation(raw.deliveryLat, raw.deliveryLng);
   if (!location.ok) return { ok: false, message: location.message };
+  // หมุดเป็นข้อมูลหลักที่ใช้ตรวจพื้นที่จัดส่งและนำทาง จึงบังคับทุกคำสั่งซื้อ ส่วนที่อยู่แบบข้อความเป็นรายละเอียดเสริม
+  if (!location.location) return { ok: false, message: "กรุณาปักหมุดจุดส่งของก่อนสั่งซื้อ" };
   return {
     ok: true,
-    payload: { ...payload, deliveryLat: location.location?.lat ?? null, deliveryLng: location.location?.lng ?? null },
+    payload: { ...payload, deliveryLat: location.location.lat, deliveryLng: location.location.lng },
   };
 }
 
@@ -252,8 +254,8 @@ export async function createOrder(
     (total, item) => total + item.unitPrice * item.quantity,
     0,
   );
-  const deliveryAddress = payload.deliveryAddress || customer.address;
-  if (!deliveryAddress) return failure<ORDERRECORD>("Delivery address is required", 400);
+  // ไม่บังคับแล้ว เพราะบังคับปักหมุดแทน (ตรวจใน parseCheckoutPayload)
+  const deliveryAddress = payload.deliveryAddress || customer.address || null;
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
