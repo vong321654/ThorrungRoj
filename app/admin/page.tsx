@@ -7,7 +7,13 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Paper,
   Stack,
   Table,
@@ -20,6 +26,7 @@ import {
 } from "@mui/material";
 import {
   deleteAdmin,
+  deleteAdminsPermanently,
   getAdminsList,
   getDashboardStats,
   type DASHBOARDSTATS,
@@ -49,6 +56,11 @@ export default function AdminPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoadingAdmins, setIsLoadingAdmins] = useState(true);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteNotice, setDeleteNotice] = useState<string | null>(null);
+  const [deleteFailures, setDeleteFailures] = useState<string[]>([]);
 
   async function fetchEmployeesData() {
     try {
@@ -106,6 +118,45 @@ export default function AdminPage() {
       setErrorMessage(
         error instanceof Error ? error.message : "ไม่สามารถปิดใช้งานบัญชีได้",
       );
+    }
+  }
+
+  const isSuperAdmin = adminData?.role === ADMINROLE.SUPER_ADMIN;
+  // บัญชีตัวเองเลือกไม่ได้ กันลบตัวเองจนไม่เหลือ super admin
+  const selectableEmployees = (employeesData ?? []).filter((employee) => employee.id !== adminData?.id);
+  const selectedEmployees = selectableEmployees.filter((employee) => selectedIds.has(employee.id));
+  const allSelected = selectableEmployees.length > 0 && selectedEmployees.length === selectableEmployees.length;
+
+  function toggleSelected(id: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelectedIds(allSelected ? new Set() : new Set(selectableEmployees.map((employee) => employee.id)));
+  }
+
+  async function handleBulkDelete() {
+    setIsDeleting(true);
+    setErrorMessage(null);
+    setDeleteNotice(null);
+    setDeleteFailures([]);
+    try {
+      const result = await deleteAdminsPermanently(selectedEmployees.map((employee) => employee.id));
+      if (result.deleted.length > 0) setDeleteNotice(`ลบผู้ดูแลแล้ว ${result.deleted.length} คน`);
+      setDeleteFailures(result.failed.map((failure) => `${failure.email ?? failure.id}: ${failure.reason}`));
+      // คนที่ลบไม่ได้ยังเลือกค้างไว้ จะได้เห็นว่าเหลือใคร
+      setSelectedIds(new Set(result.failed.map((failure) => failure.id)));
+      await fetchEmployeesData();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "ไม่สามารถลบผู้ดูแลได้");
+    } finally {
+      setIsDeleting(false);
+      setConfirmOpen(false);
     }
   }
 
@@ -200,10 +251,35 @@ export default function AdminPage() {
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
               ผู้ดูแลระบบ
             </Typography>
-            <Button component={Link} href="/admin/addAdmin" variant="contained">
-              เพิ่มพนักงานใหม่
-            </Button>
+            <Stack direction="row" spacing={1}>
+              {isSuperAdmin && (
+                <Button
+                  variant="outlined"
+                  color="error"
+                  disabled={selectedEmployees.length === 0 || isDeleting}
+                  onClick={() => setConfirmOpen(true)}
+                >
+                  ลบที่เลือก{selectedEmployees.length > 0 ? ` (${selectedEmployees.length})` : ""}
+                </Button>
+              )}
+              <Button component={Link} href="/admin/addAdmin" variant="contained">
+                เพิ่มพนักงานใหม่
+              </Button>
+            </Stack>
           </Stack>
+          {deleteNotice && (
+            <Alert severity="success" sx={{ mb: 2 }} onClose={() => setDeleteNotice(null)}>
+              {deleteNotice}
+            </Alert>
+          )}
+          {deleteFailures.length > 0 && (
+            <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setDeleteFailures([])}>
+              ลบไม่ได้ {deleteFailures.length} คน:
+              <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                {deleteFailures.map((line) => <li key={line}>{line}</li>)}
+              </Box>
+            </Alert>
+          )}
           {isLoadingAdmins ? (
             <CircularProgress />
           ) : (
@@ -211,6 +287,17 @@ export default function AdminPage() {
               <Table>
                 <TableHead>
                   <TableRow>
+                    {isSuperAdmin && (
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={allSelected}
+                          indeterminate={selectedEmployees.length > 0 && !allSelected}
+                          disabled={selectableEmployees.length === 0 || isDeleting}
+                          onChange={toggleAll}
+                          slotProps={{ input: { "aria-label": "เลือกผู้ดูแลทั้งหมด" } }}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>Email</TableCell>
                     <TableCell>ชื่อ</TableCell>
                     <TableCell>สถานะ</TableCell>
@@ -221,7 +308,17 @@ export default function AdminPage() {
                 </TableHead>
                 <TableBody>
                   {employeesData?.map((employee) => (
-                    <TableRow key={employee.id}>
+                    <TableRow key={employee.id} selected={selectedIds.has(employee.id)}>
+                      {isSuperAdmin && (
+                        <TableCell padding="checkbox">
+                          <Checkbox
+                            checked={selectedIds.has(employee.id)}
+                            disabled={employee.id === adminData.id || isDeleting}
+                            onChange={() => toggleSelected(employee.id)}
+                            slotProps={{ input: { "aria-label": `เลือก ${employee.email}` } }}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell>{employee.email}</TableCell>
                       <TableCell>{employee.name}</TableCell>
                       <TableCell>
@@ -257,6 +354,27 @@ export default function AdminPage() {
           )}
         </Box>
       )}
+
+      <Dialog open={confirmOpen} onClose={() => !isDeleting && setConfirmOpen(false)} aria-labelledby="bulkDeleteTitle">
+        <DialogTitle id="bulkDeleteTitle">ลบผู้ดูแล {selectedEmployees.length} คนถาวร?</DialogTitle>
+        <DialogContent>
+          <DialogContentText component="div">
+            <Box component="ul" sx={{ mt: 0, pl: 2.5 }}>
+              {selectedEmployees.map((employee) => (
+                <li key={employee.id}>{employee.name || "-"} ({employee.email})</li>
+              ))}
+            </Box>
+            ลบแล้วกู้คืนไม่ได้ บัญชีล็อกอินและประวัติเวลาทำงานของคนเหล่านี้จะถูกลบด้วย
+            ถ้าใครเคยสร้างหรือแก้สินค้า แบรนด์ หรือบันทึกรับชำระหนี้ไว้ ระบบจะไม่ลบคนนั้น ให้ใช้ปิดใช้งานแทน
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)} disabled={isDeleting}>ยกเลิก</Button>
+          <Button color="error" variant="contained" onClick={() => void handleBulkDelete()} disabled={isDeleting}>
+            {isDeleting ? "กำลังลบ..." : "ลบถาวร"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
