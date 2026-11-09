@@ -9,6 +9,9 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import type { Theme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
+import { createClient } from "@/app/api/util/supabase/client";
+import type { APIRESULT } from "@/app/models/api";
+import type { CURRENTUSER } from "@/app/models/user";
 import PrivacyPolicyContent from "@/app/privacy/PrivacyPolicyContent";
 import { PRIVACY_POLICY_VERSION } from "@/app/privacy/policyVersion";
 import { getCustomerAccessToken, useCustomerProfile } from "../CustomerProfileContext";
@@ -23,7 +26,35 @@ export default function PrivacyPolicyDialog() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isPhone = useMediaQuery((theme: Theme) => theme.breakpoints.down("sm"), { noSsr: true });
-  const open = !!profile && profile.privacyPolicyVersion !== PRIVACY_POLICY_VERSION;
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function checkAcknowledgement() {
+      try {
+        const accessToken = await getAccessToken();
+        if (!accessToken) return;
+
+        const response = await fetch("/api/users/me", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!response.ok) return;
+
+        const result = (await response.json()) as APIRESULT<CURRENTUSER | null>;
+        const user = result.status === "success" ? result.results : null;
+        if (!isCancelled && user && user.privacyPolicyVersion !== PRIVACY_POLICY_VERSION) {
+          setOpen(true);
+        }
+      } catch {
+        // ตรวจไม่สำเร็จจะถูกตรวจใหม่เมื่อเปิดหน้าครั้งถัดไป และต้องไม่ทำให้หน้าร้านใช้งานไม่ได้
+      }
+    }
+
+    void checkAcknowledgement();
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   async function handleAcknowledge() {
     setIsSaving(true);

@@ -43,23 +43,6 @@ const PAYMENT_OPTIONS: Array<{ value: PAYMENTMETHOD; label: string; hint: string
   { value: PAYMENTMETHOD.PENDING_BOTH, label: "ค้างทั้งถังและเงิน", hint: "สำหรับรายการเปลี่ยนถัง: รับถังเต็มก่อน แล้วชำระเงินและนำถังเปล่ามาคืนภายหลัง" },
 ];
 
-const DEBT_METHODS = [PAYMENTMETHOD.PENDING_PAYMENT, PAYMENTMETHOD.PENDING_CART, PAYMENTMETHOD.PENDING_BOTH];
-
-/**
- * วิธีชำระที่เลือกไม่ได้ตามประเภทการซื้อในตะกร้า
- * - ซื้อถัง (sell) และฝากเติม (refill): ห้ามค้างทุกแบบ ต้องจ่ายสดหรือสแกนจ่ายเท่านั้น
- */
-function getDisabledPaymentMethods(saleTypes: Array<string | null | undefined>) {
-  const disabled = new Map<PAYMENTMETHOD, string>();
-  if (saleTypes.includes("refill")) {
-    for (const method of DEBT_METHODS) disabled.set(method, "ไม่สามารถเลือกได้เมื่อมีรายการฝากเติม");
-  }
-  if (saleTypes.includes("sell")) {
-    for (const method of DEBT_METHODS) disabled.set(method, "ไม่สามารถเลือกได้เมื่อมีรายการซื้อถัง");
-  }
-  return disabled;
-}
-
 const sectionSx = { p: { xs: 2, sm: 2.5 } };
 
 function formatBaht(value: number) {
@@ -283,12 +266,6 @@ export default function CheckoutView() {
           </Paper>
 
           <Paper sx={sectionSx}>
-            <DeliveryLocationPicker
-              value={deliveryLocation}
-              onChange={handleLocationChange}
-              address={deliveryAddress}
-              disabled={isSubmitting}
-            />
             <TextField
               label="รายละเอียดที่อยู่ / จุดสังเกต (ไม่บังคับ)"
               helperText="เช่น บ้านเลขที่ ชื่อซอย สีบ้าน ใกล้ร้านอะไร ช่วยให้คนส่งหาเจอง่ายขึ้น"
@@ -325,26 +302,20 @@ export default function CheckoutView() {
                 value={selectedPaymentMethod}
                 onChange={(event) => setPaymentMethod(event.target.value as PAYMENTMETHOD)}
               >
-                {PAYMENT_OPTIONS.map((option) => {
-                  const disabledReason = disabledPaymentMethods.get(option.value);
-                  return (
-                    <FormControlLabel
-                      key={option.value}
-                      value={option.value}
-                      control={<Radio />}
-                      disabled={Boolean(disabledReason)}
-                      label={
-                        <Box>
-                          <Typography>{option.label}</Typography>
-                          <Typography variant="caption" color={disabledReason ? "error" : "text.secondary"}>
-                            {disabledReason ?? option.hint}
-                          </Typography>
-                        </Box>
-                      }
-                      sx={{ alignItems: "flex-start", mb: 1, mr: 0 }}
-                    />
-                  );
-                })}
+                {PAYMENT_OPTIONS.map((option) => (
+                  <FormControlLabel
+                    key={option.value}
+                    value={option.value}
+                    control={<Radio />}
+                    label={
+                      <Box>
+                        <Typography>{option.label}</Typography>
+                        <Typography variant="caption" color="text.secondary">{option.hint}</Typography>
+                      </Box>
+                    }
+                    sx={{ alignItems: "flex-start", mb: 1, mr: 0 }}
+                  />
+                ))}
               </RadioGroup>
             </FormControl>
           </Paper>

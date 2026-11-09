@@ -165,7 +165,7 @@ export default function Header() {
         noWrap
         sx={{ color: "#166534", fontSize: { xs: "1rem", sm: "1.125rem" }, fontWeight: 700, minWidth: 0 }}
       >
-        ร้านแก๊สท.รุ่งโรจน์
+        ร้านแก๊สทอรุ่งโรจน์
       </Typography>
 
       {user && (

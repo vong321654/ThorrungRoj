@@ -41,20 +41,16 @@ function CartDrawerConnected() {
 export default function ProductShell({ children }: { children: ReactNode }) {
   return (
     <ThemeRegistry>
-      <CustomerProfileProvider>
-        <CartProvider>
-          <Box sx={{ ...belowHeaderMinHeightSx, display: "flex", flexDirection: "column", bgcolor: "background.default" }}>
-            <SiteTopBar />
-            <CategoryNavBar />
-            {children}
-            <ShopContactFooter />
-          </Box>
-          <CartDrawerConnected />
-          {/* แสดงทีละอัน: นโยบายก่อน แล้วจึงเลือกประเภทลูกค้า */}
-          <PrivacyPolicyDialog />
-          <CustomerTypeDialog />
-        </CartProvider>
-      </CustomerProfileProvider>
+      <CartProvider>
+        <Box sx={{ ...belowHeaderMinHeightSx, display: "flex", flexDirection: "column", bgcolor: "background.default" }}>
+          <SiteTopBar />
+          <CategoryNavBar />
+          {children}
+          <ShopContactFooter />
+        </Box>
+        <CartDrawerConnected />
+        <PrivacyPolicyDialog />
+      </CartProvider>
     </ThemeRegistry>
   );
 }
