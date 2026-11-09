@@ -12,6 +12,9 @@ export type PRODUCT = {
   updatedBy: string | null;
   exchangePrice: number;
   refillPrice: number | null;
+  // ราคาร้านค้า 0 = ไม่ได้ตั้ง ใช้ราคาปกติ
+  shopExchangePrice: number;
+  shopRefillPrice: number;
   imageUrl?: string | null;
   isActive: boolean;
 };

@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CartItem, CartLine } from "./domain/cartItem";
+import { resolveTierPrice } from "@/app/util/customerPricing";
+import { useCustomerProfile } from "./CustomerProfileContext";
 
 const CART_STORAGE_KEY = "thor-rungroj-cart-v1";
 
@@ -41,6 +43,7 @@ function hasReachedInventoryLimit(lines: CartLine[], item: CartItem) {
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { customerType } = useCustomerProfile();
   const [cartLines, setCartLines] = useState<CartLine[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -67,6 +70,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 item.saleType === "exchange" ||
                 item.saleType === "refill") &&
               (item.price === null || (typeof item.price === "number" && Number.isFinite(item.price))) &&
+              (item.shopPrice === undefined ||
+                item.shopPrice === null ||
+                (typeof item.shopPrice === "number" && Number.isFinite(item.shopPrice))) &&
               (item.availableQuantity === undefined ||
                 item.availableQuantity === null ||
                 (Number.isInteger(item.availableQuantity) && item.availableQuantity >= 0))
@@ -77,6 +83,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
               ...line,
               item: {
                 ...line.item,
+                // ตะกร้าที่บันทึกไว้ก่อนมีราคาร้านค้าจะไม่มีฟิลด์นี้
+                shopPrice: line.item.shopPrice ?? null,
                 availableQuantity: line.item.availableQuantity ?? null,
               },
             })),
@@ -149,13 +157,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [cartLines]
   );
 
+  // ราคาในตะกร้าตามประเภทลูกค้าปัจจุบัน ถ้าแอดมินยืนยันบัญชีร้านค้าระหว่างที่มีของในตะกร้า ราคาจะเปลี่ยนตาม
+  // server คำนวณราคาเองอีกครั้งตอนสั่งซื้อ ค่านี้ใช้แสดงผลเท่านั้น
+  const pricedLines = useMemo(
+    () =>
+      cartLines.map((line) =>
+        line.item.price === null
+          ? line
+          : { ...line, item: { ...line.item, price: resolveTierPrice(line.item.price, line.item.shopPrice, customerType) } },
+      ),
+    [cartLines, customerType],
+  );
+
   const cartTotal = useMemo(
-    () => cartLines.reduce((total, line) => total + line.quantity * (line.item.price ?? 0), 0),
-    [cartLines]
+    () => pricedLines.reduce((total, line) => total + line.quantity * (line.item.price ?? 0), 0),
+    [pricedLines]
   );
 
   const value: CartContextValue = {
-    cartLines,
+    cartLines: pricedLines,
     cartCount,
     cartTotal,
     isCartOpen,

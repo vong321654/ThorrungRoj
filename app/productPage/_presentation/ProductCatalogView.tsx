@@ -6,6 +6,7 @@ import type { SaleType } from "@/app/productPage/_shared/domain/cartItem";
 import type { Product } from "@/app/productPage/_domain/entities";
 import ProductFilters from "./components/ProductFilters";
 import ProductGrid from "./components/ProductGrid";
+import { getSaleTypePrices } from "./productPricing";
 import { useProductCatalog } from "./hooks/useProductCatalog";
 
 export default function ProductCatalogView() {
@@ -14,12 +15,7 @@ export default function ProductCatalogView() {
 
   function handleSelect(product: Product, saleType: SaleType) {
     const productId = Number(product.id);
-    const price =
-      saleType === "sell"
-        ? product.sellPrice
-        : saleType === "exchange"
-          ? product.exchangePrice
-          : product.refillPrice;
+    const { price, shopPrice } = getSaleTypePrices(product, saleType);
 
     cart.addItem({
       id: `tank:${product.id}:${saleType}`,
@@ -27,6 +23,7 @@ export default function ProductCatalogView() {
       source: "tank",
       name: `${product.brandLabel} ${product.weightKg}กก.`,
       price,
+      shopPrice: shopPrice > 0 ? shopPrice : null,
       saleType,
       // null = ไม่จำกัดตามสต๊อก เพราะฝากเติมใช้ถังของลูกค้า
       availableQuantity: saleType === "refill" ? null : product.availableQuantity ?? 0,

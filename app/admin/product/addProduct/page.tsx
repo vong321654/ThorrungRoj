@@ -76,6 +76,8 @@ export default function AddProductPage() {
         sellPrice: Number(values.sellPrice),
         exchangePrice: values.exchangePrice ? Number(values.exchangePrice) : 0,
         refillPrice: values.refillPrice ? Number(values.refillPrice) : 0,
+        shopExchangePrice: values.shopExchangePrice ? Number(values.shopExchangePrice) : 0,
+        shopRefillPrice: values.shopRefillPrice ? Number(values.shopRefillPrice) : 0,
         isActive: values.isActive,
         imageUrl: values.imageUrl ?? null,
       });

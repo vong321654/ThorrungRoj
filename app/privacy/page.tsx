@@ -4,12 +4,12 @@ import Typography from "@mui/material/Typography";
 import PrivacyPolicyContent from "./PrivacyPolicyContent";
 
 export const metadata: Metadata = {
-  title: "นโยบายความเป็นส่วนตัว | ก๊าซทอรุ่งโรจน์",
+  title: "นโยบายความเป็นส่วนตัว | ร้านแก๊สท.รุ่งโรจน์",
 };
 
 export default function PrivacyPage() {
   return (
-    <Container component="main" maxWidth="md" sx={{ py: 3 }}>
+    <Container component="main" maxWidth="md" sx={{ py: { xs: 2, sm: 3 } }}>
       <Typography component="h1" variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
         นโยบายความเป็นส่วนตัว
       </Typography>

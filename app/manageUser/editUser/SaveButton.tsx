@@ -3,8 +3,10 @@
 import type { UPDATEUSERPAYLOAD } from "@/app/models/user";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
 import { saveEditUserData } from "./allFunc";
-import styles from "./EditUser.module.css";
 
 type SaveButtonProps = {
   payload: UPDATEUSERPAYLOAD;
@@ -35,16 +37,29 @@ export default function SaveButton({
   }
 
   return (
-    <div className={styles.saveArea}>
-      {message && <span className={styles.saveMessage}>{message}</span>}
-      <button
-        className={styles.saveButton}
+    <Box
+      sx={{
+        alignItems: { xs: "stretch", sm: "center" },
+        display: "flex",
+        flexDirection: { xs: "column", sm: "row" },
+        gap: 1.25,
+      }}
+    >
+      {message && (
+        <Typography sx={{ color: "#166534", fontSize: "0.85rem", fontWeight: 600 }}>
+          {message}
+        </Typography>
+      )}
+      <Button
         type="button"
+        variant="contained"
+        disableElevation
         onClick={handleClick}
         disabled={isSaving || hasValidationErrors}
+        sx={{ fontWeight: 700, minHeight: 44 }}
       >
         {isSaving ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
-      </button>
-    </div>
+      </Button>
+    </Box>
   );
 }

@@ -13,6 +13,9 @@ import type { Product } from "@/app/productPage/_domain/entities";
 import type { SaleType } from "@/app/productPage/_shared/domain/cartItem";
 import { getBrandAccentColor } from "../brandTheme";
 import GasCylinderGlyph from "./GasCylinderGlyph";
+import { CUSTOMERTYPE } from "@/app/enums/customer";
+import { useCustomerProfile } from "@/app/productPage/_shared/CustomerProfileContext";
+import { getDisplayPrice, getSaleTypePrices } from "../productPricing";
 
 type ProductCardProps = {
   product: Product;
@@ -31,22 +34,21 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
   const [saleType, setSaleType] = useState<SaleType>("sell");
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const imageUrl = product.imageUrl && product.imageUrl !== failedImageUrl ? product.imageUrl : null;
-  const selectedPrice =
-    saleType === "sell"
-      ? product.sellPrice
-      : saleType === "exchange"
-        ? product.exchangePrice
-        : product.refillPrice;
+  const { customerType } = useCustomerProfile();
+  const selectedPrice = getDisplayPrice(product, saleType, customerType);
+  // บอกลูกค้าร้านค้าว่าราคานี้เป็นราคาร้านค้า (ซื้อถังหรือสินค้าที่ไม่ได้ตั้งราคาร้านค้าจะเป็นราคาปกติ)
+  const isShopPrice =
+    customerType === CUSTOMERTYPE.SHOP && selectedPrice !== getSaleTypePrices(product, saleType).price;
   // ฝากเติมใช้ถังของลูกค้า จึงสั่งได้แม้ถังเต็มในร้านหมด
   const isRefill = saleType === "refill";
-  // สินค้าที่ร้านยังไม่ตั้งราคาเติมจะไม่แสดงตัวเลือกนี้
+  // สินค้าที่ร้านยังไม่ตั้งราคาฝากเติมจะไม่แสดงตัวเลือกนี้
   const saleTypeOptions = SALE_TYPE_OPTIONS.filter(
-    (option) => option.value !== "refill" || product.refillPrice > 0,
+    (option) => option.value !== "refill" || getDisplayPrice(product, "refill", customerType) > 0,
   );
 
   return (
     <Card variant="outlined" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <Box sx={{ height: 140, p: 2, display: "flex", justifyContent: "center", bgcolor: "#f9fafb" }}>
+      <Box sx={{ height: { xs: 110, sm: 140 }, p: { xs: 1, sm: 2 }, display: "flex", justifyContent: "center", bgcolor: "#f9fafb" }}>
         {imageUrl ? (
           <Box
             component="img"
@@ -57,12 +59,12 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
             sx={{ width: "100%", height: "100%", objectFit: "contain" }}
           />
         ) : (
-          <Box sx={{ width: 90 }}>
+          <Box sx={{ width: { xs: 70, sm: 90 } }}>
             <GasCylinderGlyph accentColor={accentColor} label={product.brandLabel.charAt(0)} />
           </Box>
         )}
       </Box>
-      <CardContent sx={{ flexGrow: 1, textAlign: "center", pb: 0 }}>
+      <CardContent sx={{ flexGrow: 1, textAlign: "center", px: { xs: 1.25, sm: 2 }, pb: 0 }}>
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {product.brandLabel} {product.weightKg}กก.
         </Typography>
@@ -73,7 +75,15 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
           label="รูปแบบการซื้อ"
           value={saleType}
           onChange={(event) => setSaleType(event.target.value as SaleType)}
-          sx={{ mt: 1 }}
+          sx={{
+            mt: 1,
+            // การ์ดบนมือถือแคบ ลด padding เพื่อให้ "เปลี่ยนถัง" แสดงครบไม่ถูกตัด
+            "& .MuiSelect-select.MuiSelect-select": {
+              pl: { xs: 1, sm: 1.75 },
+              pr: { xs: 3, sm: 4 },
+              "@media (max-width: 319.95px)": { pl: 0.5 },
+            },
+          }}
         >
           {saleTypeOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
@@ -82,7 +92,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
           ))}
         </TextField>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          ราคา : {selectedPrice.toLocaleString("th-TH")} บาท
+          {isShopPrice ? "ราคาร้านค้า" : "ราคา"} : {selectedPrice.toLocaleString("th-TH")} บาท
         </Typography>
         {isRefill ? (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
@@ -94,12 +104,12 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
           </Typography>
         )}
       </CardContent>
-      <CardActions sx={{ justifyContent: "center", pb: 2 }}>
+      <CardActions sx={{ justifyContent: "center", px: { xs: 1.25, sm: 1 }, pb: { xs: 1.25, sm: 2 } }}>
         <Button
           variant="contained"
           color="error"
           size="small"
-          sx={{ borderRadius: 5, px: 3 }}
+          sx={{ borderRadius: 5, px: 3, width: { xs: "100%", sm: "auto" } }}
           onClick={() => onSelect(product, saleType)}
           disabled={!Number.isFinite(selectedPrice) || selectedPrice <= 0 || (!isRefill && availableQuantity <= 0)}
         >

@@ -5,12 +5,21 @@ import type { SxProps, Theme } from "@mui/material/styles";
  * ย้ายมาจาก Login.module.css เดิม เพื่อให้ทุกหน้าใช้ MUI sx ชุดเดียวกัน
  */
 
+/**
+ * ความสูงเต็มจอหักแถบ Header 64px
+ * ใช้ dvh เพราะบนมือถือ 100vh รวมแถบของเบราว์เซอร์ด้วย ทำให้หน้าเลื่อนได้ทั้งที่เนื้อหาพอดีจอ
+ */
+export const belowHeaderMinHeightSx = {
+  minHeight: "calc(100vh - 64px)",
+  "@supports (min-height: 100dvh)": { minHeight: "calc(100dvh - 64px)" },
+};
+
 export const authPageSx: SxProps<Theme> = {
+  ...belowHeaderMinHeightSx,
   alignItems: { xs: "flex-start", sm: "center" },
   bgcolor: "#f3f7f4",
   display: "flex",
   justifyContent: "center",
-  minHeight: "calc(100vh - 65px)",
   px: { xs: 1.5, sm: 2 },
   py: { xs: 2.5, sm: 4 },
 };

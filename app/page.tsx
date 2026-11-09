@@ -1,14 +1,23 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
 
-export default function Home() {
-  const router = useRouter();
+// Supabase ส่งกลับมาที่ Site URL (/?code=...) เมื่อ redirectTo ไม่อยู่ใน allowlist
+// ส่งต่อไป callback ฝั่งเซิร์ฟเวอร์ก่อนที่ JS ในเบราว์เซอร์จะทำงาน ไม่งั้น code หายระหว่างทาง
+// และ callback ไม่ได้ซิงก์ผู้ใช้หรือพากลับหน้าเดิม
+export default async function Home({ searchParams }: Props) {
+  const params = await searchParams;
+  const forwarded = new URLSearchParams();
+  for (const key of ["code", "error", "error_description"]) {
+    const value = params[key];
+    if (typeof value === "string") forwarded.set(key, value);
+  }
 
-  useEffect(() => {
-    router.replace("/login");
-  }, [router]);
+  if (forwarded.has("code") || forwarded.has("error")) {
+    redirect(`/api/auth/line?${forwarded.toString()}`);
+  }
 
-  return null;
+  redirect("/login");
 }
