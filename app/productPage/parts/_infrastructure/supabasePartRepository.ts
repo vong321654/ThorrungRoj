@@ -2,8 +2,7 @@ import type { Part } from "@/app/productPage/parts/_domain/entities";
 import type { PartRepository } from "@/app/productPage/parts/_domain/partRepository";
 import type { APIRESULT } from "@/app/api/response";
 import type { PRODUCT } from "@/app/models/product";
-
-const PART_TYPE_ID = 16; // "อะไหล่" ใน types
+import { isGasCylinderProduct } from "@/app/util/productType";
 
 type AvailableStock = { productId: number; availableQuantity: number };
 
@@ -23,7 +22,8 @@ export class SupabasePartRepository implements PartRepository {
     );
 
     return result.results
-      .filter((product) => product.isActive !== false && product.typeId === PART_TYPE_ID)
+      // ทุกอย่างที่ไม่ใช่ถังแก๊สคืออะไหล่/อุปกรณ์ ไม่ผูกกับชื่อหรือ id ของประเภทอะไหล่
+      .filter((product) => product.isActive !== false && !isGasCylinderProduct(product))
       .map((product) => ({
         id: String(product.id),
         name: product.name,

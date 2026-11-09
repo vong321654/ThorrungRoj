@@ -22,7 +22,8 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useCart } from "@/app/productPage/_shared/CartContext";
-import { createClient } from "@/app/api/util/supabase/client";
+import { clearStaleSession, getVerifiedAccessToken } from "@/app/util/customerSession";
+import { loginUrlWithNext } from "@/app/util/loginRedirect";
 import type { APIRESULT } from "@/app/api/response";
 import type { CURRENTUSER } from "@/app/models/user";
 import { PAYMENTMETHOD, type ORDERRECORD } from "@/app/models/order";
@@ -61,6 +62,8 @@ function getDisabledPaymentMethods(saleTypes: Array<string | null | undefined>) 
 }
 
 const sectionSx = { p: { xs: 2, sm: 2.5 } };
+// ยังไม่ login: ไปหน้า LINE login แล้วกลับมาหน้านี้
+const CHECKOUT_LOGIN_URL = loginUrlWithNext("/productPage/checkout");
 
 function formatBaht(value: number) {
   return `${value.toLocaleString("th-TH")} บาท`;
@@ -93,11 +96,9 @@ export default function CheckoutView() {
     let isMounted = true;
 
     async function loadCustomer() {
-      const supabase = createClient();
-      const { data } = await supabase.auth.getSession();
-      const accessToken = data.session?.access_token;
+      const accessToken = await getVerifiedAccessToken();
       if (!accessToken) {
-        router.replace("/login");
+        router.replace(CHECKOUT_LOGIN_URL);
         return;
       }
 
@@ -195,11 +196,9 @@ export default function CheckoutView() {
         }
       }
 
-      const supabase = createClient();
-      const { data } = await supabase.auth.getSession();
-      const accessToken = data.session?.access_token;
+      const accessToken = await getVerifiedAccessToken();
       if (!accessToken) {
-        router.replace("/login");
+        router.replace(CHECKOUT_LOGIN_URL);
         return;
       }
 
@@ -218,6 +217,12 @@ export default function CheckoutView() {
           deliveryLng: deliveryLocation.lng,
         }),
       });
+      // session หมดอายุระหว่างกรอกฟอร์ม: ให้ login ใหม่แล้วกลับมาที่นี่ ตะกร้ายังอยู่
+      if (response.status === 401) {
+        await clearStaleSession();
+        router.replace(CHECKOUT_LOGIN_URL);
+        return;
+      }
       const result = (await response.json()) as APIRESULT<ORDERRECORD>;
       if (!response.ok || result.status === "error") {
         throw new Error(result.message);

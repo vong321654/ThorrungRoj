@@ -1,5 +1,8 @@
 import { handleLineEvents, verifyLineSignature, type LineEvent } from "@/app/api/services/lineBotService";
 
+// รับสลิปต้องดึงรูปจาก LINE แปลงไฟล์ อัปโหลด แล้วแจ้งแอดมิน ใช้เวลานานกว่าตอบแชทปกติ
+export const maxDuration = 60;
+
 // LINE ส่ง webhook มาที่นี่ ต้องอ่าน body แบบ raw text เพื่อตรวจลายเซ็นก่อน parse JSON
 export async function POST(request: Request) {
   const rawBody = await request.text();

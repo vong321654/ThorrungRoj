@@ -1,4 +1,6 @@
+import { after } from "next/server";
 import { apiError, apiSuccess } from "@/app/api/response";
+import { notifyApproversNewSlip } from "@/app/api/services/lineSlipService";
 import {
   convertImageToJpeg,
   convertImageToWebp,
@@ -191,7 +193,7 @@ export async function POST(request: Request) {
   const paymentId = parseUuid(typeof form.get("paymentId") === "string" ? form.get("paymentId") as string : null);
   if (!paymentId) return Response.json(apiError("A valid paymentId is required"), { status: 400 });
   const { data: payment, error: paymentError } = await adminSupabase
-    .from("payments").select("id, orders!inner(userId)").eq("id", paymentId).maybeSingle();
+    .from("payments").select("id, status, orders!inner(userId, status)").eq("id", paymentId).maybeSingle();
   if (paymentError) return Response.json(apiError("Failed to validate payment"), { status: 500 });
   if (!payment) return Response.json(apiError("Payment not found"), { status: 404 });
 
@@ -202,6 +204,17 @@ export async function POST(request: Request) {
   }
   if (customerId && userId !== customerId) {
     return Response.json(apiError("You cannot upload a receipt for another customer"), { status: 403 });
+  }
+  // ลูกค้าแนบสลิปได้เฉพาะ payment ที่ยังรอชำระ (เหมือนช่องทาง LINE ใน lineSlipService)
+  // ร้านยืนยันแล้ว payment จะเป็น paid ส่วนสลิปที่ถูกปฏิเสธ payment ยังเป็น pending จึงแนบใหม่ได้
+  // RLS "transfer_slips_insert_own" กันซ้ำอีกชั้น ที่นี่เช็คก่อนเพื่อไม่ให้อัปโหลดไฟล์ทิ้งไว้ใน storage
+  if (customerId) {
+    if ((order as PAYMENTORDEROWNER)?.status === "cancelled") {
+      return Response.json(apiError("ออเดอร์นี้ถูกยกเลิกแล้ว ไม่สามารถแนบสลิปได้"), { status: 409 });
+    }
+    if (payment.status !== "pending") {
+      return Response.json(apiError("ร้านยืนยันการชำระเงินของออเดอร์นี้แล้ว ไม่ต้องแนบสลิปเพิ่ม"), { status: 409 });
+    }
   }
 
   const path = `receipts/${userId}/${paymentId}/${crypto.randomUUID()}.webp`;
@@ -216,6 +229,8 @@ export async function POST(request: Request) {
     await adminSupabase.storage.from(RECEIPT_IMAGE_BUCKET).remove([path]);
     return Response.json(apiError("Failed to save receipt image"), { status: 500 });
   }
+  // ลูกค้าแนบสลิปเอง → แจ้งแอดมินใน LINE หลังตอบลูกค้าแล้ว ไม่ให้หน้าเว็บรอ LINE
+  if (customerId) after(() => notifyApproversNewSlip(data.id));
   return Response.json(apiSuccess("Receipt image uploaded successfully", data), { status: 201 });
 }
 

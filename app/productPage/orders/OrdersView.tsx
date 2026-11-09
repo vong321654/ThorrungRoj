@@ -20,8 +20,10 @@ import Typography from "@mui/material/Typography";
 import type { Theme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { createClient } from "@/app/api/util/supabase/client";
+import { clearStaleSession, getVerifiedAccessToken } from "@/app/util/customerSession";
+import { loginUrlWithNext } from "@/app/util/loginRedirect";
 import type { APIRESULT } from "@/app/api/response";
-import { PAYMENTMETHOD, type ORDERRECORD, type TRANSFERSLIPRECORD } from "@/app/models/order";
+import { PAYMENTMETHOD, type ORDERPAYMENTRECORD, type ORDERRECORD, type TRANSFERSLIPRECORD } from "@/app/models/order";
 import { compressImage, UPLOAD_IMAGE_TYPES } from "@/app/util/compressImage";
 
 const PAYMENT_LABELS: Record<PAYMENTMETHOD, string> = {
@@ -42,19 +44,41 @@ function formatBaht(value: number) {
   return `${value.toLocaleString("th-TH")} บาท`;
 }
 
+// แนบสลิปได้เฉพาะ payment ที่ยังรอชำระ (ต้องตรงกับ POST /api/images และช่องทาง LINE)
+// ร้านยืนยันแล้ว payment เป็น paid ส่วนสลิปที่ถูกปฏิเสธ payment ยังเป็น pending ลูกค้าจึงแนบใหม่ได้
+function canUploadSlip(order: ORDERRECORD, payment: ORDERPAYMENTRECORD) {
+  return payment.status === "pending" && order.status !== "cancelled";
+}
+
+function getSlipStatusText(order: ORDERRECORD, payment: ORDERPAYMENTRECORD) {
+  if (payment.status === "paid") return { text: "ร้านยืนยันการชำระเงินแล้ว", color: "success.main" };
+  if (order.status === "cancelled") return { text: "ออเดอร์ถูกยกเลิก", color: "text.secondary" };
+  const latestSlip = [...(payment.transferSlips ?? [])]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  if (!latestSlip) return null;
+  if (latestSlip.status === "rejected") {
+    const reason = latestSlip.rejectReason?.trim();
+    return { text: `สลิปไม่ผ่านการตรวจสอบ${reason ? ` (${reason})` : ""} กรุณาแนบใหม่`, color: "error.main" };
+  }
+  return { text: "ส่งสลิปแล้ว รอตรวจสอบ", color: "text.secondary" };
+}
+
 let pendingOrdersRequest: Promise<ORDERRECORD[] | null> | null = null;
 
 function fetchCustomerOrders() {
   if (pendingOrdersRequest) return pendingOrdersRequest;
 
   const request = (async () => {
-    const { data } = await createClient().auth.getSession();
-    const accessToken = data.session?.access_token;
+    const accessToken = await getVerifiedAccessToken();
     if (!accessToken) return null;
 
     const response = await fetch("/api/orders", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
+    if (response.status === 401) {
+      await clearStaleSession();
+      return null;
+    }
     const result = (await response.json()) as APIRESULT<ORDERRECORD[]>;
     if (!response.ok || result.status === "error") throw new Error(result.message);
     return result.results;
@@ -120,6 +144,11 @@ export default function OrdersView() {
         body: form,
       });
       const result = await response.json() as APIRESULT<TRANSFERSLIPRECORD & { paymentId: string }>;
+      if (response.status === 409) {
+        // ร้านเพิ่งยืนยันหรือยกเลิกระหว่างที่เปิดหน้านี้ค้างไว้ โหลดใหม่ให้ปุ่มแนบสลิปหายไป
+        const latest = await fetchCustomerOrders().catch(() => null);
+        if (latest) setOrders(latest);
+      }
       if (!response.ok || result.status === "error") throw new Error(result.message);
       setOrders((current) => current.map((order) => ({
         ...order,
@@ -143,7 +172,7 @@ export default function OrdersView() {
       try {
         const result = await fetchCustomerOrders();
         if (!result) {
-          router.replace("/login");
+          router.replace(loginUrlWithNext("/productPage/orders"));
           return;
         }
         if (isMounted) setOrders(result);
@@ -221,17 +250,20 @@ export default function OrdersView() {
               <Button component={Link} href={`/productPage/orders/${order.id}`} size="small" sx={{ mt: 1.5 }}>ดูรายละเอียดและสถานะ</Button>
               {order.paymentMethod === "qrScan" && order.payments?.map((payment) => {
                 const hasSlip = (payment.transferSlips?.length ?? 0) > 0;
+                const slipStatus = getSlipStatusText(order, payment);
                 return <Box key={payment.id} sx={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 1, mt: 2 }}>
-                  <Button component="label" size="small" variant="outlined" disabled={uploadingPaymentId === payment.id}>
-                    {uploadingPaymentId === payment.id ? "กำลังอัปโหลด..." : hasSlip ? "แนบสลิปใหม่" : "แนบสลิปชำระเงิน"}
-                    <input hidden type="file" accept={UPLOAD_IMAGE_TYPES.join(",")} onChange={(event) => {
-                      const file = event.currentTarget.files?.[0];
-                      // reset เพื่อให้เลือกไฟล์เดิมซ้ำได้ ถ้าอัปโหลดรอบก่อนพลาด
-                      event.currentTarget.value = "";
-                      void uploadReceipt(payment.id, file);
-                    }} />
-                  </Button>
-                  {hasSlip && <Typography component="span" variant="body2" color="text.secondary">ส่งสลิปแล้ว รอตรวจสอบ</Typography>}
+                  {canUploadSlip(order, payment) && (
+                    <Button component="label" size="small" variant="outlined" disabled={uploadingPaymentId === payment.id}>
+                      {uploadingPaymentId === payment.id ? "กำลังอัปโหลด..." : hasSlip ? "แนบสลิปใหม่" : "แนบสลิปชำระเงิน"}
+                      <input hidden type="file" accept={UPLOAD_IMAGE_TYPES.join(",")} onChange={(event) => {
+                        const file = event.currentTarget.files?.[0];
+                        // reset เพื่อให้เลือกไฟล์เดิมซ้ำได้ ถ้าอัปโหลดรอบก่อนพลาด
+                        event.currentTarget.value = "";
+                        void uploadReceipt(payment.id, file);
+                      }} />
+                    </Button>
+                  )}
+                  {slipStatus && <Typography component="span" variant="body2" color={slipStatus.color}>{slipStatus.text}</Typography>}
                   {payment.transferSlips?.map((slip) => <Button key={slip.id} size="small" disabled={viewingSlipId === slip.id} onClick={() => void viewReceipt(slip.id)}>{viewingSlipId === slip.id ? "กำลังเปิด..." : "ดูสลิป"}</Button>)}
                 </Box>;
               })}

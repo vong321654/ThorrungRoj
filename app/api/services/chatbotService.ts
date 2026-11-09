@@ -2,6 +2,7 @@ import type { SERVICERESULT } from "@/app/models/api";
 import { createAuthenticatedClient } from "@/app/api/util/supabase/authenticated";
 import { createPublicClient } from "@/app/api/util/supabase/public";
 import { apiError, apiSuccess } from "../response";
+import { isGasCylinderProduct, PRODUCT_TYPE_EMBED, type ProductTypeEmbed } from "@/app/util/productType";
 import {
   FALLBACK_ANSWER,
   GREETING_ANSWER,
@@ -48,10 +49,8 @@ type ProductRow = {
   exchangePrice: number | string | null;
   refillPrice: number | string | null;
   typeId: number;
+  productsType: ProductTypeEmbed;
 };
-
-const TANK_TYPE_ID = 14; // "ถังแก๊ส" ใน productsType
-const PART_TYPE_ID = 16; // "อะไหล่" ใน productsType
 const NO_BRAND_NAME = "ไม่มี"; // ยี่ห้อของอะไหล่ ถ้าไม่ตัดออก ประโยคที่มีคำว่า "ไม่มี" จะถูกนับว่าระบุยี่ห้อ
 
 function formatBaht(value: number | string | null) {
@@ -69,7 +68,7 @@ function stockLabel(product: ProductRow, stock: Map<number, number> | null) {
   if (!stock) return "สอบถามจำนวนกับร้าน";
   if ((stock.get(Number(product.id)) ?? 0) > 0) return "✅ มีสินค้า";
   // ฝากเติมใช้ถังของลูกค้า จึงยังสั่งได้แม้ถังเต็มในคลังหมด
-  if (product.typeId === TANK_TYPE_ID && formatBaht(product.refillPrice)) return "❌ ถังเต็มหมดชั่วคราว (ฝากเติมได้)";
+  if (isGasCylinderProduct(product) && formatBaht(product.refillPrice)) return "❌ ถังเต็มหมดชั่วคราว (ฝากเติมได้)";
   return "❌ สินค้าหมดชั่วคราว";
 }
 
@@ -78,7 +77,7 @@ async function buildProductAnswer(message: string): Promise<{ text: string; matc
   const [{ data: products, error: productsError }, { data: brands }] = await Promise.all([
     supabase
       .from("products")
-      .select("id, name, size, brandId, sellPrice, exchangePrice, refillPrice, typeId")
+      .select(`id, name, size, brandId, sellPrice, exchangePrice, refillPrice, typeId, ${PRODUCT_TYPE_EMBED}`)
       .eq("isActive", true),
     supabase.from("productsBrand").select("id, name"),
   ]);
@@ -117,7 +116,7 @@ async function buildProductAnswer(message: string): Promise<{ text: string; matc
   });
   const tankMatches = rows.filter(
     (product) =>
-      product.typeId === TANK_TYPE_ID &&
+      isGasCylinderProduct(product) &&
       (mentionedBrandIds.size > 0 || size !== null) &&
       (mentionedBrandIds.size === 0 || mentionedBrandIds.has(Number(product.brandId))) &&
       (size === null || Number(product.size) === size),
@@ -128,10 +127,10 @@ async function buildProductAnswer(message: string): Promise<{ text: string; matc
   const askedParts = isPartsQuestion(message);
   const askedAllProducts = text.includes("สินค้า");
   const defaultList = askedParts
-    ? rows.filter((product) => product.typeId === PART_TYPE_ID)
+    ? rows.filter((product) => !isGasCylinderProduct(product))
     : askedAllProducts
       ? rows
-      : rows.filter((product) => product.typeId === TANK_TYPE_ID);
+      : rows.filter((product) => isGasCylinderProduct(product));
   const defaultLabel = askedParts ? "อะไหล่และอุปกรณ์แก๊ส" : askedAllProducts ? "สินค้า" : "ถังแก๊ส";
   const list = matched.length > 0 ? matched : defaultList;
   if (list.length === 0) return { text: `ขณะนี้ยังไม่มีข้อมูลสินค้า กรุณาโทรสอบถามร้าน: ${SHOP_PHONES}`, matched: false };
@@ -139,7 +138,7 @@ async function buildProductAnswer(message: string): Promise<{ text: string; matc
   const shown = list.slice(0, MAX_PRICE_ROWS);
   const stock = await getOrderableStock(shown.map((product) => Number(product.id)));
   const lines = shown.map((product) => {
-    const isTank = product.typeId === TANK_TYPE_ID;
+    const isTank = isGasCylinderProduct(product);
     const brand = brandNames.get(Number(product.brandId));
     const label = isTank
       ? `${brand ?? product.name} ${product.size ?? ""}กก.`.replace(/\s+/g, " ").trim()

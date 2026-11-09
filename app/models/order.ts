@@ -1,6 +1,7 @@
 import type { SaleType } from "@/app/productPage/_shared/domain/cartItem";
 import { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD } from "@/app/enums/order";
 import type { CUSTOMERTYPE } from "@/app/enums/customer";
+import type { ProductTypeEmbed } from "@/app/util/productType";
 
 export { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD };
 
@@ -32,6 +33,7 @@ export type ORDERITEMRECORD = {
 export type TRANSFERSLIPRECORD = {
   id: string;
   status: string;
+  rejectReason?: string | null;
   createdAt: string;
 };
 
@@ -79,6 +81,7 @@ export type PRODUCTPRICINGROW = {
   shopRefillPrice: number | string | null;
   isActive: boolean;
   typeId: number;
+  productsType?: ProductTypeEmbed;
 };
 
 export type ADMINORDERUPDATEPAYLOAD = {

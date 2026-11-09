@@ -18,8 +18,13 @@ export async function convertImageToWebp(file: File) {
 // รูปประกาศถูกส่งเข้า LINE เป็นรูปในการ์ด Flex Message ซึ่งรับเฉพาะ JPEG/PNG (WebP แสดงเป็นรูปแตก)
 // จึงแปลงเป็น JPEG แทน WebP ปูพื้นขาวให้ PNG โปร่งใส และย่อด้านยาวไม่เกิน 1600px ให้ลูกค้าโหลดเร็ว
 export async function convertImageToJpeg(file: File) {
+  return convertBufferToJpeg(Buffer.from(await file.arrayBuffer()));
+}
+
+// สลิปที่ลูกค้าส่งในแชท LINE ก็เก็บเป็น JPEG ด้วยเหตุผลเดียวกัน เพราะรูปจะถูกแสดงในการ์ดแจ้งแอดมิน
+export async function convertBufferToJpeg(input: Buffer) {
   try {
-    return await sharp(Buffer.from(await file.arrayBuffer()), { limitInputPixels: 40_000_000 })
+    return await sharp(input, { limitInputPixels: 40_000_000 })
       .rotate()
       .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
       .flatten({ background: "#ffffff" })

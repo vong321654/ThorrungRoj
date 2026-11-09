@@ -1,10 +1,17 @@
+import { after } from "next/server";
 import { apiError } from "@/app/api/response";
 import { ADMINROLE } from "@/app/models/admin";
 import { deleteQrSlip, getQrPaymentForOrder, recordPartialQrPayment, rejectQrSlip, verifyQrPayment } from "@/app/api/services/paymentService";
+import { notifyCustomerSlipResult } from "@/app/api/services/lineSlipService";
 import { authenticateAdmin } from "../authorization";
 
 function isAdmin(role: ADMINROLE | null) {
   return role === ADMINROLE.ADMIN || role === ADMINROLE.SUPER_ADMIN;
+}
+
+// แจ้งผลตรวจสลิปเข้าแชท LINE ของลูกค้าหลังตอบแอดมินแล้ว ไม่ให้หน้าเว็บรอ LINE
+function notifyCustomerAfterResponse(slipId: string) {
+  after(() => notifyCustomerSlipResult(slipId));
 }
 
 export async function GET(request: Request) {
@@ -32,6 +39,7 @@ export async function PATCH(request: Request) {
   if (body.action === "reject") {
     if (typeof body.reason !== "string" || !body.reason.trim()) return Response.json(apiError("A rejection reason is required"), { status: 400 });
     const result = await rejectQrSlip(body.paymentId, body.slipId, body.reason.trim(), auth.supabase);
+    if (result.status === 200) notifyCustomerAfterResponse(body.slipId);
     return Response.json(result.result, { status: result.status });
   }
   if (body.action === "partial") {
@@ -39,10 +47,12 @@ export async function PATCH(request: Request) {
     if (!Number.isFinite(amount) || amount <= 0) return Response.json(apiError("A valid paid amount is required"), { status: 400 });
     if (body.note !== undefined && typeof body.note !== "string") return Response.json(apiError("Invalid note"), { status: 400 });
     const result = await recordPartialQrPayment(body.paymentId, body.slipId, amount, typeof body.note === "string" ? body.note.trim() || null : null, auth.supabase);
+    if (result.status === 200) notifyCustomerAfterResponse(body.slipId);
     return Response.json(result.result, { status: result.status });
   }
   if (body.action !== undefined && body.action !== "verify") return Response.json(apiError("Invalid payment action"), { status: 400 });
   const result = await verifyQrPayment(body.paymentId, body.slipId, auth.supabase);
+  if (result.status === 200) notifyCustomerAfterResponse(body.slipId);
   return Response.json(result.result, { status: result.status });
 }
 

@@ -4,7 +4,7 @@ import { DEBTCHOICE } from "@/app/enums/debt";
 import { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD } from "@/app/enums/order";
 import { authenticateAdmin } from "../authorization";
 import { isAdminOrSuperAdmin } from "@/app/api/services/adminService";
-import { isCartDebtItem, type DEBTORDER } from "@/app/api/services/debtService";
+import { DEBT_ITEM_PRODUCT_EMBED, isCartDebtItem, type DEBTORDER } from "@/app/api/services/debtService";
 
 export type { DASHBOARDSTATS } from "@/app/models/dashboard";
 
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       .select("debtType, amount, debtTransactions(amount)"),
     auth.adminSupabase
       .from("orders")
-      .select("totalAmount, paymentMethod, paymentStatus, status, orderItems(productId, quantity, saleType, products(typeId)), debtRecords(id)")
+      .select(`totalAmount, paymentMethod, paymentStatus, status, orderItems(productId, quantity, saleType, ${DEBT_ITEM_PRODUCT_EMBED}), debtRecords(id)`)
       .in("paymentMethod", [PAYMENTMETHOD.PENDING_PAYMENT, PAYMENTMETHOD.PENDING_CART, PAYMENTMETHOD.PENDING_BOTH]),
   ]);
 
