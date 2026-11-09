@@ -142,6 +142,8 @@ function getUnitPrice(product: PRODUCTPRICINGROW, saleType: SaleType, customerTy
 export async function createOrder(
   accessToken: string | null,
   rawPayload: unknown,
+  // โดเมนที่ลูกค้าใช้สั่งซื้อ ใช้ทำลิงก์รูป QR ให้ LINE ดึงได้แน่นอน
+  publicBase: string | null = null,
 ): Promise<SERVICERESULT<ORDERRECORD>> {
   const auth = await authenticateCustomer(accessToken);
   if (auth.result.status === "error") {
@@ -307,7 +309,7 @@ export async function createOrder(
     paymentMethod: payload.paymentMethod,
     customerType,
     items: validOrderItems,
-  });
+  }, publicBase);
 
   return {
     result: apiSuccess("Order created successfully", {

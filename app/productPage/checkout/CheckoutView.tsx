@@ -6,6 +6,11 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
@@ -71,6 +76,18 @@ export default function CheckoutView() {
   const [paymentMethod, setPaymentMethod] = useState<PAYMENTMETHOD | "">("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [outOfAreaOpen, setOutOfAreaOpen] = useState(false);
+
+  // เตือนทันทีที่ปักหมุดนอกพื้นที่ ไม่ต้องรอให้ลูกค้ากรอกจนเสร็จแล้วค่อยรู้ตอนกดสั่งซื้อ
+  function handleLocationChange(location: DELIVERYLOCATION | null) {
+    setDeliveryLocation(location);
+    if (location && !isInDeliveryArea(location)) setOutOfAreaOpen(true);
+  }
+
+  const disabledPaymentMethods = getDisabledPaymentMethods(cart.cartLines.map((line) => line.item.saleType));
+  // ถ้าตะกร้าเปลี่ยนจนวิธีที่เลือกไว้ใช้ไม่ได้ ให้ถือว่ายังไม่ได้เลือก
+  const selectedPaymentMethod =
+    paymentMethod && !disabledPaymentMethods.has(paymentMethod) ? paymentMethod : "";
 
   const disabledPaymentMethods = getDisabledPaymentMethods(cart.cartLines.map((line) => line.item.saleType));
   // ถ้าตะกร้าเปลี่ยนจนวิธีที่เลือกไว้ใช้ไม่ได้ ให้ถือว่ายังไม่ได้เลือก
@@ -128,8 +145,8 @@ export default function CheckoutView() {
       setErrorMessage("ตะกร้ามีสินค้าที่ยังไม่พร้อมสั่งซื้อ");
       return;
     }
-    if (!deliveryAddress.trim()) {
-      setErrorMessage("กรุณาระบุที่อยู่จัดส่ง");
+    if (!deliveryLocation) {
+      setErrorMessage("กรุณาปักหมุดจุดส่งของก่อนสั่งซื้อ");
       return;
     }
     if (deliveryLocation && !isInThailand(deliveryLocation)) {
@@ -212,7 +229,13 @@ export default function CheckoutView() {
       }
 
       cart.clearCart();
-      router.replace(`/productPage/orders?created=${encodeURIComponent(result.results.id)}`);
+      const orderId = encodeURIComponent(result.results.id);
+      // สแกนจ่าย: พาไปหน้ารายละเอียดที่มี QR พร้อมเพย์ทันที ไม่ต้องพึ่งรูป QR ในแชท LINE อย่างเดียว
+      router.replace(
+        selectedPaymentMethod === PAYMENTMETHOD.QR_SCAN
+          ? `/productPage/orders/${orderId}`
+          : `/productPage/orders?created=${orderId}`,
+      );
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "ไม่สามารถบันทึกคำสั่งซื้อได้");
     } finally {
@@ -265,14 +288,21 @@ export default function CheckoutView() {
           </Paper>
 
           <Paper sx={sectionSx}>
+            <DeliveryLocationPicker
+              value={deliveryLocation}
+              onChange={handleLocationChange}
+              address={deliveryAddress}
+              disabled={isSubmitting}
+            />
             <TextField
-              label="ที่อยู่จัดส่ง"
+              label="รายละเอียดที่อยู่ / จุดสังเกต (ไม่บังคับ)"
+              helperText="เช่น บ้านเลขที่ ชื่อซอย สีบ้าน ใกล้ร้านอะไร ช่วยให้คนส่งหาเจอง่ายขึ้น"
               value={deliveryAddress}
               onChange={(event) => setDeliveryAddress(event.target.value)}
               multiline
-              minRows={3}
+              minRows={2}
               fullWidth
-              required
+              sx={{ mt: 2 }}
             />
             <Box sx={{ mt: 2 }}>
               <DeliveryLocationPicker
@@ -335,6 +365,20 @@ export default function CheckoutView() {
           </Stack>
         </Stack>
       </Box>
+
+      <Dialog open={outOfAreaOpen} onClose={() => setOutOfAreaOpen(false)} aria-labelledby="outOfAreaTitle">
+        <DialogTitle id="outOfAreaTitle">อยู่นอกระยะการจัดส่ง</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {OUT_OF_AREA_MESSAGE} จึงยังสั่งซื้อไม่ได้ กรุณาลากหมุดเข้ามาในวงสีเขียวบนแผนที่ หรือติดต่อร้านโดยตรง
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" onClick={() => setOutOfAreaOpen(false)} autoFocus>
+            ปักหมุดใหม่
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Alert, Box, Button, Chip, CircularProgress, MenuItem, Paper, Select, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 import { ADMINROLE } from "@/app/models/admin";
 import { useRequireAdmin, MANAGER_ONLY } from "../useRequireAdmin";
+import { useAutoRefresh } from "../useAutoRefresh";
 
 type AdminOrder = {
   id: string; totalAmount: number | string; paymentMethod: string | null; paymentStatus: string; status: string; deliveryAddress: string | null; createdAt: string;
@@ -86,21 +87,40 @@ export default function AdminOrdersPage() {
     setDebtNotice(result.debtsCreated > 0 ? "บันทึกรายการหนี้ให้อัตโนมัติแล้ว ดูได้ที่หน้าหนี้ค้าง" : null);
   }
 
-  useEffect(() => {
-    if (!isAllowed) return;
-    async function loadOrders() {
+  const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
+  // null = ยังไม่เคยโหลด รอบแรกไม่นับว่าเป็นออเดอร์ใหม่
+  const knownOrderIdsRef = useRef<Set<string> | null>(null);
+
+  // background = รอบอัปเดตอัตโนมัติ ถ้าพลาดไม่ทับ error ที่แอดมินกำลังอ่านอยู่ รอบหน้าจะลองใหม่เอง
+  const loadOrders = useCallback(async (background = false) => {
+    try {
       const { data } = await createClient().auth.getSession();
-      const response = await fetch("/api/admin/orders", { headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` } });
+      const response = await fetch("/api/admin/orders", { cache: "no-store", headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` } });
       const result = await response.json() as APIRESULT<AdminOrder[]>;
       if (!response.ok || result.status === "error") {
-        setError(result.message);
-      } else {
-        setOrders(result.results);
+        if (!background) setError(result.message);
+        return;
       }
+      const known = knownOrderIdsRef.current;
+      if (known) {
+        const added = result.results.filter((order) => !known.has(order.id)).map((order) => order.id);
+        if (added.length > 0) setNewOrderIds((current) => new Set([...current, ...added]));
+      }
+      knownOrderIdsRef.current = new Set(result.results.map((order) => order.id));
+      setOrders(result.results);
+    } catch {
+      if (!background) setError("ไม่สามารถโหลดคำสั่งซื้อได้");
+    } finally {
       setIsLoading(false);
     }
-    void loadOrders();
-  }, [isAllowed]);
+  }, []);
+
+  useEffect(() => {
+    if (isAllowed) void loadOrders();
+  }, [isAllowed, loadOrders]);
+
+  const refreshInBackground = useCallback(() => loadOrders(true), [loadOrders]);
+  useAutoRefresh(refreshInBackground, isAllowed);
 
   async function updatePaymentStatus(orderId: string, paymentStatus: OrderPaymentStatus) {
     setUpdatingOrderId(orderId);

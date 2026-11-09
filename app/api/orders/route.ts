@@ -1,6 +1,7 @@
 import { createOrder, getCustomerOrderById, getCustomerOrders } from "@/app/api/services/orderService";
 import { apiError } from "@/app/api/response";
 import { getBearerToken } from "@/app/api/util/supabase/authenticated";
+import { requestPublicBase } from "@/app/api/services/lineBotService";
 
 export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get("id");
@@ -18,6 +19,6 @@ export async function POST(request: Request) {
     return Response.json(apiError("Invalid JSON payload"), { status: 400 });
   }
 
-  const response = await createOrder(getBearerToken(request), payload);
+  const response = await createOrder(getBearerToken(request), payload, requestPublicBase(request));
   return Response.json(response.result, { status: response.status });
 }
