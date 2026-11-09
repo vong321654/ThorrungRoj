@@ -6,6 +6,7 @@ import type { SERVICERESULT } from "@/app/models/api";
 import {
   DELIVERY_STATUSES,
   type DELIVERYDRIVER,
+  type DELIVERYETADETAIL,
   type DELIVERYJOB,
   type DELIVERYSTATUS,
   type DELIVERYTRACKING,
@@ -24,7 +25,7 @@ const MAX_ETA_MINUTES = 600;
 
 const TRACKING_FIELDS = "orderId, status, driverId, estimatedMinutes, lastSyncedAt, updatedAt";
 const JOB_ORDER_FIELDS =
-  "id, status, deliveryAddress, totalAmount, paymentMethod, users(name, phone, shopName), orderItems(productNameSnapshot, quantity)";
+  "id, status, deliveryAddress, deliveryLat, deliveryLng, totalAmount, paymentMethod, users(name, phone, shopName), orderItems(productNameSnapshot, quantity)";
 
 type TrackingRow = {
   orderId: string;
@@ -39,6 +40,8 @@ type JobOrderRow = {
   id: string;
   status: string;
   deliveryAddress: string | null;
+  deliveryLat: number | string | null;
+  deliveryLng: number | string | null;
   totalAmount: number | string;
   paymentMethod: string | null;
   users: { name: string; phone: string | null; shopName: string | null } | null;
@@ -73,16 +76,17 @@ function toTracking(row: TrackingRow, driverNames: Map<string, string>): DELIVER
     estimatedMinutes: row.estimatedMinutes,
     etaSetAt: row.lastSyncedAt,
     updatedAt: row.updatedAt,
-    // เวลาของเซิร์ฟเวอร์ตอนตอบ ใช้ให้หน้าลูกค้านับถอยหลังไม่เพี้ยนถ้านาฬิกาโทรศัพท์เดินช้า/เร็ว
-    serverNow: new Date().toISOString(),
   };
 }
 
 function toJob(order: JobOrderRow, tracking: DELIVERYTRACKING | null): DELIVERYJOB {
+  const location = toDeliveryLocation(order.deliveryLat, order.deliveryLng);
   return {
     orderId: order.id,
     orderStatus: order.status,
     deliveryAddress: order.deliveryAddress,
+    deliveryLat: location?.lat ?? null,
+    deliveryLng: location?.lng ?? null,
     customerName: order.users?.shopName || order.users?.name || null,
     customerPhone: order.users?.phone ?? null,
     totalAmount: Number(order.totalAmount),
@@ -194,10 +198,14 @@ function parseUpdate(payload: unknown) {
     status = input.status as DELIVERYSTATUS;
   }
 
-  let estimatedMinutes: number | null | undefined;
+  // "auto" = ให้ระบบคำนวณจากที่ตั้งร้านถึงหมุดลูกค้า
+  let estimatedMinutes: number | null | "auto" | undefined;
   if (input.estimatedMinutes !== undefined) {
     if (input.estimatedMinutes === null || input.estimatedMinutes === "") {
       estimatedMinutes = null;
+    } else if (input.estimatedMinutes === "auto") {
+      if (status === "delivered") return { ok: false, message: "Cannot estimate arrival time for a delivered order" } as const;
+      estimatedMinutes = "auto";
     } else {
       // รับเฉพาะตัวเลขหรือสตริงตัวเลขล้วน กัน true / [] / "1e2" ที่ Number() แปลงเป็นเลขได้
       const raw = input.estimatedMinutes;
@@ -244,7 +252,7 @@ export async function updateDelivery(
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .select("id, status")
+    .select("id, status, deliveryLat, deliveryLng")
     .eq("id", parsed.orderId)
     .maybeSingle();
   if (orderError) return failure("Failed to load order", 500);
@@ -299,10 +307,10 @@ export async function updateDelivery(
   const values: Record<string, unknown> = { updatedAt: now };
   if (parsed.status !== undefined) values.status = parsed.status;
   if (parsed.driverId !== undefined) values.driverId = parsed.driverId;
-  if (parsed.estimatedMinutes !== undefined) {
-    values.estimatedMinutes = parsed.estimatedMinutes;
-    // lastSyncedAt ใช้เป็นเวลาตั้งต้นของการนับถอยหลัง ETA ให้ลูกค้า
-    values.lastSyncedAt = parsed.estimatedMinutes === null ? null : now;
+  if (estimatedMinutes !== undefined) {
+    values.estimatedMinutes = estimatedMinutes;
+    // lastSyncedAt = เวลาที่ประเมิน ETA ล่าสุด หน้าลูกค้าแสดงเป็น "ประเมินเมื่อ HH:MM"
+    values.lastSyncedAt = estimatedMinutes === null ? null : now;
   }
 
   const query = current

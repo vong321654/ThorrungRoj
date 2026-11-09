@@ -1,9 +1,11 @@
 import { apiError, apiSuccess } from "@/app/api/response";
 import {
+  convertImageToJpeg,
   convertImageToWebp,
   PRODUCT_IMAGE_BUCKET,
   RECEIPT_IMAGE_BUCKET,
   storagePathFromUrl,
+  uploadImage,
   uploadWebpImage,
 } from "@/app/api/services/imageService";
 import {
@@ -75,6 +77,8 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const kind = getKind(params.get("type"));
   if (!kind) return Response.json(apiError("type must be product or receipt"), { status: 400 });
+  // รูปประกาศเป็นลิงก์ public อยู่ในตัวประกาศแล้ว ไม่มีอะไรให้ดึงผ่าน endpoint นี้
+  if (kind === IMAGEKINDENUM.ANNOUNCEMENT) return Response.json(apiError("type must be product or receipt"), { status: 400 });
 
   if (kind === IMAGEKINDENUM.PRODUCT) {
     const auth = await authenticateAdmin(request);
@@ -127,8 +131,30 @@ export async function POST(request: Request) {
   if (!form) return Response.json(apiError("Request must use multipart/form-data"), { status: 400 });
   const kind = getKind(typeof form.get("type") === "string" ? form.get("type") as string : null);
   const file = validateFile(form.get("file"));
-  if (!kind) return Response.json(apiError("type must be product or receipt"), { status: 400 });
+  if (!kind) return Response.json(apiError("type must be product, receipt, or announcement"), { status: 400 });
   if (file instanceof Response) return file;
+
+  // อัปโหลดรูปประกาศแล้วคืน imageUrl ให้ client การบันทึกลง DB เกิดตอนบันทึกประกาศ (เหมือนรูปสินค้า)
+  // เก็บใน bucket product-images (public, แอดมินอัปโหลดได้ตาม storage policy) แยกโฟลเดอร์ announcements/
+  if (kind === IMAGEKINDENUM.ANNOUNCEMENT) {
+    const auth = await authenticateAdmin(request);
+    if (auth instanceof Response) return auth;
+    if (!isAdminOrSuperAdmin(auth)) {
+      return Response.json(apiError("Only admins can upload announcement images"), { status: 403 });
+    }
+    const jpegImage = await convertImageToJpeg(file);
+    if (!jpegImage) return Response.json(apiError("The selected file is not a valid image"), { status: 400 });
+
+    const path = `announcements/${crypto.randomUUID()}.jpg`;
+    const uploadError = await uploadImage(auth.supabase, PRODUCT_IMAGE_BUCKET, path, jpegImage, "image/jpeg");
+    if (uploadError) return Response.json(apiError("Failed to upload announcement image"), { status: 500 });
+    const { data: urlData } = auth.supabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path);
+    return Response.json(
+      apiSuccess("Announcement image uploaded successfully", { imageUrl: urlData.publicUrl }),
+      { status: 201 },
+    );
+  }
+
   const webpImage = await convertImageToWebp(file);
   if (!webpImage) return Response.json(apiError("The selected file is not a valid image"), { status: 400 });
 

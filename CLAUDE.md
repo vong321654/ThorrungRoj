@@ -1,7 +1,7 @@
 @AGENTS.md
 ---
 name: thor-rungroj-gas-shop
-description: Knowledge base and conventions for the Thor Rungroj gas shop LINE LIFF project (ก๊าซทอรุ่งโรจน์) — a Next.js + Supabase web app embedded in LINE Rich Menu. Contains the exact database schema, auth architecture (LIFF for customers, NextAuth for staff), feature scope, naming conventions, and architectural decisions already agreed on. Use this skill whenever the user asks about this project, mentions LINE LIFF with Supabase, references tables like users, employees, orders, deliveryTracking, transferSlips, debtRecords, workAttendance, debtType = cart/money, or asks anything about a gas shop / แก๊ส / ถังแก๊ส management system — even if they don't explicitly name the project. Also trigger when the user asks in Thai about a system with admin/employee/customer roles, delivery tracking, or a LINE-based storefront. Claude should consult this skill before proposing any schema changes, code patterns, or architectural advice for this project.
+description: Knowledge base and conventions for the Thor Rungroj gas shop LINE LIFF project (ร้านแก๊สท.รุ่งโรจน์) — a Next.js + Supabase web app embedded in LINE Rich Menu. Contains the exact database schema, auth architecture (LIFF for customers, NextAuth for staff), feature scope, naming conventions, and architectural decisions already agreed on. Use this skill whenever the user asks about this project, mentions LINE LIFF with Supabase, references tables like users, employees, orders, deliveryTracking, transferSlips, debtRecords, workAttendance, debtType = cart/money, or asks anything about a gas shop / แก๊ส / ถังแก๊ส management system — even if they don't explicitly name the project. Also trigger when the user asks in Thai about a system with admin/employee/customer roles, delivery tracking, or a LINE-based storefront. Claude should consult this skill before proposing any schema changes, code patterns, or architectural advice for this project.
 ---
 
 # Thor Rungroj Gas Shop — Project Knowledge Base
@@ -12,7 +12,7 @@ Respond in Thai by default. The user is a solo developer, Thai-speaking, and pre
 
 ## Project identity
 
-- **Thai name:** ก๊าซทอรุ่งโรจน์ (Gas Thor Rungroj)
+- **Thai name:** ร้านแก๊สท.รุ่งโรจน์ (Gas Thor Rungroj)
 - **Supabase project names:** `ThorRungroj` and `GasthorRungroj`
 - **Type:** LINE LIFF web app (embedded WebView inside LINE chat, NOT a native app, NOT a standalone browser site)
 - **Delivery:** Accessed via LINE Rich Menu → opens LIFF page

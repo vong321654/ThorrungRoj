@@ -16,6 +16,9 @@ import { TANK_TYPE_ID } from "./debtService";
 import { notifyOrderCreated } from "./orderNotifyService";
 import { buildPromptPayQrPath } from "./promptPayService";
 import { getOrderableStock } from "./stockService";
+import { parseDeliveryLocation, toDeliveryLocation } from "@/app/util/deliveryLocation";
+import type { CUSTOMERTYPE } from "@/app/enums/customer";
+import { resolveTierPrice, toCustomerType } from "@/app/util/customerPricing";
 
 const SALE_TYPES = new Set<SaleType>([SALETYPE.SELL, SALETYPE.EXCHANGE, SALETYPE.REFILL]);
 // ค้างชำระ/ค้างถัง ไม่สร้างรายการชำระเงิน แอดมินจะบันทึกหนี้ในหน้า "หนี้ค้าง" หลังจัดส่งแล้ว
@@ -53,7 +56,7 @@ async function authenticateCustomer(accessToken: string | null) {
 
   const { data: customer, error } = await authenticatedSupabase
     .from("users")
-    .select("id, address, isActive")
+    .select("id, address, isActive, customerType, customerTypeChosenAt")
     .eq("authId", authData.user.id)
     .maybeSingle();
 
@@ -67,7 +70,23 @@ async function authenticateCustomer(accessToken: string | null) {
   };
 }
 
-function parseCheckoutPayload(value: unknown): CHECKOUTPAYLOAD | null {
+type PARSEDCHECKOUT = { ok: true; payload: CHECKOUTPAYLOAD } | { ok: false; message: string };
+
+function parseCheckoutPayload(value: unknown): PARSEDCHECKOUT {
+  const payload = parseCheckoutBody(value);
+  if (!payload) return { ok: false, message: "Invalid checkout payload" };
+  const raw = value as { deliveryLat?: unknown; deliveryLng?: unknown };
+  const location = parseDeliveryLocation(raw.deliveryLat, raw.deliveryLng);
+  if (!location.ok) return { ok: false, message: location.message };
+  // หมุดเป็นข้อมูลหลักที่ใช้ตรวจพื้นที่จัดส่งและนำทาง จึงบังคับทุกคำสั่งซื้อ ส่วนที่อยู่แบบข้อความเป็นรายละเอียดเสริม
+  if (!location.location) return { ok: false, message: "กรุณาปักหมุดจุดส่งของก่อนสั่งซื้อ" };
+  return {
+    ok: true,
+    payload: { ...payload, deliveryLat: location.location.lat, deliveryLng: location.location.lng },
+  };
+}
+
+function parseCheckoutBody(value: unknown): CHECKOUTPAYLOAD | null {
   if (!value || typeof value !== "object") return null;
   const payload = value as Partial<CHECKOUTPAYLOAD>;
   if (!Array.isArray(payload.items) || payload.items.length === 0 || payload.items.length > 50) {
@@ -105,23 +124,44 @@ function parseCheckoutPayload(value: unknown): CHECKOUTPAYLOAD | null {
   };
 }
 
-function getUnitPrice(product: PRODUCTPRICINGROW, saleType: SaleType) {
-  if (saleType === "exchange") return Number(product.exchangePrice);
-  if (saleType === "refill") return Number(product.refillPrice);
+// numeric จาก PostgREST อาจมาเป็นสตริง แปลงให้เป็นตัวเลขหรือ null ก่อนส่งให้หน้าเว็บ
+function coordinateFields(row: { deliveryLat?: unknown; deliveryLng?: unknown }) {
+  const location = toDeliveryLocation(row.deliveryLat, row.deliveryLng);
+  return { deliveryLat: location?.lat ?? null, deliveryLng: location?.lng ?? null };
+}
+
+// ราคาร้านค้ามีเฉพาะเปลี่ยนถังกับฝากเติม ซื้อถังใช้ราคาเดียวกันทุกประเภทลูกค้า
+function getUnitPrice(product: PRODUCTPRICINGROW, saleType: SaleType, customerType: CUSTOMERTYPE) {
+  if (saleType === "exchange") {
+    return resolveTierPrice(Number(product.exchangePrice), Number(product.shopExchangePrice), customerType);
+  }
+  if (saleType === "refill") {
+    return resolveTierPrice(Number(product.refillPrice), Number(product.shopRefillPrice), customerType);
+  }
   return Number(product.sellPrice);
 }
 
 export async function createOrder(
   accessToken: string | null,
   rawPayload: unknown,
+  // โดเมนที่ลูกค้าใช้สั่งซื้อ ใช้ทำลิงก์รูป QR ให้ LINE ดึงได้แน่นอน
+  publicBase: string | null = null,
 ): Promise<SERVICERESULT<ORDERRECORD>> {
   const auth = await authenticateCustomer(accessToken);
   if (auth.result.status === "error") {
     return failure<ORDERRECORD>(auth.result.message, auth.status);
   }
 
-  const payload = parseCheckoutPayload(rawPayload);
-  if (!payload) return failure<ORDERRECORD>("Invalid checkout payload", 400);
+  // ประเภทลูกค้ามาจากฐานข้อมูลเท่านั้น ไม่รับจาก payload เพื่อไม่ให้ปลอมเป็นร้านค้าได้
+  const customer = auth.result.results;
+  if (!customer.customerTypeChosenAt) {
+    return failure<ORDERRECORD>("กรุณาเลือกประเภทลูกค้า (บ้านทั่วไป/ร้านค้า) ก่อนสั่งซื้อ", 403);
+  }
+  const customerType = toCustomerType(customer.customerType);
+
+  const parsed = parseCheckoutPayload(rawPayload);
+  if (!parsed.ok) return failure<ORDERRECORD>(parsed.message, 400);
+  const payload = parsed.payload;
 
   const combinedItems = new Map<string, CHECKOUTITEMINPUT>();
   for (const item of payload.items) {
@@ -137,7 +177,7 @@ export async function createOrder(
   const supabase = createAuthenticatedClient(accessToken!);
   const { data: products, error: productsError } = await supabase
     .from("products")
-    .select("id, name, sellPrice, exchangePrice, refillPrice, isActive, typeId")
+    .select("id, name, sellPrice, exchangePrice, refillPrice, shopExchangePrice, shopRefillPrice, isActive, typeId")
     .in("id", productIds);
 
   if (productsError) return failure<ORDERRECORD>("Failed to validate products", 500);
@@ -151,7 +191,7 @@ export async function createOrder(
   const orderItems = items.map((item) => {
     const product = productsById.get(item.productId);
     if (!product || !product.isActive) return null;
-    const unitPrice = getUnitPrice(product, item.saleType);
+    const unitPrice = getUnitPrice(product, item.saleType, customerType);
     if (!Number.isFinite(unitPrice) || unitPrice <= 0) return null;
     return {
       productId: item.productId,
@@ -167,6 +207,18 @@ export async function createOrder(
   }
 
   const validOrderItems = orderItems.filter((item) => item !== null);
+
+  // ซื้อถังและฝากเติมห้ามค้างทุกแบบ (ต้องตรงกับหน้า checkout)
+  const isDebtMethod =
+    payload.paymentMethod === PAYMENTMETHOD.PENDING_PAYMENT ||
+    payload.paymentMethod === PAYMENTMETHOD.PENDING_CART ||
+    payload.paymentMethod === PAYMENTMETHOD.PENDING_BOTH;
+  if (isDebtMethod && validOrderItems.some((item) => item.saleType === SALETYPE.SELL)) {
+    return failure<ORDERRECORD>("ออเดอร์ที่มีรายการซื้อถังไม่สามารถเลือกค้างชำระหรือค้างถังได้", 400);
+  }
+  if (isDebtMethod && validOrderItems.some((item) => item.saleType === SALETYPE.REFILL)) {
+    return failure<ORDERRECORD>("ออเดอร์ที่มีรายการฝากเติมไม่สามารถเลือกค้างชำระหรือค้างถังได้", 400);
+  }
 
   // ค้างถังต้องมีรายการเปลี่ยนถังในออเดอร์ ไม่งั้นตอนส่งของจะไม่มีอะไรให้บันทึกหนี้
   if (
@@ -204,9 +256,8 @@ export async function createOrder(
     (total, item) => total + item.unitPrice * item.quantity,
     0,
   );
-  const customer = auth.result.results;
-  const deliveryAddress = payload.deliveryAddress || customer.address;
-  if (!deliveryAddress) return failure<ORDERRECORD>("Delivery address is required", 400);
+  // ไม่บังคับแล้ว เพราะบังคับปักหมุดแทน (ตรวจใน parseCheckoutPayload)
+  const deliveryAddress = payload.deliveryAddress || customer.address || null;
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
@@ -215,10 +266,13 @@ export async function createOrder(
       totalAmount,
       paymentMethod: payload.paymentMethod,
       deliveryAddress,
+      deliveryLat: payload.deliveryLat ?? null,
+      deliveryLng: payload.deliveryLng ?? null,
       note: payload.note || null,
+      customerType,
     })
     .select(
-      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, note, createdAt",
+      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, deliveryLat, deliveryLng, note, customerType, createdAt",
     )
     .single();
 
@@ -255,12 +309,14 @@ export async function createOrder(
     userId: customer.id,
     totalAmount,
     paymentMethod: payload.paymentMethod,
+    customerType,
     items: validOrderItems,
-  });
+  }, publicBase);
 
   return {
     result: apiSuccess("Order created successfully", {
       ...order,
+      ...coordinateFields(order),
       totalAmount: Number(order.totalAmount),
       orderItems: insertedItems.map((item) => ({
         ...item,
@@ -286,7 +342,7 @@ export async function getCustomerOrders(
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, note, createdAt, orderItems(id, productId, productNameSnapshot, quantity, unitPrice, totalPrice, saleType), payments(id, method, status, transferSlips(id, status, createdAt))",
+      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, deliveryLat, deliveryLng, note, createdAt, orderItems(id, productId, productNameSnapshot, quantity, unitPrice, totalPrice, saleType), payments(id, method, status, transferSlips(id, status, createdAt))",
     )
     .eq("userId", auth.result.results.id)
     .order("createdAt", { ascending: false });
@@ -295,6 +351,7 @@ export async function getCustomerOrders(
 
   const orders = (data ?? []).map((order) => ({
     ...order,
+    ...coordinateFields(order),
     totalAmount: Number(order.totalAmount),
     orderItems: (order.orderItems ?? []).map((item) => ({
       ...item,
@@ -321,7 +378,7 @@ export async function getCustomerOrderById(
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, note, createdAt, updatedAt, orderItems(id, productId, productNameSnapshot, quantity, unitPrice, totalPrice, saleType), payments(id, method, status, verifiedAt, transferSlips(id, status, rejectReason, createdAt)), debtRecords(debtType, amount, status, debtTransactions(amount))",
+      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, deliveryLat, deliveryLng, note, createdAt, updatedAt, orderItems(id, productId, productNameSnapshot, quantity, unitPrice, totalPrice, saleType), payments(id, method, status, verifiedAt, transferSlips(id, status, rejectReason, createdAt)), debtRecords(debtType, amount, status, debtTransactions(amount))",
     )
     .eq("id", orderId)
     .eq("userId", auth.result.results.id)
@@ -332,6 +389,7 @@ export async function getCustomerOrderById(
   return {
     result: apiSuccess("Order details retrieved successfully", {
       ...data,
+      ...coordinateFields(data),
       totalAmount: Number(data.totalAmount),
       orderItems: (data.orderItems ?? []).map((item) => ({
         ...item,

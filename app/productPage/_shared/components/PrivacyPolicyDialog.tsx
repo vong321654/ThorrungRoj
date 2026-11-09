@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -9,16 +9,9 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import type { Theme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { createClient } from "@/app/api/util/supabase/client";
-import type { APIRESULT } from "@/app/models/api";
-import type { CURRENTUSER } from "@/app/models/user";
 import PrivacyPolicyContent from "@/app/privacy/PrivacyPolicyContent";
 import { PRIVACY_POLICY_VERSION } from "@/app/privacy/policyVersion";
-
-async function getAccessToken() {
-  const { data } = await createClient().auth.getSession();
-  return data.session?.access_token ?? null;
-}
+import { getCustomerAccessToken, useCustomerProfile } from "../CustomerProfileContext";
 
 /**
  * แสดงหลังลูกค้าเข้าสู่ระบบด้วย LINE จนกว่าจะรับทราบนโยบายฉบับปัจจุบัน
@@ -26,46 +19,18 @@ async function getAccessToken() {
  * ผู้ที่ไม่ได้เข้าสู่ระบบและพนักงานไม่มีแถวใน users จึงไม่เห็น pop-up นี้
  */
 export default function PrivacyPolicyDialog() {
-  const [open, setOpen] = useState(false);
+  const { profile, updateProfile } = useCustomerProfile();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isPhone = useMediaQuery((theme: Theme) => theme.breakpoints.down("sm"), { noSsr: true });
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    async function checkAcknowledgement() {
-      try {
-        const accessToken = await getAccessToken();
-        if (!accessToken) return;
-
-        const response = await fetch("/api/users/me", {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (!response.ok) return;
-
-        const result = (await response.json()) as APIRESULT<CURRENTUSER | null>;
-        const user = result.status === "success" ? result.results : null;
-        if (!isCancelled && user && user.privacyPolicyVersion !== PRIVACY_POLICY_VERSION) {
-          setOpen(true);
-        }
-      } catch {
-        // ตรวจไม่สำเร็จจะถูกตรวจใหม่เมื่อเปิดหน้าครั้งถัดไป และต้องไม่ทำให้หน้าร้านใช้งานไม่ได้
-      }
-    }
-
-    void checkAcknowledgement();
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
+  const open = !!profile && profile.privacyPolicyVersion !== PRIVACY_POLICY_VERSION;
 
   async function handleAcknowledge() {
     setIsSaving(true);
     setError(null);
 
     try {
-      const accessToken = await getAccessToken();
+      const accessToken = await getCustomerAccessToken();
       if (!accessToken) throw new Error("Missing session");
 
       const response = await fetch("/api/users/me/privacy", {
@@ -83,7 +48,8 @@ export default function PrivacyPolicyDialog() {
       }
       if (!response.ok) throw new Error("Failed to save");
 
-      setOpen(false);
+      // อัปเดตโปรไฟล์ในหน้า เพื่อให้ pop-up เลือกประเภทลูกค้าขึ้นต่อทันที
+      updateProfile({ privacyPolicyVersion: PRIVACY_POLICY_VERSION });
     } catch {
       setError("บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง");
     } finally {
