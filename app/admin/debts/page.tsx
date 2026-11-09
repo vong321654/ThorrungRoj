@@ -22,7 +22,17 @@ type DebtRecord = {
   users: { name: string; phone: string | null; shopName: string | null } | null;
   products: { name: string; size: number | string | null } | null;
   debtTransactions: Array<{ id: string; transactionType: "payment" | "return"; amount: number | string; createdAt: string }>;
+  orders: DebtOrder | null;
 };
+type DebtOrder = {
+  id: string; totalAmount: number | string; paymentMethod: string | null; status: string; deliveryAddress: string | null; note: string | null; createdAt: string;
+  // API ส่งมาเฉพาะ superAdmin
+  orderItems?: Array<{ id: string; productNameSnapshot: string; quantity: number; unitPrice: number | string; totalPrice: number | string | null; saleType: string }>;
+};
+
+const SALE_TYPE_LABELS: Record<string, string> = { sell: "ซื้อใหม่", exchange: "เปลี่ยนถัง", refill: "ฝากเติม" };
+const PAYMENT_METHOD_LABELS: Record<string, string> = { cash: "เงินสด", qrScan: "สแกน QR", pendingPayment: "ค้างชำระ", pendingCart: "ค้างถัง", pendingBoth: "ค้างทั้งถังและเงิน" };
+const ORDER_STATUS_LABELS: Record<string, string> = { pending: "รอดำเนินการ", preparing: "กำลังเตรียมสินค้า", delivering: "กำลังจัดส่ง", delivered: "จัดส่งแล้ว", cancelled: "ยกเลิก" };
 
 const EMPTY_MANUAL_FORM: ManualDebtForm = { name: "", address: "", phone: "", debtType: "money", moneyAmount: "", productId: "", cartQuantity: "", note: "" };
 
@@ -45,6 +55,7 @@ export default function AdminDebtsPage() {
   const [manualError, setManualError] = useState<string | null>(null);
   const [filter, setFilter] = useState<DebtFilter>("all");
   const [settlingDebt, setSettlingDebt] = useState<DebtRecord | null>(null);
+  const [viewingOrder, setViewingOrder] = useState<DebtOrder | null>(null);
   const [settlementAmount, setSettlementAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -175,7 +186,7 @@ export default function AdminDebtsPage() {
       const settled = debt.debtTransactions.reduce((total, transaction) => total + Number(transaction.amount), 0);
       const total = Number(debt.amount);
       const remaining = Math.max(0, total - settled);
-      return <TableRow key={debt.id}><TableCell>{debt.users?.shopName || debt.users?.name || "-"}</TableCell><TableCell>{debt.debtType === "money" ? "ค้างเงิน" : "ค้างถัง"}</TableCell><TableCell>{debt.products ? `${debt.products.name}${debt.products.size ? ` ${debt.products.size} กก.` : ""}` : "-"}</TableCell><TableCell>{formatAmount(settled, debt.debtType)}</TableCell><TableCell>{formatAmount(total, debt.debtType)}</TableCell><TableCell>{formatAmount(remaining, debt.debtType)}</TableCell><TableCell><Chip size="small" color={debt.status === "paid" ? "success" : debt.status === "partial" ? "warning" : "default"} label={debt.status === "paid" ? "ครบแล้ว" : debt.status === "partial" ? "ชำระบางส่วน" : "ค้าง"} /></TableCell><TableCell>{debt.orderId ? <Button component={Link} href={`/admin/orders/${debt.orderId}`} size="small">ดูออเดอร์</Button> : "-"}</TableCell><TableCell><Button size="small" variant="outlined" disabled={remaining === 0} onClick={() => { setSettlingDebt(debt); setSettlementAmount(""); }}>{debt.debtType === "money" ? "รับชำระ" : "รับคืนถัง"}</Button></TableCell></TableRow>;
+      return <TableRow key={debt.id}><TableCell>{debt.users?.shopName || debt.users?.name || "-"}</TableCell><TableCell>{debt.debtType === "money" ? "ค้างเงิน" : "ค้างถัง"}</TableCell><TableCell>{debt.products ? `${debt.products.name}${debt.products.size ? ` ${debt.products.size} กก.` : ""}` : "-"}</TableCell><TableCell>{formatAmount(settled, debt.debtType)}</TableCell><TableCell>{formatAmount(total, debt.debtType)}</TableCell><TableCell>{formatAmount(remaining, debt.debtType)}</TableCell><TableCell><Chip size="small" color={debt.status === "paid" ? "success" : debt.status === "partial" ? "warning" : "default"} label={debt.status === "paid" ? "ครบแล้ว" : debt.status === "partial" ? "ชำระบางส่วน" : "ค้าง"} /></TableCell><TableCell>{debt.orders ? <Button size="small" onClick={() => setViewingOrder(debt.orders)}>ดูออเดอร์</Button> : "-"}</TableCell><TableCell><Button size="small" variant="outlined" disabled={remaining === 0} onClick={() => { setSettlingDebt(debt); setSettlementAmount(""); }}>{debt.debtType === "money" ? "รับชำระ" : "รับคืนถัง"}</Button></TableCell></TableRow>;
     })}{visibleDebts.length === 0 && <TableRow><TableCell colSpan={9} align="center">{debts.length === 0 ? "ยังไม่มีรายการหนี้" : "ไม่มีรายการในหมวดนี้"}</TableCell></TableRow>}</TableBody></Table></TableContainer>}
 
     <Dialog open={isManualOpen} onClose={() => !isSaving && setIsManualOpen(false)} fullWidth maxWidth="sm">
@@ -206,6 +217,37 @@ export default function AdminDebtsPage() {
         <Button variant="contained" color="error" onClick={() => setIsManualOpen(false)} disabled={isSaving}>ยกเลิก</Button>
         <Button variant="contained" color="success" onClick={() => void createManualDebt()} disabled={isSaving || !canSaveManual}>บันทึกหนี้</Button>
       </DialogActions>
+    </Dialog>
+
+    <Dialog open={!!viewingOrder} onClose={() => setViewingOrder(null)} fullWidth maxWidth="sm">
+      <DialogTitle>รายการคำสั่งซื้อ</DialogTitle>
+      <DialogContent>
+        {viewingOrder && <Stack spacing={2}>
+          <Box>
+            <Typography variant="body2" color="text.secondary">วันที่สั่ง: {new Date(viewingOrder.createdAt).toLocaleString("th-TH")}</Typography>
+            <Typography variant="body2" color="text.secondary">สถานะ: {ORDER_STATUS_LABELS[viewingOrder.status] ?? viewingOrder.status} · วิธีชำระ: {PAYMENT_METHOD_LABELS[viewingOrder.paymentMethod ?? ""] ?? "-"}</Typography>
+            {viewingOrder.deliveryAddress && <Typography variant="body2" color="text.secondary">ที่อยู่จัดส่ง: {viewingOrder.deliveryAddress}</Typography>}
+            {viewingOrder.note && <Typography variant="body2" color="text.secondary">หมายเหตุ: {viewingOrder.note}</Typography>}
+          </Box>
+          {viewingOrder.orderItems
+            ? <Table size="small">
+              <TableHead><TableRow><TableCell>สินค้า</TableCell><TableCell>ประเภท</TableCell><TableCell align="right">จำนวน</TableCell><TableCell align="right">ราคา/หน่วย</TableCell><TableCell align="right">รวม</TableCell></TableRow></TableHead>
+              <TableBody>
+                {viewingOrder.orderItems.map((item) => <TableRow key={item.id}>
+                  <TableCell>{item.productNameSnapshot}</TableCell>
+                  <TableCell>{SALE_TYPE_LABELS[item.saleType] ?? item.saleType}</TableCell>
+                  <TableCell align="right">{item.quantity}</TableCell>
+                  <TableCell align="right">{Number(item.unitPrice).toLocaleString("th-TH")}</TableCell>
+                  <TableCell align="right">{Number(item.totalPrice ?? Number(item.unitPrice) * item.quantity).toLocaleString("th-TH")}</TableCell>
+                </TableRow>)}
+                {viewingOrder.orderItems.length === 0 && <TableRow><TableCell colSpan={5} align="center">ไม่มีรายการสินค้า</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+            : <Alert severity="info">รายการสินค้าดูได้เฉพาะเจ้าของร้าน (superAdmin)</Alert>}
+          <Typography sx={{ fontWeight: 700, textAlign: "right" }}>ยอดรวม {Number(viewingOrder.totalAmount).toLocaleString("th-TH")} บาท</Typography>
+        </Stack>}
+      </DialogContent>
+      <DialogActions><Button onClick={() => setViewingOrder(null)}>ปิด</Button></DialogActions>
     </Dialog>
 
     <Dialog open={!!settlingDebt} onClose={() => !isSaving && setSettlingDebt(null)} fullWidth maxWidth="xs"><DialogTitle>{settlingDebt?.debtType === "money" ? "บันทึกรับชำระเงิน" : "บันทึกรับคืนถัง"}</DialogTitle><DialogContent><TextField autoFocus fullWidth sx={{ mt: 1 }} type="number" slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }} label={settlingDebt?.debtType === "money" ? "จำนวนเงิน" : "จำนวนถัง"} value={settlementAmount} onChange={(event) => setSettlementAmount(event.target.value)} /></DialogContent><DialogActions><Button onClick={() => setSettlingDebt(null)} disabled={isSaving}>ยกเลิก</Button><Button variant="contained" onClick={() => void settleDebt()} disabled={isSaving || !settlementAmount}>บันทึก</Button></DialogActions></Dialog>

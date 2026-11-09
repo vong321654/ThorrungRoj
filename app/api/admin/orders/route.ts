@@ -9,7 +9,7 @@ import { recordDebtForDeliveredOrder, settleOrderMoneyDebts } from "@/app/api/se
 
 const ORDER_PAYMENT_STATUSES = new Set<string>(Object.values(ORDERPAYMENTSTATUS));
 const ORDER_STATUSES = new Set<string>(Object.values(ORDERSTATUS));
-const ORDER_FIELDS = "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, customerType, createdAt, users(name, phone, shopName), payments(id, method, status, transferSlips(id, status, createdAt))";
+const ORDER_FIELDS = "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, customerType, createdAt, users(name, phone, shopName), payments(id, method, status, transferSlips(id, status, createdAt)), debtRecords(id)";
 
 export async function GET(request: Request) {
   const auth = await authenticateAdmin(request);
@@ -43,7 +43,7 @@ export async function PATCH(request: Request) {
 
   const { data: existingOrder, error: existingOrderError } = await auth.adminSupabase
     .from("orders")
-    .select("status, paymentMethod, debtRecords(id)")
+    .select("status, paymentMethod, debtRecords(id), payments(status)")
     .eq("id", body.orderId)
     .maybeSingle();
   if (existingOrderError) return Response.json(apiError("Failed to load order"), { status: 500 });
@@ -57,6 +57,10 @@ export async function PATCH(request: Request) {
     // มีรายการหนี้แล้ว เปลี่ยนกลับเป็นรอชำระ/ค้างแบบอื่นไม่ได้ ไม่งั้นออเดอร์กับหนี้จะไม่ตรงกัน
     if (body.paymentStatus !== ORDERPAYMENTSTATUS.PAID && (existingOrder.debtRecords ?? []).length > 0) {
       return Response.json(apiError("ออเดอร์นี้มีรายการหนี้แล้ว กรุณาจัดการยอดในหน้าหนี้ค้าง"), { status: 400 });
+    }
+    // รับเงินจากสลิปแล้ว (ยืนยันสลิปหรือ superAdmin อัปโหลดแทนลูกค้า) เปลี่ยนกลับเป็นรอชำระ/ค้างแบบอื่นไม่ได้
+    if (body.paymentStatus !== ORDERPAYMENTSTATUS.PAID && (existingOrder.payments ?? []).some((payment) => payment.status === "paid")) {
+      return Response.json(apiError("ออเดอร์นี้บันทึกรับชำระจากสลิปแล้ว ดูรายละเอียดที่หน้าการชำระเงิน"), { status: 400 });
     }
     if (body.paymentStatus === ORDERPAYMENTSTATUS.PAID) {
       if (existingOrder.paymentMethod === PAYMENTMETHOD.QR_SCAN) {
