@@ -224,7 +224,13 @@ export default function CheckoutView() {
       }
 
       cart.clearCart();
-      router.replace(`/productPage/orders?created=${encodeURIComponent(result.results.id)}`);
+      const orderId = encodeURIComponent(result.results.id);
+      // สแกนจ่าย: พาไปหน้ารายละเอียดที่มี QR พร้อมเพย์ทันที ไม่ต้องพึ่งรูป QR ในแชท LINE อย่างเดียว
+      router.replace(
+        selectedPaymentMethod === PAYMENTMETHOD.QR_SCAN
+          ? `/productPage/orders/${orderId}`
+          : `/productPage/orders?created=${orderId}`,
+      );
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "ไม่สามารถบันทึกคำสั่งซื้อได้");
     } finally {

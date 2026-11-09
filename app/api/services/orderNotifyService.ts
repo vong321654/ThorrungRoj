@@ -38,7 +38,7 @@ function paymentInstruction(method: PAYMENTMETHOD, hasQrImage: boolean) {
  * แจ้งสรุปออเดอร์เข้าแชท LINE ของลูกค้ากับร้าน
  * ออเดอร์บันทึกสำเร็จไปแล้ว ถ้าส่งไม่ได้ (เช่น ลูกค้าบล็อกร้าน) ต้องไม่ทำให้การสั่งซื้อล้มเหลว จึงไม่ throw
  */
-export async function notifyOrderCreated(order: ORDERNOTIFICATION) {
+export async function notifyOrderCreated(order: ORDERNOTIFICATION, publicBase: string | null = null) {
   try {
     const { data: customer, error } = await createAdminClient()
       .from("users")
@@ -48,7 +48,7 @@ export async function notifyOrderCreated(order: ORDERNOTIFICATION) {
     if (error || !customer?.lineUserId) throw new Error("Customer LINE id was not found");
 
     const qrPath = order.paymentMethod === PAYMENTMETHOD.QR_SCAN ? buildPromptPayQrPath(order.orderId) : null;
-    const qrUrl = qrPath ? publicUrl(qrPath) : null;
+    const qrUrl = qrPath ? publicUrl(qrPath, publicBase) : null;
     if (order.paymentMethod === PAYMENTMETHOD.QR_SCAN && !qrUrl) {
       // eslint-disable-next-line no-console -- ลูกค้าจะไม่เห็น QR ในแชท ต้องให้รู้สาเหตุจาก log
       console.error(

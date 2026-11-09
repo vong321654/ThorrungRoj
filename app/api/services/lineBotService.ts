@@ -42,9 +42,27 @@ export function verifyLineSignature(rawBody: string, signature: string | null): 
   return received.length === expected.length && timingSafeEqual(received, expected);
 }
 
-/** แปลง path ในเว็บเป็น URL เต็มแบบ https ที่ LINE ดึงได้ คืน null เมื่อไม่รู้โดเมนจริง เช่น ตอนรันในเครื่อง */
-export function publicUrl(path: string): string | null {
+const LOCAL_HOST = /^(localhost|127\.|0\.0\.0\.0|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?)/i;
+
+/**
+ * โดเมน https ที่ลูกค้าใช้เปิดเว็บอยู่จริงตอนนี้ (Vercel หรือ tunnel) ดูจาก header ที่ proxy ใส่มา
+ * คืน null ถ้าเป็น http หรือ localhost เพราะ LINE ดึงรูปจากที่อยู่แบบนั้นไม่ได้
+ */
+export function requestPublicBase(request: Request): string | null {
+  const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "").split(",")[0].trim();
+  const proto = (request.headers.get("x-forwarded-proto") ?? new URL(request.url).protocol.replace(":", ""))
+    .split(",")[0].trim();
+  if (proto !== "https" || !/^[a-z0-9.-]+(:\d+)?$/i.test(host) || LOCAL_HOST.test(host)) return null;
+  return `https://${host}`;
+}
+
+/**
+ * แปลง path ในเว็บเป็น URL เต็มแบบ https ที่ LINE ดึงได้ คืน null เมื่อไม่รู้โดเมนจริง เช่น ตอนรันในเครื่อง
+ * preferredBase (โดเมนจาก request ปัจจุบัน) มาก่อน env เพราะ env อาจค้างเป็น URL ของ tunnel ที่ปิดไปแล้ว
+ */
+export function publicUrl(path: string, preferredBase?: string | null): string | null {
   const base =
+    preferredBase ??
     process.env.LINE_PUBLIC_BASE_URL ??
     (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null);
   if (!base || !path.startsWith("/")) return null;

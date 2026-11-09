@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Alert, Box, Button, Chip, CircularProgress, MenuItem, Paper, Select, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 import { ADMINROLE } from "@/app/models/admin";
 import { useRequireAdmin, MANAGER_ONLY } from "../useRequireAdmin";
+import { useAutoRefresh } from "../useAutoRefresh";
 
 type AdminOrder = {
   id: string; totalAmount: number | string; paymentMethod: string | null; paymentStatus: string; status: string; deliveryAddress: string | null; createdAt: string;
@@ -86,21 +87,40 @@ export default function AdminOrdersPage() {
     setDebtNotice(result.debtsCreated > 0 ? "บันทึกรายการหนี้ให้อัตโนมัติแล้ว ดูได้ที่หน้าหนี้ค้าง" : null);
   }
 
-  useEffect(() => {
-    if (!isAllowed) return;
-    async function loadOrders() {
+  const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
+  // null = ยังไม่เคยโหลด รอบแรกไม่นับว่าเป็นออเดอร์ใหม่
+  const knownOrderIdsRef = useRef<Set<string> | null>(null);
+
+  // background = รอบอัปเดตอัตโนมัติ ถ้าพลาดไม่ทับ error ที่แอดมินกำลังอ่านอยู่ รอบหน้าจะลองใหม่เอง
+  const loadOrders = useCallback(async (background = false) => {
+    try {
       const { data } = await createClient().auth.getSession();
-      const response = await fetch("/api/admin/orders", { headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` } });
+      const response = await fetch("/api/admin/orders", { cache: "no-store", headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` } });
       const result = await response.json() as APIRESULT<AdminOrder[]>;
       if (!response.ok || result.status === "error") {
-        setError(result.message);
-      } else {
-        setOrders(result.results);
+        if (!background) setError(result.message);
+        return;
       }
+      const known = knownOrderIdsRef.current;
+      if (known) {
+        const added = result.results.filter((order) => !known.has(order.id)).map((order) => order.id);
+        if (added.length > 0) setNewOrderIds((current) => new Set([...current, ...added]));
+      }
+      knownOrderIdsRef.current = new Set(result.results.map((order) => order.id));
+      setOrders(result.results);
+    } catch {
+      if (!background) setError("ไม่สามารถโหลดคำสั่งซื้อได้");
+    } finally {
       setIsLoading(false);
     }
-    void loadOrders();
-  }, [isAllowed]);
+  }, []);
+
+  useEffect(() => {
+    if (isAllowed) void loadOrders();
+  }, [isAllowed, loadOrders]);
+
+  const refreshInBackground = useCallback(() => loadOrders(true), [loadOrders]);
+  useAutoRefresh(refreshInBackground, isAllowed);
 
   async function updatePaymentStatus(orderId: string, paymentStatus: OrderPaymentStatus) {
     setUpdatingOrderId(orderId);
@@ -155,6 +175,8 @@ export default function AdminOrdersPage() {
     <Typography variant="h5" sx={{ mb: 2 }}>คำสั่งซื้อ</Typography>
     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
     {debtNotice && <Alert severity="success" sx={{ mb: 2 }}>{debtNotice}</Alert>}
-    {isLoading ? <CircularProgress /> : !error && orders.length === 0 ? <Paper sx={{ p: 3 }}>ยังไม่มีคำสั่งซื้อ</Paper> : <TableContainer component={Paper}><Table><TableHead><TableRow><TableCell>วันที่</TableCell><TableCell>ลูกค้า</TableCell>{isSuperAdmin && <TableCell>รายการ</TableCell>}<TableCell>ยอดรวม</TableCell><TableCell>วิธีชำระเงิน</TableCell><TableCell>สถานะชำระเงิน</TableCell><TableCell>ตรวจสอบการชำระ</TableCell><TableCell>อัปเดตการชำระเงิน</TableCell><TableCell>สถานะคำสั่งซื้อ</TableCell><TableCell>อัปเดตออเดอร์</TableCell></TableRow></TableHead><TableBody>{orders.map((order) => <TableRow key={order.id}><TableCell>{new Date(order.createdAt).toLocaleString("th-TH")}</TableCell><TableCell>{order.users?.shopName || order.users?.name || "-"}{order.customerType === "shop" && <Chip size="small" color="secondary" label="ราคาร้านค้า" sx={{ ml: 1 }} />}</TableCell>{isSuperAdmin && <OrderItemsCell items={order.orderItems ?? []} />}<TableCell>{Number(order.totalAmount).toLocaleString("th-TH")} บาท</TableCell><TableCell>{order.paymentMethod === "cash" ? "เงินสด" : order.paymentMethod === "qrScan" ? "สแกน QR" : order.paymentMethod === "pendingPayment" ? "ค้างชำระ" : order.paymentMethod === "pendingCart" ? "ค้างถัง" : order.paymentMethod === "pendingBoth" ? "ค้างทั้งถังและเงิน" : "-"}</TableCell><TableCell>{PAYMENT_STATUS_LABELS[getOrderPaymentStatus(order)]}</TableCell><TableCell>{order.paymentMethod === "qrScan" ? <Button size="small" component={Link} href={`/admin/orders/${order.id}`}>ดูสลิป QR</Button> : "-"}</TableCell><TableCell><Select size="small" value={getOrderPaymentStatus(order)} disabled={updatingOrderId === order.id || order.paymentMethod === "qrScan"} onChange={(event) => void updatePaymentStatus(order.id, event.target.value as OrderPaymentStatus)}>{(Object.entries(PAYMENT_STATUS_LABELS) as [OrderPaymentStatus, string][]).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></TableCell><TableCell>{ORDER_STATUS_LABELS[order.status as OrderStatus] ?? order.status}</TableCell><TableCell><Select size="small" value={ORDER_STATUS_LABELS[order.status as OrderStatus] ? order.status : "pending"} disabled={updatingOrderId === order.id} onChange={(event) => void updateOrderStatus(order.id, event.target.value as OrderStatus)}>{(Object.entries(ORDER_STATUS_LABELS) as [OrderStatus, string][]).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></TableCell></TableRow>)}</TableBody></Table></TableContainer>}
+    {newOrderIds.size > 0 && <Alert severity="info" sx={{ mb: 2 }} onClose={() => setNewOrderIds(new Set())}>มีคำสั่งซื้อใหม่ {newOrderIds.size} รายการ (แถวที่มีป้าย &quot;ใหม่&quot;)</Alert>}
+    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>อัปเดตอัตโนมัติทุก 15 วินาที</Typography>
+    {isLoading ? <CircularProgress /> : !error && orders.length === 0 ? <Paper sx={{ p: 3 }}>ยังไม่มีคำสั่งซื้อ</Paper> : <TableContainer component={Paper}><Table><TableHead><TableRow><TableCell>วันที่</TableCell><TableCell>ลูกค้า</TableCell>{isSuperAdmin && <TableCell>รายการ</TableCell>}<TableCell>ยอดรวม</TableCell><TableCell>วิธีชำระเงิน</TableCell><TableCell>สถานะชำระเงิน</TableCell><TableCell>ตรวจสอบการชำระ</TableCell><TableCell>อัปเดตการชำระเงิน</TableCell><TableCell>สถานะคำสั่งซื้อ</TableCell><TableCell>อัปเดตออเดอร์</TableCell></TableRow></TableHead><TableBody>{orders.map((order) => <TableRow key={order.id} sx={newOrderIds.has(order.id) ? { bgcolor: "action.selected" } : undefined}><TableCell>{new Date(order.createdAt).toLocaleString("th-TH")}{newOrderIds.has(order.id) && <Chip size="small" color="primary" label="ใหม่" sx={{ ml: 1 }} />}</TableCell><TableCell>{order.users?.shopName || order.users?.name || "-"}{order.customerType === "shop" && <Chip size="small" color="secondary" label="ราคาร้านค้า" sx={{ ml: 1 }} />}</TableCell>{isSuperAdmin && <OrderItemsCell items={order.orderItems ?? []} />}<TableCell>{Number(order.totalAmount).toLocaleString("th-TH")} บาท</TableCell><TableCell>{order.paymentMethod === "cash" ? "เงินสด" : order.paymentMethod === "qrScan" ? "สแกน QR" : order.paymentMethod === "pendingPayment" ? "ค้างชำระ" : order.paymentMethod === "pendingCart" ? "ค้างถัง" : order.paymentMethod === "pendingBoth" ? "ค้างทั้งถังและเงิน" : "-"}</TableCell><TableCell>{PAYMENT_STATUS_LABELS[getOrderPaymentStatus(order)]}</TableCell><TableCell>{order.paymentMethod === "qrScan" ? <Button size="small" component={Link} href={`/admin/orders/${order.id}`}>ดูสลิป QR</Button> : "-"}</TableCell><TableCell><Select size="small" value={getOrderPaymentStatus(order)} disabled={updatingOrderId === order.id || order.paymentMethod === "qrScan"} onChange={(event) => void updatePaymentStatus(order.id, event.target.value as OrderPaymentStatus)}>{(Object.entries(PAYMENT_STATUS_LABELS) as [OrderPaymentStatus, string][]).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></TableCell><TableCell>{ORDER_STATUS_LABELS[order.status as OrderStatus] ?? order.status}</TableCell><TableCell><Select size="small" value={ORDER_STATUS_LABELS[order.status as OrderStatus] ? order.status : "pending"} disabled={updatingOrderId === order.id} onChange={(event) => void updateOrderStatus(order.id, event.target.value as OrderStatus)}>{(Object.entries(ORDER_STATUS_LABELS) as [OrderStatus, string][]).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></TableCell></TableRow>)}</TableBody></Table></TableContainer>}
   </Box>;
 }
