@@ -629,6 +629,7 @@ export type Database = {
       orders: {
         Row: {
           createdAt: string
+          customerType: string
           deliveryAddress: string | null
           deliveryLat: number | null
           deliveryLng: number | null
@@ -643,6 +644,7 @@ export type Database = {
         }
         Insert: {
           createdAt?: string
+          customerType?: string
           deliveryAddress?: string | null
           deliveryLat?: number | null
           deliveryLng?: number | null
@@ -657,6 +659,7 @@ export type Database = {
         }
         Update: {
           createdAt?: string
+          customerType?: string
           deliveryAddress?: string | null
           deliveryLat?: number | null
           deliveryLng?: number | null
@@ -739,6 +742,8 @@ export type Database = {
           name: string
           refillPrice: number | null
           sellPrice: number
+          shopExchangePrice: number
+          shopRefillPrice: number
           size: number | null
           typeId: number
           unitId: number
@@ -756,6 +761,8 @@ export type Database = {
           name: string
           refillPrice?: number | null
           sellPrice?: number
+          shopExchangePrice?: number
+          shopRefillPrice?: number
           size?: number | null
           typeId: number
           unitId: number
@@ -773,6 +780,8 @@ export type Database = {
           name?: string
           refillPrice?: number | null
           sellPrice?: number
+          shopExchangePrice?: number
+          shopRefillPrice?: number
           size?: number | null
           typeId?: number
           unitId?: number
@@ -1009,6 +1018,7 @@ export type Database = {
           contactName: string | null
           createdAt: string
           customerType: string
+          customerTypeChosenAt: string | null
           email: string | null
           erasedAt: string | null
           id: string
@@ -1020,6 +1030,7 @@ export type Database = {
           privacyAcknowledgedAt: string | null
           privacyPolicyVersion: string | null
           shopName: string | null
+          shopRequestStatus: string | null
           updatedAt: string
         }
         Insert: {
@@ -1029,6 +1040,7 @@ export type Database = {
           contactName?: string | null
           createdAt?: string
           customerType?: string
+          customerTypeChosenAt?: string | null
           email?: string | null
           erasedAt?: string | null
           id?: string
@@ -1040,6 +1052,7 @@ export type Database = {
           privacyAcknowledgedAt?: string | null
           privacyPolicyVersion?: string | null
           shopName?: string | null
+          shopRequestStatus?: string | null
           updatedAt?: string
         }
         Update: {
@@ -1049,6 +1062,7 @@ export type Database = {
           contactName?: string | null
           createdAt?: string
           customerType?: string
+          customerTypeChosenAt?: string | null
           email?: string | null
           erasedAt?: string | null
           id?: string
@@ -1060,6 +1074,7 @@ export type Database = {
           privacyAcknowledgedAt?: string | null
           privacyPolicyVersion?: string | null
           shopName?: string | null
+          shopRequestStatus?: string | null
           updatedAt?: string
         }
         Relationships: []
@@ -1143,6 +1158,10 @@ export type Database = {
         Returns: boolean
       }
       currentuserownsorder: { Args: { p_order_id: string }; Returns: boolean }
+      decrease_cylinder_as_admin: {
+        Args: { p_inventory_id: string; p_quantity?: number }
+        Returns: Json
+      }
       delete_inventory_as_admin: {
         Args: { p_inventory_id: string }
         Returns: Json

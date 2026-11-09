@@ -93,6 +93,8 @@ export default function EditProductPage() {
         sellPrice: Number(values.sellPrice),
         exchangePrice: values.exchangePrice ? Number(values.exchangePrice) : 0,
         refillPrice: values.refillPrice ? Number(values.refillPrice) : 0,
+        shopExchangePrice: values.shopExchangePrice ? Number(values.shopExchangePrice) : 0,
+        shopRefillPrice: values.shopRefillPrice ? Number(values.shopRefillPrice) : 0,
         isActive: values.isActive,
         // ส่ง imageUrl เฉพาะตอนที่ผู้ใช้มีสิทธิ์แก้รูป ไม่งั้น API จะตอบ 403
         ...(values.imageUrl !== undefined ? { imageUrl: values.imageUrl } : {}),
@@ -148,6 +150,8 @@ export default function EditProductPage() {
             sellPrice: String(product.sellPrice),
             exchangePrice: String(product.exchangePrice),
             refillPrice: product.refillPrice == null ? "" : String(product.refillPrice),
+            shopExchangePrice: Number(product.shopExchangePrice) > 0 ? String(product.shopExchangePrice) : "",
+            shopRefillPrice: Number(product.shopRefillPrice) > 0 ? String(product.shopRefillPrice) : "",
             isActive: product.isActive ?? true,
           }}
           brands={brands}

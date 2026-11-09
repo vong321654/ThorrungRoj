@@ -18,7 +18,13 @@ function databaseFailure<T>(message: string, error: { message?: string }): SERVI
 
 export async function getAllInventoryItems() {
   const supabase = createPublicClient();
-  const { data, error } = await supabase.from("inventoryProducts").select("*, products(id, name, size)");
+  // แถวที่แก้ล่าสุดอยู่บนสุด ถ้าแก้พร้อมกันในรายการเดียว (ถังเต็ม+ถังเปล่า) ให้ถังเต็มขึ้นก่อน
+  const { data, error } = await supabase
+    .from("inventoryProducts")
+    .select("*, products(id, name, size, typeId)")
+    .order("updatedAt", { ascending: false })
+    .order("stockStatus", { ascending: false, nullsFirst: false })
+    .order("id");
 
   if (error) return apiError("Failed to fetch inventory items");
   return apiSuccess("Inventory items retrieved successfully", data);
@@ -143,4 +149,17 @@ export async function updateInventoryItem(
   if (error) return databaseFailure("Failed to update inventory item", error);
   if (!data) return failure("Failed to update inventory item", 500);
   return { result: apiSuccess("Inventory item updated successfully", data), status: 200 };
+}
+
+/** ลดถังเต็มหรือถังเปล่าตามจำนวน แล้วเพิ่มอีกฝั่งของสินค้าเดียวกันเท่ากันในรายการเดียว */
+export async function decreaseCylinder(
+  id: string,
+  quantity: number,
+  supabase: SupabaseClient,
+): Promise<SERVICERESULT<unknown>> {
+  if (!Number.isInteger(quantity) || quantity < 1) return failure("Quantity must be a positive integer", 400);
+  const { data, error } = await supabase.rpc("decrease_cylinder_as_admin", { p_inventory_id: id, p_quantity: quantity }).single();
+  if (error) return databaseFailure("Failed to decrease cylinder", error);
+  if (!data) return failure("Failed to decrease cylinder", 500);
+  return { result: apiSuccess("Cylinder decreased successfully", data), status: 200 };
 }

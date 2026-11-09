@@ -17,7 +17,12 @@ export type ANNOUNCEMENT = {
   publishedAt: string | null;
   expiresAt: string | null;
   createdAt: string;
+  /** เวลาที่ส่งประกาศเข้าแชท LINE แล้ว อ่านได้เฉพาะ API ฝั่งแอดมิน (หน้าลูกค้าไม่ได้ select คอลัมน์นี้) */
+  lineNotifiedAt?: string | null;
 };
+
+/** ผลบันทึกประกาศของแอดมิน lineNotifyError = เหตุที่ส่งเข้า LINE ไม่สำเร็จ (ประกาศบันทึกแล้ว) */
+export type ANNOUNCEMENTSAVERESULT = ANNOUNCEMENT & { lineNotifyError: string | null };
 
 type ANNOUNCEMENTEDITABLEFIELDS = Pick<
   ANNOUNCEMENT,

@@ -1,6 +1,8 @@
 import { apiError, apiSuccess } from "@/app/api/response";
 import { ADMINROLE } from "@/app/models/admin";
-import type { CREATEDEBTPAYLOAD, DEBTCHOICE, SETTLEDEBTPAYLOAD } from "@/app/models/debt";
+import { randomUUID } from "node:crypto";
+import type { CREATEDEBTPAYLOAD, DEBTCHOICE, DEBTRECORDINSERT, MANUALDEBTPAYLOAD, SETTLEDEBTPAYLOAD } from "@/app/models/debt";
+import { createAdminClient } from "@/app/api/util/supabase/admin";
 import { DEBTCHOICE as DEBTCHOICEENUM } from "@/app/enums/debt";
 import { ORDERSTATUS } from "@/app/enums/order";
 import {
@@ -8,6 +10,7 @@ import {
   DEBT_ORDER_FIELDS,
   isFullySettled,
   markOrderPaidIfMoneyDebtsCleared,
+  TANK_TYPE_ID,
   type DEBTORDER,
 } from "@/app/api/services/debtService";
 import { authenticateAdmin } from "../authorization";
@@ -39,7 +42,8 @@ export async function POST(request: Request) {
   const debtId = new URL(request.url).searchParams.get("id");
   if (debtId) return settleDebt(request, auth, debtId);
 
-  const body = await request.json().catch(() => null) as CREATEDEBTPAYLOAD | null;
+  const body = await request.json().catch(() => null) as (CREATEDEBTPAYLOAD & MANUALDEBTPAYLOAD) | null;
+  if (body && typeof body.customer === "object" && body.customer !== null) return createManualDebt(auth, body);
   if (!body || typeof body.orderId !== "string" || !Object.values(DEBTCHOICEENUM).includes(body.debtType as DEBTCHOICEENUM)) {
     return Response.json(apiError("Invalid debt record"), { status: 400 });
   }
@@ -80,6 +84,90 @@ export async function POST(request: Request) {
   const { data: created, error } = await auth.adminSupabase.from("debtRecords").insert(records).select("id");
   if (error) return Response.json(apiError("Failed to create debt records"), { status: 500 });
   return Response.json(apiSuccess("Debt records created successfully", created ?? []), { status: 201 });
+}
+
+type ADMINDEBTAUTH = Exclude<Awaited<ReturnType<typeof authenticateAdmin>>, Response>;
+
+const THAI_PHONE = /^(?:\+66\d{8,9}|0\d{8,9})$/;
+
+function optionalText(value: unknown, maxLength: number) {
+  if (value === undefined || value === null) return { ok: true as const, value: null };
+  if (typeof value !== "string" || value.trim().length > maxLength) return { ok: false as const };
+  return { ok: true as const, value: value.trim() || null };
+}
+
+/** ลูกค้าโทรสั่งกับเจ้าของร้าน ไม่มีออเดอร์ในระบบ ให้ superAdmin บันทึกหนี้เองจากชื่อ/ที่อยู่/เบอร์ */
+async function createManualDebt(auth: ADMINDEBTAUTH, body: MANUALDEBTPAYLOAD) {
+  if (auth.admin.role !== ADMINROLE.SUPER_ADMIN) {
+    return Response.json(apiError("Only a super admin can record debts for phone orders"), { status: 403 });
+  }
+
+  const name = optionalText(body.customer?.name, 200);
+  const address = optionalText(body.customer?.address, 500);
+  const phoneInput = optionalText(body.customer?.phone, 20);
+  const note = optionalText(body.note, 500);
+  if (!name.ok || !name.value) return Response.json(apiError("กรุณากรอกชื่อลูกค้า"), { status: 400 });
+  if (!address.ok) return Response.json(apiError("ที่อยู่ยาวเกิน 500 ตัวอักษร"), { status: 400 });
+  if (!note.ok) return Response.json(apiError("หมายเหตุยาวเกิน 500 ตัวอักษร"), { status: 400 });
+  const rawPhone = phoneInput.ok ? phoneInput.value ?? "" : "";
+  const phone = rawPhone.replace(/[\s-]/g, "");
+  if (!THAI_PHONE.test(phone)) return Response.json(apiError("เบอร์โทรไม่ถูกต้อง"), { status: 400 });
+
+  const debtType = body.debtType as DEBTCHOICE;
+  if (!Object.values(DEBTCHOICEENUM).includes(debtType)) return Response.json(apiError("Invalid debt type"), { status: 400 });
+  const needsMoney = debtType === DEBTCHOICEENUM.MONEY || debtType === DEBTCHOICEENUM.BOTH;
+  const needsCart = debtType === DEBTCHOICEENUM.CART || debtType === DEBTCHOICEENUM.BOTH;
+
+  const moneyAmount = Number(body.moneyAmount);
+  if (needsMoney && (!Number.isFinite(moneyAmount) || moneyAmount <= 0)) {
+    return Response.json(apiError("กรุณากรอกจำนวนเงินที่ค้าง"), { status: 400 });
+  }
+  const productId = Number(body.productId);
+  const cartQuantity = Number(body.cartQuantity);
+  if (needsCart) {
+    if (!Number.isInteger(productId) || productId <= 0) return Response.json(apiError("กรุณาเลือกถังที่ค้าง"), { status: 400 });
+    if (!Number.isInteger(cartQuantity) || cartQuantity <= 0) return Response.json(apiError("จำนวนถังต้องเป็นจำนวนเต็มมากกว่า 0"), { status: 400 });
+    const { data: product, error: productError } = await auth.adminSupabase
+      .from("products").select("id, typeId").eq("id", productId).maybeSingle();
+    if (productError) return Response.json(apiError("Failed to load product"), { status: 500 });
+    if (!product || product.typeId !== TANK_TYPE_ID) return Response.json(apiError("สินค้าที่เลือกไม่ใช่ถังแก๊ส"), { status: 400 });
+  }
+
+  // ลูกค้าเดิมที่มีเบอร์นี้อยู่แล้ว (รวมลูกค้า LINE) ใช้คนเดิม หนี้จะได้ไปรวมกับบัญชีเขา
+  const { data: existing, error: findError } = await auth.adminSupabase
+    .from("users")
+    .select("id")
+    .in("phone", Array.from(new Set([phone, rawPhone])))
+    .not("lineUserId", "like", "erased:%")
+    .order("createdAt", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (findError) return Response.json(apiError("Failed to look up customer"), { status: 500 });
+
+  let userId = existing?.id as string | undefined;
+  if (!userId) {
+    // users ไม่มี RLS ให้พนักงาน insert และ lineUserId ห้ามว่าง จึงสร้างผ่าน service role
+    // ด้วย lineUserId "manual:<uuid>" (ไอดี LINE จริงขึ้นต้นด้วย U จึงไม่ชนกัน)
+    const { data: created, error: createError } = await createAdminClient()
+      .from("users")
+      .insert({ lineUserId: `manual:${randomUUID()}`, name: name.value, phone, address: address.value })
+      .select("id")
+      .single();
+    if (createError || !created) return Response.json(apiError("Failed to create customer"), { status: 500 });
+    userId = created.id as string;
+  }
+
+  const records: DEBTRECORDINSERT[] = [];
+  if (needsMoney) {
+    records.push({ userId, orderId: null, recordedBy: auth.admin.id, debtType: DEBTCHOICEENUM.MONEY, amount: moneyAmount, note: note.value });
+  }
+  if (needsCart) {
+    records.push({ userId, orderId: null, recordedBy: auth.admin.id, debtType: DEBTCHOICEENUM.CART, productId, amount: cartQuantity, note: note.value });
+  }
+
+  const { data: inserted, error } = await auth.adminSupabase.from("debtRecords").insert(records).select("id");
+  if (error) return Response.json(apiError("Failed to create debt records"), { status: 500 });
+  return Response.json(apiSuccess("Debt records created successfully", inserted ?? []), { status: 201 });
 }
 
 async function settleDebt(

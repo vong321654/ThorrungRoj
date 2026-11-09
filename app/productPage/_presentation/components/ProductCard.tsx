@@ -13,6 +13,9 @@ import type { Product } from "@/app/productPage/_domain/entities";
 import type { SaleType } from "@/app/productPage/_shared/domain/cartItem";
 import { getBrandAccentColor } from "../brandTheme";
 import GasCylinderGlyph from "./GasCylinderGlyph";
+import { CUSTOMERTYPE } from "@/app/enums/customer";
+import { useCustomerProfile } from "@/app/productPage/_shared/CustomerProfileContext";
+import { getDisplayPrice, getSaleTypePrices } from "../productPricing";
 
 type ProductCardProps = {
   product: Product;
@@ -31,17 +34,16 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
   const [saleType, setSaleType] = useState<SaleType>("sell");
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const imageUrl = product.imageUrl && product.imageUrl !== failedImageUrl ? product.imageUrl : null;
-  const selectedPrice =
-    saleType === "sell"
-      ? product.sellPrice
-      : saleType === "exchange"
-        ? product.exchangePrice
-        : product.refillPrice;
+  const { customerType } = useCustomerProfile();
+  const selectedPrice = getDisplayPrice(product, saleType, customerType);
+  // บอกลูกค้าร้านค้าว่าราคานี้เป็นราคาร้านค้า (ซื้อถังหรือสินค้าที่ไม่ได้ตั้งราคาร้านค้าจะเป็นราคาปกติ)
+  const isShopPrice =
+    customerType === CUSTOMERTYPE.SHOP && selectedPrice !== getSaleTypePrices(product, saleType).price;
   // ฝากเติมใช้ถังของลูกค้า จึงสั่งได้แม้ถังเต็มในร้านหมด
   const isRefill = saleType === "refill";
-  // สินค้าที่ร้านยังไม่ตั้งราคาเติมจะไม่แสดงตัวเลือกนี้
+  // สินค้าที่ร้านยังไม่ตั้งราคาฝากเติมจะไม่แสดงตัวเลือกนี้
   const saleTypeOptions = SALE_TYPE_OPTIONS.filter(
-    (option) => option.value !== "refill" || product.refillPrice > 0,
+    (option) => option.value !== "refill" || getDisplayPrice(product, "refill", customerType) > 0,
   );
 
   return (
@@ -90,7 +92,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
           ))}
         </TextField>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          ราคา : {selectedPrice.toLocaleString("th-TH")} บาท
+          {isShopPrice ? "ราคาร้านค้า" : "ราคา"} : {selectedPrice.toLocaleString("th-TH")} บาท
         </Typography>
         {isRefill ? (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>

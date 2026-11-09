@@ -86,7 +86,7 @@ export default function AdminLoginPage() {
         <Box sx={adminBrandMarkSx}>A</Box>
 
         <Box sx={{ mt: 2.5 }}>
-          <Typography sx={eyebrowSx}>ร้านแก๊สทอรุ่งโรจน์</Typography>
+          <Typography sx={eyebrowSx}>ร้านแก๊สท.รุ่งโรจน์</Typography>
           <Typography id="adminLoginTitle" component="h1" sx={headingTitleSx}>
             เข้าสู่ระบบ Admin
           </Typography>
