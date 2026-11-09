@@ -10,26 +10,6 @@ export const THAILAND_BOUNDS = { minLat: 5.6, maxLat: 20.5, minLng: 97.3, maxLng
 // พิกัดหน้าร้านจริงจาก Google Maps (ปัดเป็นทศนิยม 7 ตำแหน่งตามคอลัมน์ numeric(10,7))
 export const SHOP_LOCATION: DELIVERYLOCATION = { lat: 12.5773776, lng: 99.9464974 };
 
-// รัศมีจัดส่งวัดจากร้าน (เส้นตรง) ขอบเขตที่ร้านตกลงไว้คือไม่เกินหนองแก บ่อฝ้าย หนองขอน
-// ระยะจากร้านโดยประมาณ: ชุมชนหนองแก 4.3 กม. สถานีหนองแก 5.3 กม. บ่อฝ้าย 4.6 กม. บ้านหนองขอน 5.2 กม. Lakeside หนองขอน 5.6 กม.
-export const MAX_DELIVERY_RADIUS_KM = 6;
-export const OUT_OF_AREA_MESSAGE = `หมุดอยู่นอกระยะการจัดส่ง (ร้านส่งได้ในรัศมี ${MAX_DELIVERY_RADIUS_KM} กม. จากร้าน ประมาณหนองแก บ่อฝ้าย หนองขอน)`;
-
-const EARTH_RADIUS_KM = 6371.0088;
-
-/** ระยะเส้นตรงระหว่างสองพิกัด (สูตร haversine) หน่วยกิโลเมตร */
-export function distanceKm(from: DELIVERYLOCATION, to: DELIVERYLOCATION) {
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const dLat = toRad(to.lat - from.lat);
-  const dLng = toRad(to.lng - from.lng);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
-}
-
-export function isInDeliveryArea(location: DELIVERYLOCATION) {
-  return distanceKm(SHOP_LOCATION, location) <= MAX_DELIVERY_RADIUS_KM;
-}
-
 // คอลัมน์ deliveryLat/deliveryLng เป็น numeric(10,7)
 const COORDINATE_DECIMALS = 7;
 
@@ -52,8 +32,8 @@ export type PARSEDLOCATION =
   | { ok: false; message: string };
 
 /**
- * ไม่ส่งพิกัดมาเลย (undefined/null ทั้งคู่) = ไม่ได้ปักหมุด คืน location: null ให้ผู้เรียกตัดสินเอง (ตอนสั่งซื้อจะปฏิเสธ)
- * ส่งมาต้องเป็นตัวเลขจริงทั้งคู่ อยู่ในประเทศไทย และอยู่ในรัศมีจัดส่ง ไม่รับสตริง เพื่อกัน "1e2" หรือค่าแปลก ๆ
+ * ไม่ส่งพิกัดมาเลย (undefined/null ทั้งคู่) = ไม่ได้ปักหมุด ซึ่งยังสั่งซื้อได้ตามปกติ
+ * ส่งมาต้องเป็นตัวเลขจริงทั้งคู่และอยู่ในประเทศไทย ไม่รับสตริง เพื่อกัน "1e2" หรือค่าแปลก ๆ
  */
 export function parseDeliveryLocation(lat: unknown, lng: unknown): PARSEDLOCATION {
   const latMissing = lat === undefined || lat === null;
@@ -67,10 +47,6 @@ export function parseDeliveryLocation(lat: unknown, lng: unknown): PARSEDLOCATIO
   const location = { lat: roundCoordinate(lat), lng: roundCoordinate(lng) };
   if (!isInThailand(location)) {
     return { ok: false, message: "หมุดจัดส่งต้องอยู่ในประเทศไทย กรุณาปักหมุดใหม่" };
-  }
-  // ตรวจซ้ำฝั่งเซิร์ฟเวอร์ กันคนยิง API ตรงข้ามป๊อปอัปหน้าเว็บ
-  if (!isInDeliveryArea(location)) {
-    return { ok: false, message: OUT_OF_AREA_MESSAGE };
   }
   return { ok: true, location };
 }

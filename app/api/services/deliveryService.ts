@@ -16,6 +16,8 @@ import { createAdminClient } from "@/app/api/util/supabase/admin";
 import { createAuthenticatedClient } from "@/app/api/util/supabase/authenticated";
 import { apiError, apiSuccess } from "../response";
 import { isAdminOrSuperAdmin } from "./adminService";
+import { SHOP_LOCATION, toDeliveryLocation } from "@/app/util/deliveryLocation";
+import { ETA_BUFFER_MINUTES, estimateDeliveryEta } from "./routingService";
 import { recordDebtForDeliveredOrder } from "./debtService";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -243,7 +245,7 @@ function parseUpdate(payload: unknown) {
 export async function updateDelivery(
   auth: ADMINAUTH,
   payload: unknown,
-): Promise<SERVICERESULT<DELIVERYTRACKING & { debtWarning: string | null }>> {
+): Promise<SERVICERESULT<DELIVERYTRACKING & { debtWarning: string | null; etaDetail: DELIVERYETADETAIL | null }>> {
   const parsed = parseUpdate(payload);
   if (!parsed.ok) return failure(parsed.message, 400);
 
@@ -288,6 +290,21 @@ export async function updateDelivery(
       .maybeSingle();
     if (driverError) return failure("Failed to validate driver", 500);
     if (!driver) return failure("Driver not found or inactive", 400);
+  }
+
+  // คำนวณเวลาที่จะถึงจากที่ตั้งร้านถึงหมุดลูกค้า ทำหลังตรวจสิทธิ์แล้ว ไม่ให้คนที่ไม่มีสิทธิ์ยิงบริการเส้นทางได้
+  let estimatedMinutes = parsed.estimatedMinutes;
+  let etaDetail: DELIVERYETADETAIL | null = null;
+  if (estimatedMinutes === "auto") {
+    // ส่งถึงแล้ว (สถานะเดิมในฐานข้อมูล) ไม่มีเวลาให้ประเมิน กันคำขอที่ปั้นเองยิงบริการเส้นทางเปล่า ๆ
+    if ((parsed.status ?? current?.status) === "delivered") {
+      return failure("Cannot estimate arrival time for a delivered order", 400);
+    }
+    const destination = toDeliveryLocation(order.deliveryLat, order.deliveryLng);
+    if (!destination) return failure("ลูกค้าไม่ได้ปักหมุดจุดส่งของ กรุณากรอกเวลาที่จะถึงเอง", 400);
+    const eta = await estimateDeliveryEta(SHOP_LOCATION, destination);
+    estimatedMinutes = eta.minutes;
+    etaDetail = { distanceKm: eta.distanceKm, source: eta.source, bufferMinutes: ETA_BUFFER_MINUTES };
   }
 
   // ส่งถึงแล้ว = ออเดอร์จัดส่งแล้ว: ตัดสต๊อกและปิดออเดอร์ในทรานแซกชันเดียวกับปุ่ม "จัดส่งแล้ว" ในหน้าคำสั่งซื้อ
@@ -346,5 +363,5 @@ export async function updateDelivery(
 
   const row = saved as TrackingRow;
   const names = await loadDriverNames([row.driverId]);
-  return { result: apiSuccess("Delivery updated", { ...toTracking(row, names), debtWarning }), status: 200 };
+  return { result: apiSuccess("Delivery updated", { ...toTracking(row, names), debtWarning, etaDetail }), status: 200 };
 }

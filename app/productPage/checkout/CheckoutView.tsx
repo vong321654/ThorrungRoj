@@ -26,7 +26,7 @@ import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 import type { CURRENTUSER } from "@/app/models/user";
 import { PAYMENTMETHOD, type ORDERRECORD } from "@/app/models/order";
-import { isInDeliveryArea, OUT_OF_AREA_MESSAGE, type DELIVERYLOCATION } from "@/app/util/deliveryLocation";
+import { isInThailand, type DELIVERYLOCATION } from "@/app/util/deliveryLocation";
 import DeliveryLocationPicker from "./DeliveryLocationPicker";
 
 type InventoryItem = {
@@ -144,11 +144,11 @@ export default function CheckoutView() {
       setErrorMessage("กรุณาปักหมุดจุดส่งของก่อนสั่งซื้อ");
       return;
     }
-    if (!isInDeliveryArea(deliveryLocation)) {
-      setOutOfAreaOpen(true);
+    if (deliveryLocation && !isInThailand(deliveryLocation)) {
+      setErrorMessage("หมุดจัดส่งอยู่นอกประเทศไทย กรุณาปักหมุดใหม่หรือลบหมุด");
       return;
     }
-    if (!selectedPaymentMethod) {
+    if (!paymentMethod) {
       setErrorMessage("กรุณาเลือกวิธีชำระเงิน");
       return;
     }
@@ -213,9 +213,9 @@ export default function CheckoutView() {
           items,
           deliveryAddress,
           note,
-          paymentMethod: selectedPaymentMethod,
-          deliveryLat: deliveryLocation.lat,
-          deliveryLng: deliveryLocation.lng,
+          paymentMethod,
+          deliveryLat: deliveryLocation?.lat ?? null,
+          deliveryLng: deliveryLocation?.lng ?? null,
         }),
       });
       const result = (await response.json()) as APIRESULT<ORDERRECORD>;
@@ -299,6 +299,14 @@ export default function CheckoutView() {
               fullWidth
               sx={{ mt: 2 }}
             />
+            <Box sx={{ mt: 2 }}>
+              <DeliveryLocationPicker
+                value={deliveryLocation}
+                onChange={setDeliveryLocation}
+                address={deliveryAddress}
+                disabled={isSubmitting}
+              />
+            </Box>
             <TextField
               label="หมายเหตุ"
               value={note}
