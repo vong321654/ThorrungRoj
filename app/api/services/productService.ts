@@ -15,9 +15,23 @@ const productWriteFields = [
   "sellPrice",
   "exchangePrice",
   "refillPrice",
+  "shopExchangePrice",
+  "shopRefillPrice",
   "imageUrl",
   "isActive",
 ] as const;
+
+const priceFields = ["sellPrice", "exchangePrice", "refillPrice", "shopExchangePrice", "shopRefillPrice"] as const;
+
+// ราคาต้องเป็นตัวเลขไม่ติดลบ (refillPrice เดิมเป็น null ได้) กันค่าแปลกเข้าไปคิดเงินลูกค้า
+function hasInvalidPrice(values: PRODUCTPAYLOAD) {
+  return priceFields.some((field) => {
+    if (!(field in values)) return false;
+    const value = values[field];
+    if (value === null) return field !== "refillPrice" && field !== "exchangePrice";
+    return typeof value !== "number" || !Number.isFinite(value) || value < 0;
+  });
+}
 
 // imageUrl มาจาก client ได้ แต่ต้องเป็น URL ที่ออกจาก bucket ของเราเท่านั้น
 // กัน client ยัด URL ภายนอกเข้ามาเก็บใน DB
@@ -52,7 +66,7 @@ function databaseError(message: string, error: { message?: string }) {
 }
 
 const productFields =
-  "id, name, brandId, size, typeId, unitId, sellPrice, exchangePrice, refillPrice, imageUrl, isActive";
+  "id, name, brandId, size, typeId, unitId, sellPrice, exchangePrice, refillPrice, shopExchangePrice, shopRefillPrice, imageUrl, isActive";
 
 //Get All Products
 export async function getAllProduct() {
@@ -79,6 +93,7 @@ export async function updateProduct(
 ) {
   const values = pickProductValues(data);
   if (Object.keys(values).length === 0) return apiError("No editable product fields supplied");
+  if (hasInvalidPrice(values)) return apiError("Product prices must be non-negative numbers");
   if ("imageUrl" in values && !isValidProductImageUrl(values.imageUrl)) {
     return apiError("Product image URL must come from the product image storage bucket");
   }
@@ -127,6 +142,7 @@ export async function addProduct(
   createdBy: string,
 ) {
   const values = pickProductValues(data);
+  if (hasInvalidPrice(values)) return apiError("Product prices must be non-negative numbers");
   if ("imageUrl" in values && !isValidProductImageUrl(values.imageUrl)) {
     return apiError("Product image URL must come from the product image storage bucket");
   }

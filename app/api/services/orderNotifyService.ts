@@ -1,6 +1,7 @@
 import "server-only";
 
 import { PAYMENTMETHOD } from "@/app/enums/order";
+import { CUSTOMERTYPE } from "@/app/enums/customer";
 import { createAdminClient } from "@/app/api/util/supabase/admin";
 import { publicUrl, pushLineMessages, type LineMessage } from "./lineBotService";
 import { buildPromptPayQrPath } from "./promptPayService";
@@ -12,6 +13,7 @@ type ORDERNOTIFICATION = {
   userId: string;
   totalAmount: number;
   paymentMethod: PAYMENTMETHOD;
+  customerType: CUSTOMERTYPE;
   items: Array<{ productNameSnapshot: string; quantity: number; saleType: string }>;
 };
 
@@ -62,7 +64,7 @@ export async function notifyOrderCreated(order: ORDERNOTIFICATION) {
       "รับคำสั่งซื้อแล้วครับ",
       `เลขที่ ${order.orderId.slice(0, 8)}`,
       ...lines,
-      `ยอดรวม ${order.totalAmount.toLocaleString("th-TH")} บาท`,
+      `ยอดรวม ${order.totalAmount.toLocaleString("th-TH")} บาท${order.customerType === CUSTOMERTYPE.SHOP ? " (ราคาร้านค้า)" : ""}`,
       "",
       paymentInstruction(order.paymentMethod, qrUrl !== null),
     ].join("\n");
