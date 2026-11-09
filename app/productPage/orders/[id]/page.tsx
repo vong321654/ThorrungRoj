@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Alert, Box, Button, Chip, CircularProgress, Container, Divider, Paper, Stack, Typography } from "@mui/material";
 import { createClient } from "@/app/api/util/supabase/client";
+import { clearStaleSession, getVerifiedAccessToken } from "@/app/util/customerSession";
+import { loginUrlWithNext } from "@/app/util/loginRedirect";
 import type { APIRESULT } from "@/app/api/response";
 import type { ORDERRECORD } from "@/app/models/order";
 import type { DELIVERYTRACKING } from "@/app/models/delivery";
@@ -43,11 +45,15 @@ function fetchCustomerOrder(orderId: string) {
   if (pendingRequest) return pendingRequest;
 
   const request = (async () => {
-    const { data } = await createClient().auth.getSession();
-    if (!data.session?.access_token) return null;
+    const accessToken = await getVerifiedAccessToken();
+    if (!accessToken) return null;
     const response = await fetch(`/api/orders?id=${encodeURIComponent(orderId)}`, {
-      headers: { Authorization: `Bearer ${data.session.access_token}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
+    if (response.status === 401) {
+      await clearStaleSession();
+      return null;
+    }
     const result = await response.json() as APIRESULT<ORDERRECORD>;
     if (!response.ok || result.status === "error") throw new Error(result.message);
     return result.results;
@@ -93,7 +99,7 @@ export default function CustomerOrderDetailPage() {
     setLoading(true); setError(null);
     try {
       const result = await fetchCustomerOrder(id);
-      if (!result) { router.replace("/login"); return; }
+      if (!result) { router.replace(loginUrlWithNext(`/productPage/orders/${encodeURIComponent(id)}`)); return; }
       setOrder(result);
       // ข้อมูลขนส่งเป็นส่วนเสริม ดึงไม่ได้ก็ยังต้องแสดงรายละเอียดออเดอร์ตามปกติ
       applyTracking(await fetchDeliveryTracking(id).catch(() => null));

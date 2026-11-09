@@ -10,9 +10,9 @@ import {
   DEBT_ORDER_FIELDS,
   isFullySettled,
   markOrderPaidIfMoneyDebtsCleared,
-  TANK_TYPE_ID,
   type DEBTORDER,
 } from "@/app/api/services/debtService";
+import { isGasCylinderProduct, PRODUCT_TYPE_EMBED } from "@/app/util/productType";
 import { authenticateAdmin } from "../authorization";
 
 
@@ -128,9 +128,9 @@ async function createManualDebt(auth: ADMINDEBTAUTH, body: MANUALDEBTPAYLOAD) {
     if (!Number.isInteger(productId) || productId <= 0) return Response.json(apiError("กรุณาเลือกถังที่ค้าง"), { status: 400 });
     if (!Number.isInteger(cartQuantity) || cartQuantity <= 0) return Response.json(apiError("จำนวนถังต้องเป็นจำนวนเต็มมากกว่า 0"), { status: 400 });
     const { data: product, error: productError } = await auth.adminSupabase
-      .from("products").select("id, typeId").eq("id", productId).maybeSingle();
+      .from("products").select(`id, typeId, ${PRODUCT_TYPE_EMBED}`).eq("id", productId).maybeSingle();
     if (productError) return Response.json(apiError("Failed to load product"), { status: 500 });
-    if (!product || product.typeId !== TANK_TYPE_ID) return Response.json(apiError("สินค้าที่เลือกไม่ใช่ถังแก๊ส"), { status: 400 });
+    if (!product || !isGasCylinderProduct(product)) return Response.json(apiError("สินค้าที่เลือกไม่ใช่ถังแก๊ส"), { status: 400 });
   }
 
   // ลูกค้าเดิมที่มีเบอร์นี้อยู่แล้ว (รวมลูกค้า LINE) ใช้คนเดิม หนี้จะได้ไปรวมกับบัญชีเขา

@@ -12,8 +12,11 @@ import PrivacyPolicyDialog from "./components/PrivacyPolicyDialog";
 import ShopContactFooter from "./components/ShopContactFooter";
 import SiteTopBar from "./components/SiteTopBar";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/app/api/util/supabase/client";
+import { getVerifiedAccessToken } from "@/app/util/customerSession";
+import { loginUrlWithNext } from "@/app/util/loginRedirect";
 import { belowHeaderMinHeightSx } from "@/app/components/UI/authStyles";
+
+const CHECKOUT_PATH = "/productPage/checkout";
 
 function CartDrawerConnected() {
   const cart = useCart();
@@ -30,9 +33,9 @@ function CartDrawerConnected() {
       onDecrease={cart.decreaseQuantity}
       onCheckout={async () => {
         cart.closeCart();
-        const supabase = createClient();
-        const { data } = await supabase.auth.getSession();
-        router.push(data.session ? "/productPage/checkout" : "/login");
+        // ยังไม่ login (หรือ session ค้างที่ใช้ไม่ได้) ไปหน้า LINE login แล้วกลับมาหน้าสั่งซื้อต่อ ตะกร้าอยู่ใน localStorage ไม่หาย
+        const accessToken = await getVerifiedAccessToken();
+        router.push(accessToken ? CHECKOUT_PATH : loginUrlWithNext(CHECKOUT_PATH));
       }}
     />
   );

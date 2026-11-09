@@ -7,4 +7,4 @@ export type AUTHIDENTITYUSER = {
   identities?: Array<{ provider?: string }>;
 };
 
-export type PAYMENTORDEROWNER = { userId?: string } | null;
+export type PAYMENTORDEROWNER = { userId?: string; status?: string } | null;

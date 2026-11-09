@@ -3,10 +3,9 @@ import type { ProductRepository } from "@/app/productPage/_domain/productReposit
 import type { APIRESULT } from "@/app/api/response";
 import type { PRODUCT } from "@/app/models/product";
 import type { PRODUCTBAND } from "@/app/models/productsType";
+import { isGasCylinderProduct } from "@/app/util/productType";
 
 type AvailableStock = { productId: number; availableQuantity: number };
-
-const TANK_TYPE_ID = 14; // "ถังแก๊ส" ใน types
 
 export class SupabaseProductRepository implements ProductRepository {
   async listAllProducts(): Promise<Product[]> {
@@ -34,7 +33,7 @@ export class SupabaseProductRepository implements ProductRepository {
       .filter(
         (product): product is PRODUCT & { size: number } =>
           product.isActive !== false &&
-          product.typeId === TANK_TYPE_ID &&
+          isGasCylinderProduct(product) &&
           product.size !== null,
       )
       .map((product) => ({

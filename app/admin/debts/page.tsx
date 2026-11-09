@@ -10,11 +10,12 @@ import {
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 import { ADMINROLE } from "@/app/models/admin";
+import { isGasCylinderProduct } from "@/app/util/productType";
 import { useRequireAdmin, MANAGER_ONLY } from "../useRequireAdmin";
 
 type DebtTypeChoice = "money" | "cart" | "both";
 type DebtFilter = "all" | DebtTypeChoice;
-type TankProduct = { id: number; name: string; size: number | string | null; typeId: number; isActive: boolean };
+type TankProduct = { id: number; name: string; size: number | string | null; typeId: number; isActive: boolean; productsType?: { name: string | null } | null };
 type ManualDebtForm = { name: string; address: string; phone: string; debtType: DebtTypeChoice; moneyAmount: string; productId: string; cartQuantity: string; note: string };
 type DebtRecord = {
   id: string; userId: string; orderId: string | null; debtType: "money" | "cart"; amount: number | string; status: "pending" | "partial" | "paid"; createdAt: string;
@@ -23,7 +24,6 @@ type DebtRecord = {
   debtTransactions: Array<{ id: string; transactionType: "payment" | "return"; amount: number | string; createdAt: string }>;
 };
 
-const TANK_TYPE_ID = 14; // "ถังแก๊ส" ใน productsType
 const EMPTY_MANUAL_FORM: ManualDebtForm = { name: "", address: "", phone: "", debtType: "money", moneyAmount: "", productId: "", cartQuantity: "", note: "" };
 
 function formatAmount(value: number, debtType: DebtRecord["debtType"]) {
@@ -67,7 +67,7 @@ export default function AdminDebtsPage() {
       request<TankProduct[]>("/api/product"),
     ]);
     setDebts(debtData);
-    setTankProducts(productData.filter((product) => product.typeId === TANK_TYPE_ID && product.isActive));
+    setTankProducts(productData.filter((product) => isGasCylinderProduct(product) && product.isActive));
   }, [request]);
 
   useEffect(() => {

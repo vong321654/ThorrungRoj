@@ -2,20 +2,24 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEBTCHOICE, DEBTSTATUS } from "@/app/enums/debt";
 import { ORDERPAYMENTSTATUS, ORDERSTATUS, PAYMENTMETHOD, SALETYPE } from "@/app/enums/order";
 import type { DEBTRECORDINSERT } from "@/app/models/debt";
-
-export const TANK_TYPE_ID = 14; // "ถังแก๊ส" ใน productsType
+import { isGasCylinderProduct, PRODUCT_TYPE_EMBED } from "@/app/util/productType";
 
 // ยอดเงินเป็นทศนิยม บวกหลายครั้งแล้วอาจคลาดเล็กน้อย จึงถือว่าครบเมื่อห่างกันไม่ถึงครึ่งสตางค์
 const MONEY_EPSILON = 0.005;
 
+// ใช้ใน orderItems(...) เพื่อให้ isCartDebtItem รู้ว่ารายการไหนเป็นถังแก๊ส
+export const DEBT_ITEM_PRODUCT_EMBED = `products(typeId, ${PRODUCT_TYPE_EMBED})`;
+
 export const DEBT_ORDER_FIELDS =
-  "id, userId, totalAmount, status, paymentMethod, paymentStatus, orderItems(productId, quantity, saleType, products(typeId)), debtRecords(debtType)";
+  `id, userId, totalAmount, status, paymentMethod, paymentStatus, orderItems(productId, quantity, saleType, ${DEBT_ITEM_PRODUCT_EMBED}), debtRecords(debtType)`;
+
+type DebtItemProduct = { typeId: number; productsType?: { name: string | null } | { name: string | null }[] | null };
 
 type DebtOrderItem = {
   productId: number | null;
   quantity: number;
   saleType: string;
-  products: { typeId: number } | { typeId: number }[] | null;
+  products: DebtItemProduct | DebtItemProduct[] | null;
 };
 
 export type DEBTORDER = {
@@ -33,7 +37,7 @@ export type DEBTORDER = {
 export function isCartDebtItem(item: DebtOrderItem) {
   const product = Array.isArray(item.products) ? item.products[0] : item.products;
   return (
-    product?.typeId === TANK_TYPE_ID &&
+    isGasCylinderProduct(product) &&
     item.saleType === SALETYPE.EXCHANGE &&
     !!item.productId &&
     item.quantity > 0

@@ -17,6 +17,8 @@ export type PRODUCT = {
   shopRefillPrice: number;
   imageUrl?: string | null;
   isActive: boolean;
+  // ชื่อประเภท ดึงมากับ GET /api/product ใช้กับ isGasCylinderProduct()
+  productsType?: { name: string | null } | null;
 };
 
 export type PRODUCTINPUT = Omit<

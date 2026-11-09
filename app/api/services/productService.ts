@@ -3,6 +3,7 @@ import type { PRODUCTPAYLOAD } from "@/app/models/product";
 import { createPublicClient } from "@/app/api/util/supabase/public";
 import { PRODUCT_IMAGE_BUCKET, storagePathFromUrl } from "./imageService";
 import { apiError, apiSuccess } from "../response";
+import { PRODUCT_TYPE_EMBED } from "@/app/util/productType";
 
 export type { PRODUCTPAYLOAD } from "@/app/models/product";
 
@@ -65,8 +66,9 @@ function databaseError(message: string, error: { message?: string }) {
   return apiError(`${message}${detail}`);
 }
 
+// ดึงชื่อประเภทมาด้วย หน้าร้านใช้แยกถังแก๊สกับอะไหล่ (ดู app/util/productType.ts)
 const productFields =
-  "id, name, brandId, size, typeId, unitId, sellPrice, exchangePrice, refillPrice, shopExchangePrice, shopRefillPrice, imageUrl, isActive";
+  `id, name, brandId, size, typeId, unitId, sellPrice, exchangePrice, refillPrice, shopExchangePrice, shopRefillPrice, imageUrl, isActive, ${PRODUCT_TYPE_EMBED}`;
 
 //Get All Products
 export async function getAllProduct() {

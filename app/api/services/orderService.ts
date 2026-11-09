@@ -12,7 +12,7 @@ import type {
 } from "@/app/models/order";
 import type { SaleType } from "@/app/productPage/_shared/domain/cartItem";
 import { PAYMENTMETHOD, SALETYPE } from "@/app/enums/order";
-import { TANK_TYPE_ID } from "./debtService";
+import { isGasCylinderProduct, PRODUCT_TYPE_EMBED } from "@/app/util/productType";
 import { notifyOrderCreated } from "./orderNotifyService";
 import { buildPromptPayQrPath } from "./promptPayService";
 import { getOrderableStock } from "./stockService";
@@ -177,7 +177,7 @@ export async function createOrder(
   const supabase = createAuthenticatedClient(accessToken!);
   const { data: products, error: productsError } = await supabase
     .from("products")
-    .select("id, name, sellPrice, exchangePrice, refillPrice, shopExchangePrice, shopRefillPrice, isActive, typeId")
+    .select(`id, name, sellPrice, exchangePrice, refillPrice, shopExchangePrice, shopRefillPrice, isActive, typeId, ${PRODUCT_TYPE_EMBED}`)
     .in("id", productIds);
 
   if (productsError) return failure<ORDERRECORD>("Failed to validate products", 500);
@@ -224,7 +224,7 @@ export async function createOrder(
   if (
     (payload.paymentMethod === PAYMENTMETHOD.PENDING_CART || payload.paymentMethod === PAYMENTMETHOD.PENDING_BOTH) &&
     !validOrderItems.some(
-      (item) => item.saleType === "exchange" && Number(productsById.get(item.productId)?.typeId) === TANK_TYPE_ID,
+      (item) => item.saleType === "exchange" && isGasCylinderProduct(productsById.get(item.productId)),
     )
   ) {
     return failure<ORDERRECORD>("เลือกค้างถังได้เฉพาะออเดอร์ที่มีรายการเปลี่ยนถัง กรุณาเลือกวิธีชำระอื่น", 400);
@@ -342,7 +342,7 @@ export async function getCustomerOrders(
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, deliveryLat, deliveryLng, note, createdAt, orderItems(id, productId, productNameSnapshot, quantity, unitPrice, totalPrice, saleType), payments(id, method, status, transferSlips(id, status, createdAt))",
+      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, deliveryLat, deliveryLng, note, createdAt, orderItems(id, productId, productNameSnapshot, quantity, unitPrice, totalPrice, saleType), payments(id, method, status, transferSlips(id, status, rejectReason, createdAt))",
     )
     .eq("userId", auth.result.results.id)
     .order("createdAt", { ascending: false });

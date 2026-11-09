@@ -3,6 +3,7 @@ import { apiError, apiSuccess } from "../response";
 import type { CREATEINVENTORYPAYLOAD, INVENTORY } from "@/app/models/inventory";
 import type { SERVICERESULT } from "@/app/models/api";
 import { createPublicClient } from "../util/supabase/public";
+import { PRODUCT_TYPE_EMBED } from "@/app/util/productType";
 
 const STOCK_STATUSES = new Set(["full", "empty", "damaged"]);
 const ITEM_CONDITIONS = new Set(["new", "old", "normal"]);
@@ -21,7 +22,7 @@ export async function getAllInventoryItems() {
   // แถวที่แก้ล่าสุดอยู่บนสุด ถ้าแก้พร้อมกันในรายการเดียว (ถังเต็ม+ถังเปล่า) ให้ถังเต็มขึ้นก่อน
   const { data, error } = await supabase
     .from("inventoryProducts")
-    .select("*, products(id, name, size, typeId)")
+    .select(`*, products(id, name, size, typeId, ${PRODUCT_TYPE_EMBED})`)
     .order("updatedAt", { ascending: false })
     .order("stockStatus", { ascending: false, nullsFirst: false })
     .order("id");
