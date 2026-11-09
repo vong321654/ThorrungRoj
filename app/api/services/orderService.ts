@@ -17,8 +17,6 @@ import { notifyOrderCreated } from "./orderNotifyService";
 import { buildPromptPayQrPath } from "./promptPayService";
 import { getOrderableStock } from "./stockService";
 import { parseDeliveryLocation, toDeliveryLocation } from "@/app/util/deliveryLocation";
-import type { CUSTOMERTYPE } from "@/app/enums/customer";
-import { resolveTierPrice, toCustomerType } from "@/app/util/customerPricing";
 
 const SALE_TYPES = new Set<SaleType>([SALETYPE.SELL, SALETYPE.EXCHANGE, SALETYPE.REFILL]);
 // ค้างชำระ/ค้างถัง ไม่สร้างรายการชำระเงิน แอดมินจะบันทึกหนี้ในหน้า "หนี้ค้าง" หลังจัดส่งแล้ว
@@ -130,14 +128,9 @@ function coordinateFields(row: { deliveryLat?: unknown; deliveryLng?: unknown })
   return { deliveryLat: location?.lat ?? null, deliveryLng: location?.lng ?? null };
 }
 
-// ราคาร้านค้ามีเฉพาะเปลี่ยนถังกับฝากเติม ซื้อถังใช้ราคาเดียวกันทุกประเภทลูกค้า
-function getUnitPrice(product: PRODUCTPRICINGROW, saleType: SaleType, customerType: CUSTOMERTYPE) {
-  if (saleType === "exchange") {
-    return resolveTierPrice(Number(product.exchangePrice), Number(product.shopExchangePrice), customerType);
-  }
-  if (saleType === "refill") {
-    return resolveTierPrice(Number(product.refillPrice), Number(product.shopRefillPrice), customerType);
-  }
+function getUnitPrice(product: PRODUCTPRICINGROW, saleType: SaleType) {
+  if (saleType === "exchange") return Number(product.exchangePrice);
+  if (saleType === "refill") return Number(product.refillPrice);
   return Number(product.sellPrice);
 }
 
@@ -151,13 +144,6 @@ export async function createOrder(
   if (auth.result.status === "error") {
     return failure<ORDERRECORD>(auth.result.message, auth.status);
   }
-
-  // ประเภทลูกค้ามาจากฐานข้อมูลเท่านั้น ไม่รับจาก payload เพื่อไม่ให้ปลอมเป็นร้านค้าได้
-  const customer = auth.result.results;
-  if (!customer.customerTypeChosenAt) {
-    return failure<ORDERRECORD>("กรุณาเลือกประเภทลูกค้า (บ้านทั่วไป/ร้านค้า) ก่อนสั่งซื้อ", 403);
-  }
-  const customerType = toCustomerType(customer.customerType);
 
   const parsed = parseCheckoutPayload(rawPayload);
   if (!parsed.ok) return failure<ORDERRECORD>(parsed.message, 400);
@@ -272,7 +258,7 @@ export async function createOrder(
       customerType,
     })
     .select(
-      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, deliveryLat, deliveryLng, note, customerType, createdAt",
+      "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, deliveryLat, deliveryLng, note, createdAt",
     )
     .single();
 
