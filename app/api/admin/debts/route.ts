@@ -25,9 +25,13 @@ export async function GET(request: Request) {
   if (auth instanceof Response) return auth;
   if (!canManageDebts(auth.admin.role)) return Response.json(apiError("Only admins can view debt records"), { status: 403 });
 
+  // รายละเอียดออเดอร์สำหรับปุ่ม "ดูออเดอร์" รายการสินค้าให้เห็นเฉพาะ superAdmin เหมือนหน้ารายการคำสั่งซื้อ
+  const orderItemFields = auth.admin.role === ADMINROLE.SUPER_ADMIN
+    ? ", orderItems(id, productNameSnapshot, quantity, unitPrice, totalPrice, saleType)"
+    : "";
   const { data, error } = await auth.adminSupabase
     .from("debtRecords")
-    .select("id, userId, orderId, debtType, amount, status, note, createdAt, users(name, phone, shopName), products(name, size), debtTransactions(id, transactionType, amount, note, createdAt)")
+    .select(`id, userId, orderId, debtType, amount, status, note, createdAt, users(name, phone, shopName), products(name, size), debtTransactions(id, transactionType, amount, note, createdAt), orders(id, totalAmount, paymentMethod, status, deliveryAddress, note, createdAt${orderItemFields})`)
     .order("createdAt", { ascending: false });
   if (error) return Response.json(apiError("Failed to fetch debt records"), { status: 500 });
 

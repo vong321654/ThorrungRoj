@@ -1,9 +1,25 @@
 import { after } from "next/server";
 import { apiError } from "@/app/api/response";
 import { ADMINROLE } from "@/app/models/admin";
-import { deleteQrSlip, getQrPaymentForOrder, recordPartialQrPayment, rejectQrSlip, verifyQrPayment } from "@/app/api/services/paymentService";
+import { MANUALSLIPOUTCOME } from "@/app/enums/order";
+import {
+  deleteQrSlip,
+  getOrderPaymentView,
+  recordManualSlipPayment,
+  recordPartialQrPayment,
+  rejectQrSlip,
+  verifyQrPayment,
+} from "@/app/api/services/paymentService";
+import { convertImageToJpeg } from "@/app/api/services/imageService";
 import { notifyCustomerSlipResult } from "@/app/api/services/lineSlipService";
+import { isUuid } from "@/app/api/services/lineSlipShared";
 import { authenticateAdmin } from "../authorization";
+
+// ต้องตรงกับ MAX_UPLOAD_BYTES ใน app/util/compressImage.ts (ต่ำกว่าเพดาน request ของ Vercel)
+const MAX_SLIP_FILE_SIZE = 4 * 1024 * 1024;
+const SLIP_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_NOTE_LENGTH = 500;
+const MANUAL_OUTCOMES = new Set<string>(Object.values(MANUALSLIPOUTCOME));
 
 function isAdmin(role: ADMINROLE | null) {
   return role === ADMINROLE.ADMIN || role === ADMINROLE.SUPER_ADMIN;
@@ -22,7 +38,56 @@ export async function GET(request: Request) {
   const orderId = new URL(request.url).searchParams.get("orderId");
   if (!orderId?.trim()) return Response.json(apiError("Order id is required"), { status: 400 });
 
-  const result = await getQrPaymentForOrder(orderId, auth.adminSupabase);
+  if (!isUuid(orderId)) return Response.json(apiError("Order id is invalid"), { status: 400 });
+
+  const result = await getOrderPaymentView(orderId, auth.adminSupabase);
+  return Response.json(result.result, { status: result.status });
+}
+
+/** superAdmin อัปโหลดสลิปแทนลูกค้าแล้วบันทึกผลทันที (จ่ายครบ / ค้างเงิน / ค้างถัง / ค้างทั้งสอง) */
+export async function POST(request: Request) {
+  const auth = await authenticateAdmin(request);
+  if (auth instanceof Response) return auth;
+  if (auth.admin.role !== ADMINROLE.SUPER_ADMIN) {
+    return Response.json(apiError("เฉพาะ superAdmin เท่านั้นที่อัปโหลดสลิปแทนลูกค้าได้"), { status: 403 });
+  }
+
+  const form = await request.formData().catch(() => null);
+  if (!form) return Response.json(apiError("Request must use multipart/form-data"), { status: 400 });
+  const orderId = form.get("orderId");
+  const outcome = form.get("outcome");
+  const file = form.get("file");
+  const rawAmount = form.get("amount");
+  const rawNote = form.get("note");
+
+  if (!isUuid(orderId)) return Response.json(apiError("Order id is invalid"), { status: 400 });
+  if (!MANUAL_OUTCOMES.has(outcome as string)) return Response.json(apiError("กรุณาเลือกผลการชำระ"), { status: 400 });
+  if (!(file instanceof File) || file.size === 0) return Response.json(apiError("กรุณาเลือกรูปสลิป"), { status: 400 });
+  if (!SLIP_IMAGE_TYPES.has(file.type) || file.size > MAX_SLIP_FILE_SIZE) {
+    return Response.json(apiError("รูปต้องเป็น JPEG, PNG หรือ WebP ขนาดไม่เกิน 4 MB"), { status: 400 });
+  }
+  if (rawNote !== null && (typeof rawNote !== "string" || rawNote.length > MAX_NOTE_LENGTH)) {
+    return Response.json(apiError(`หมายเหตุยาวได้ไม่เกิน ${MAX_NOTE_LENGTH} ตัวอักษร`), { status: 400 });
+  }
+  const amountText = typeof rawAmount === "string" ? rawAmount.trim() : "";
+  const paidAmount = amountText ? Number(amountText) : null;
+  if (paidAmount !== null && (!Number.isFinite(paidAmount) || !/^\d+(\.\d{1,2})?$/.test(amountText))) {
+    return Response.json(apiError("ยอดที่ได้รับไม่ถูกต้อง (ทศนิยมไม่เกิน 2 ตำแหน่ง)"), { status: 400 });
+  }
+
+  // เก็บเป็น JPEG ให้การ์ดใน LINE แสดงรูปได้เหมือนสลิปที่ลูกค้าส่งในแชท
+  const image = await convertImageToJpeg(file);
+  if (!image) return Response.json(apiError("ไฟล์นี้ไม่ใช่รูปภาพที่อ่านได้"), { status: 400 });
+
+  const result = await recordManualSlipPayment({
+    orderId,
+    image,
+    outcome: outcome as MANUALSLIPOUTCOME,
+    paidAmount,
+    note: typeof rawNote === "string" ? rawNote.trim() || null : null,
+    adminId: auth.admin.id,
+  });
+  if (result.result.status === "success") notifyCustomerAfterResponse(result.result.results.slipId);
   return Response.json(result.result, { status: result.status });
 }
 
