@@ -1,12 +1,14 @@
 import { createAdminClient } from "@/app/api/util/supabase/admin";
 import { createAuthenticatedClient } from "@/app/api/util/supabase/authenticated";
-import type {
-  CURRENTUSER,
-  LINEPROFILE,
-  USER,
-  USERID,
-  UPDATEUSERPAYLOAD,
+import {
+  CURRENTUSER_FIELDS,
+  type CURRENTUSER,
+  type LINEPROFILE,
+  type USER,
+  type USERID,
+  type UPDATEUSERPAYLOAD,
 } from "@/app/models/user";
+import { CUSTOMERTYPE, SHOPREQUESTSTATUS } from "@/app/enums/customer";
 import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { createClient } from "@/app/api/util/supabase/server";
@@ -19,7 +21,7 @@ export async function getUserById(
   const cookieStore = await cookies();
   const { data, error } = await createClient(cookieStore)
     .from("users")
-    .select("id, lineUserId, name, avatarUrl, address, isActive, privacyPolicyVersion")
+    .select(CURRENTUSER_FIELDS)
     .eq("id", userId)
     .maybeSingle();
 
@@ -198,7 +200,7 @@ export async function getCurrentUser(
     : createClient(await cookies());
   const { data, error } = await profileClient
     .from("users")
-    .select("id, lineUserId, name, avatarUrl, address, isActive, privacyPolicyVersion")
+    .select(CURRENTUSER_FIELDS)
     .eq("authId", authUser.id)
     .maybeSingle();
 
@@ -229,6 +231,79 @@ export async function acknowledgePrivacyPolicy(
   if (!data) return { result: apiError("Customer profile was not found"), status: 404 };
   return { result: apiSuccess("Privacy policy acknowledged", null), status: 200 };
 }
+
+const MAX_SHOP_NAME_LENGTH = 100;
+
+/**
+ * ลูกค้าเลือกประเภทได้ครั้งเดียวหลังรับทราบนโยบาย เปลี่ยนภายหลังได้เฉพาะแอดมิน
+ * เลือกร้านค้าจะยังได้ราคาบ้านทั่วไปจนกว่าแอดมินจะกดยืนยันคำขอ
+ */
+export async function chooseCustomerType(
+  accessToken: string,
+  payload: unknown,
+): Promise<{ result: APIRESULT<CURRENTUSER | null>; status: number }> {
+  const body = payload && typeof payload === "object"
+    ? (payload as { customerType?: unknown; shopName?: unknown })
+    : null;
+  if (body?.customerType !== CUSTOMERTYPE.INDIVIDUAL && body?.customerType !== CUSTOMERTYPE.SHOP) {
+    return { result: apiError("Invalid customer type"), status: 400 };
+  }
+  const isShop = body.customerType === CUSTOMERTYPE.SHOP;
+  const shopName = typeof body.shopName === "string" ? body.shopName.trim() : "";
+  if (isShop && (!shopName || shopName.length > MAX_SHOP_NAME_LENGTH)) {
+    return { result: apiError("กรุณาระบุชื่อร้าน (ไม่เกิน 100 ตัวอักษร)"), status: 400 };
+  }
+
+  const { data: authData, error: authError } = await createAuthenticatedClient(accessToken)
+    .auth.getUser(accessToken);
+  if (authError || !authData.user) {
+    return { result: apiError("Invalid session"), status: 401 };
+  }
+
+  // เขียนด้วย service role เพราะ trigger กันลูกค้าแก้คอลัมน์ประเภทเอง เงื่อนไขทั้งหมดจึงต้องตรวจที่นี่
+  const supabase = createAdminClient();
+  const { data: current, error: currentError } = await supabase
+    .from("users")
+    .select("id, isActive, privacyAcknowledgedAt, customerType, customerTypeChosenAt")
+    .eq("authId", authData.user.id)
+    .maybeSingle();
+  if (currentError) return { result: apiError("Failed to load customer profile"), status: 500 };
+  if (!current) return { result: apiError("Customer profile was not found"), status: 404 };
+  if (!current.isActive) return { result: apiError("Customer account is inactive"), status: 403 };
+  if (!current.privacyAcknowledgedAt) {
+    return { result: apiError("กรุณารับทราบนโยบายความเป็นส่วนตัวก่อน"), status: 409 };
+  }
+  if (current.customerTypeChosenAt) {
+    return { result: apiError("เลือกประเภทลูกค้าไปแล้ว หากต้องการเปลี่ยนกรุณาติดต่อร้าน"), status: 409 };
+  }
+
+  const now = new Date().toISOString();
+  // แอดมินตั้งเป็นร้านค้าไว้แล้ว (ก่อนมีฟีเจอร์นี้หรือแก้ในหน้า admin/users) ต้องไม่ถูกลดเป็นบ้านทั่วไป
+  const isAlreadyShop = current.customerType === CUSTOMERTYPE.SHOP;
+  // กรองด้วย customerTypeChosenAt is null อีกชั้น กันกดซ้ำพร้อมกันจากสองหน้าจอ
+  const { data, error } = await supabase
+    .from("users")
+    .update(isAlreadyShop
+      ? { customerTypeChosenAt: now, shopRequestStatus: SHOPREQUESTSTATUS.APPROVED, updatedAt: now }
+      : {
+        customerType: CUSTOMERTYPE.INDIVIDUAL,
+        customerTypeChosenAt: now,
+        shopRequestStatus: isShop ? SHOPREQUESTSTATUS.PENDING : null,
+        ...(isShop ? { shopName } : {}),
+        updatedAt: now,
+      })
+    .eq("id", current.id)
+    .is("customerTypeChosenAt", null)
+    .select(CURRENTUSER_FIELDS)
+    .maybeSingle();
+
+  if (error) return { result: apiError("Failed to save customer type"), status: 500 };
+  if (!data) {
+    return { result: apiError("เลือกประเภทลูกค้าไปแล้ว หากต้องการเปลี่ยนกรุณาติดต่อร้าน"), status: 409 };
+  }
+  return { result: apiSuccess("Customer type saved", data as CURRENTUSER), status: 200 };
+}
+
 export async function updateUser(
   userId: USERID,
   payload: UPDATEUSERPAYLOAD,

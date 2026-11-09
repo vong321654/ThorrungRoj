@@ -9,7 +9,7 @@ import { recordDebtForDeliveredOrder, settleOrderMoneyDebts } from "@/app/api/se
 
 const ORDER_PAYMENT_STATUSES = new Set<string>(Object.values(ORDERPAYMENTSTATUS));
 const ORDER_STATUSES = new Set<string>(Object.values(ORDERSTATUS));
-const ORDER_FIELDS = "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, createdAt, users(name, phone, shopName), payments(id, method, status, transferSlips(id, status, createdAt))";
+const ORDER_FIELDS = "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, customerType, createdAt, users(name, phone, shopName), payments(id, method, status, transferSlips(id, status, createdAt))";
 
 export async function GET(request: Request) {
   const auth = await authenticateAdmin(request);
