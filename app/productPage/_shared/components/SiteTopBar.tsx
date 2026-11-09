@@ -15,11 +15,15 @@ export default function SiteTopBar() {
     <Box
       sx={{
         display: "flex",
-        gap: 1.5,
+        gap: { xs: 1, sm: 1.5 },
         alignItems: "center",
-        flexWrap: "wrap",
+        // จอมือถือ: เลื่อนข้างแถวเดียว ไม่กินพื้นที่แนวตั้งก่อนถึงรายการสินค้า
+        flexWrap: { xs: "nowrap", sm: "wrap" },
+        overflowX: { xs: "auto", sm: "visible" },
+        scrollbarWidth: "none",
+        "&::-webkit-scrollbar": { display: "none" },
         px: { xs: 2, md: 3 },
-        py: 1.5,
+        py: { xs: 1, sm: 1.5 },
         bgcolor: "background.paper",
         borderBottom: "1px solid",
         borderColor: "divider",
@@ -31,7 +35,7 @@ export default function SiteTopBar() {
           avatar={<Avatar sx={{ bgcolor: brand.color }}>{brand.label.charAt(0)}</Avatar>}
           label={brand.label}
           variant="outlined"
-          sx={{ fontWeight: 600 }}
+          sx={{ flexShrink: 0, fontWeight: 600 }}
         />
       ))}
     </Box>

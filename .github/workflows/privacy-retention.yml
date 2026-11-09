@@ -1,0 +1,27 @@
+name: Privacy data retention
+
+# ลบข้อมูลที่พ้นกำหนดเก็บตามนโยบายความเป็นส่วนตัว (PDPA มาตรา 37 (3))
+# ต้องตั้ง repository secrets: APP_URL (เช่น https://example.com) และ CRON_SECRET (ค่าเดียวกับฝั่งเว็บ)
+on:
+  schedule:
+    - cron: "0 19 * * *" # 02:00 น. เวลาไทย
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  run-retention:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call retention endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::notice::APP_URL or CRON_SECRET is not set, skipping"
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --max-time 120 \
+            -X POST "$APP_URL/api/cron/retention" \
+            -H "Authorization: Bearer $CRON_SECRET"

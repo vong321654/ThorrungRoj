@@ -1,17 +1,19 @@
 import "server-only";
 
 import { PAYMENTMETHOD } from "@/app/enums/order";
+import { CUSTOMERTYPE } from "@/app/enums/customer";
 import { createAdminClient } from "@/app/api/util/supabase/admin";
 import { publicUrl, pushLineMessages, type LineMessage } from "./lineBotService";
 import { buildPromptPayQrPath } from "./promptPayService";
 
-const SALE_LABELS: Record<string, string> = { sell: "ซื้อถัง", exchange: "เปลี่ยนถัง", refill: "เติมแก๊ส" };
+const SALE_LABELS: Record<string, string> = { sell: "ซื้อถัง", exchange: "เปลี่ยนถัง", refill: "ฝากเติม" };
 
 type ORDERNOTIFICATION = {
   orderId: string;
   userId: string;
   totalAmount: number;
   paymentMethod: PAYMENTMETHOD;
+  customerType: CUSTOMERTYPE;
   items: Array<{ productNameSnapshot: string; quantity: number; saleType: string }>;
 };
 
@@ -36,7 +38,7 @@ function paymentInstruction(method: PAYMENTMETHOD, hasQrImage: boolean) {
  * แจ้งสรุปออเดอร์เข้าแชท LINE ของลูกค้ากับร้าน
  * ออเดอร์บันทึกสำเร็จไปแล้ว ถ้าส่งไม่ได้ (เช่น ลูกค้าบล็อกร้าน) ต้องไม่ทำให้การสั่งซื้อล้มเหลว จึงไม่ throw
  */
-export async function notifyOrderCreated(order: ORDERNOTIFICATION) {
+export async function notifyOrderCreated(order: ORDERNOTIFICATION, publicBase: string | null = null) {
   try {
     const { data: customer, error } = await createAdminClient()
       .from("users")
@@ -46,7 +48,7 @@ export async function notifyOrderCreated(order: ORDERNOTIFICATION) {
     if (error || !customer?.lineUserId) throw new Error("Customer LINE id was not found");
 
     const qrPath = order.paymentMethod === PAYMENTMETHOD.QR_SCAN ? buildPromptPayQrPath(order.orderId) : null;
-    const qrUrl = qrPath ? publicUrl(qrPath) : null;
+    const qrUrl = qrPath ? publicUrl(qrPath, publicBase) : null;
     if (order.paymentMethod === PAYMENTMETHOD.QR_SCAN && !qrUrl) {
       // eslint-disable-next-line no-console -- ลูกค้าจะไม่เห็น QR ในแชท ต้องให้รู้สาเหตุจาก log
       console.error(
@@ -62,7 +64,7 @@ export async function notifyOrderCreated(order: ORDERNOTIFICATION) {
       "รับคำสั่งซื้อแล้วครับ",
       `เลขที่ ${order.orderId.slice(0, 8)}`,
       ...lines,
-      `ยอดรวม ${order.totalAmount.toLocaleString("th-TH")} บาท`,
+      `ยอดรวม ${order.totalAmount.toLocaleString("th-TH")} บาท${order.customerType === CUSTOMERTYPE.SHOP ? " (ราคาร้านค้า)" : ""}`,
       "",
       paymentInstruction(order.paymentMethod, qrUrl !== null),
     ].join("\n");

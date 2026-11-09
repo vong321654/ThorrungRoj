@@ -20,11 +20,14 @@
 -- ---------------------------------------------------------------------
 -- ส่วน A: trigger บังคับกติกาของ orderItems ตอน INSERT (แก้ H1 + M1)
 --   1) เพิ่มรายการได้เฉพาะออเดอร์ที่ยัง pending
---   2) จำนวน 1-100 และ saleType เป็น sell/exchange เท่านั้น
+--   2) จำนวน 1-100 และ saleType เป็น sell/exchange/refill เท่านั้น
 --   3) unitPrice ถูกเขียนทับด้วยราคาจากตาราง products เสมอ (ค่าที่ client ส่งมาไม่มีผล)
 --   4) ล็อกตาม productId แล้วเทียบสต๊อก: ถังเต็มคงเหลือ - จำนวนในออเดอร์ที่ยังไม่ส่ง
 --      (กติกาเดียวกับ stockService.ts ฝั่งเว็บ: สินค้าไม่มีแถวคลังถือว่าเหลือ 0)
+--      ฝากเติมใช้ถังของลูกค้า จึงไม่ตรวจสต๊อกและไม่นับรวมในออเดอร์ที่ยังไม่ส่ง
 -- SECURITY DEFINER เพราะต้องนับออเดอร์ของลูกค้าทุกคน ซึ่ง RLS ไม่ให้ลูกค้าคนหนึ่งเห็น
+-- หมายเหตุ: ถ้ารันไฟล์นี้หลัง 2026-11-09_customer-type-pricing.sql ต้องรันฟังก์ชัน "enforceOrderItemRules"
+-- ท้ายไฟล์นั้นซ้ำอีกครั้ง ไม่งั้นฟังก์ชันด้านล่างจะเขียนทับราคาร้านค้าเป็นราคาปกติ
 -- ---------------------------------------------------------------------
 create or replace function public."enforceOrderItemRules"()
 returns trigger
@@ -50,11 +53,15 @@ begin
     raise exception 'Quantity must be between 1 and 100';
   end if;
 
-  if new."saleType" not in ('sell', 'exchange') then
+  if new."saleType" not in ('sell', 'exchange', 'refill') then
     raise exception 'Invalid sale type';
   end if;
 
-  select case new."saleType" when 'exchange' then p."exchangePrice" else p."sellPrice" end
+  select case new."saleType"
+    when 'exchange' then p."exchangePrice"
+    when 'refill' then p."refillPrice"
+    else p."sellPrice"
+  end
   into v_price
   from public.products p
   where p.id = new."productId" and p."isActive" = true;
@@ -63,6 +70,10 @@ begin
     raise exception 'Product is inactive or has no price for this sale type';
   end if;
   new."unitPrice" := v_price;
+
+  if new."saleType" = 'refill' then
+    return new;
+  end if;
 
   -- ให้ออเดอร์ที่สั่งสินค้าเดียวกันทำงานทีละรายการ ปิดช่องสั่งพร้อมกันแล้วผ่านทั้งคู่
   perform pg_advisory_xact_lock(hashtextextended('orderItems:' || new."productId"::text, 0));
@@ -77,6 +88,7 @@ begin
   from public."orderItems" oi
   join public.orders o on o.id = oi."orderId"
   where oi."productId" = new."productId"
+    and oi."saleType" <> 'refill'
     and o.status in ('pending', 'preparing', 'delivering');
 
   if v_open + new.quantity > v_on_hand then

@@ -6,10 +6,14 @@ import { CartProvider, useCart } from "./CartContext";
 import ThemeRegistry from "./ThemeRegistry";
 import CartDrawer from "./components/CartDrawer";
 import CategoryNavBar from "./components/CategoryNavBar";
+import { CustomerProfileProvider } from "./CustomerProfileContext";
+import CustomerTypeDialog from "./components/CustomerTypeDialog";
+import PrivacyPolicyDialog from "./components/PrivacyPolicyDialog";
 import ShopContactFooter from "./components/ShopContactFooter";
 import SiteTopBar from "./components/SiteTopBar";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/api/util/supabase/client";
+import { belowHeaderMinHeightSx } from "@/app/components/UI/authStyles";
 
 function CartDrawerConnected() {
   const cart = useCart();
@@ -37,15 +41,20 @@ function CartDrawerConnected() {
 export default function ProductShell({ children }: { children: ReactNode }) {
   return (
     <ThemeRegistry>
-      <CartProvider>
-        <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh", bgcolor: "background.default" }}>
-          <SiteTopBar />
-          <CategoryNavBar />
-          {children}
-          <ShopContactFooter />
-        </Box>
-        <CartDrawerConnected />
-      </CartProvider>
+      <CustomerProfileProvider>
+        <CartProvider>
+          <Box sx={{ ...belowHeaderMinHeightSx, display: "flex", flexDirection: "column", bgcolor: "background.default" }}>
+            <SiteTopBar />
+            <CategoryNavBar />
+            {children}
+            <ShopContactFooter />
+          </Box>
+          <CartDrawerConnected />
+          {/* แสดงทีละอัน: นโยบายก่อน แล้วจึงเลือกประเภทลูกค้า */}
+          <PrivacyPolicyDialog />
+          <CustomerTypeDialog />
+        </CartProvider>
+      </CustomerProfileProvider>
     </ThemeRegistry>
   );
 }

@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/app/api/util/supabase/client";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import MuiLink from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import {
@@ -16,6 +18,12 @@ import {
   eyebrowSx,
   successAlertSx,
 } from "@/app/components/UI/authStyles";
+import {
+  DEFAULT_AFTER_LOGIN_PATH,
+  getSafeNextPath,
+  LOGIN_NEXT_COOKIE,
+  LOGIN_NEXT_MAX_AGE_SECONDS,
+} from "@/app/util/loginRedirect";
 
 function subscribeToLocation() {
   return () => {};
@@ -31,6 +39,19 @@ function getAuthErrorSnapshot() {
 
 function getServerLoggedOutSnapshot() {
   return false;
+}
+
+function getNextPathFromLocation() {
+  return getSafeNextPath(new URLSearchParams(window.location.search).get("next"));
+}
+
+// callback อ่าน cookie นี้หลัง LINE ส่งกลับมา (การกลับมาเป็น top-level GET จึงส่ง cookie SameSite=Lax ได้)
+// ถ้าไม่มีปลายทางให้ลบทิ้ง กันค่าเก่าที่ค้างอยู่พาไปผิดหน้า
+function rememberNextPath(nextPath: string | null) {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = nextPath
+    ? `${LOGIN_NEXT_COOKIE}=${encodeURIComponent(nextPath)}; Path=/; Max-Age=${LOGIN_NEXT_MAX_AGE_SECONDS}; SameSite=Lax${secure}`
+    : `${LOGIN_NEXT_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
 }
 
 function isLineUser(user: {
@@ -73,7 +94,7 @@ export default function LoginPage() {
       }
 
       if (!isCancelled && data.user) {
-        router.replace("/productPage");
+        router.replace(getNextPathFromLocation() ?? DEFAULT_AFTER_LOGIN_PATH);
       }
     }
 
@@ -90,6 +111,7 @@ export default function LoginPage() {
     try {
       // วิธีใหม่: ให้ Supabase Auth เริ่ม LINE OAuth และดูแล session
       // เมื่อล็อกอินสำเร็จ LINE จะส่งกลับมาที่ /api/auth/line
+      rememberNextPath(getNextPathFromLocation());
       const supabase = createClient();
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "custom:line-liff",
@@ -112,7 +134,7 @@ export default function LoginPage() {
         <Box sx={brandMarkSx}>TR</Box>
 
         <Typography id="loginTitle" component="h1" sx={{ ...eyebrowSx, mt: 2.5 }}>
-          ร้านแก๊สทอรุ่งโรจน์
+          ร้านแก๊สท.รุ่งโรจน์
         </Typography>
 
         {hasLoggedOut && (
@@ -173,7 +195,10 @@ export default function LoginPage() {
             textAlign: "center",
           }}
         >
-          ระบบจะไม่เปิดเผยข้อมูลเข้าสู่ระบบของคุณแก่บุคคลอื่น
+          เมื่อเข้าสู่ระบบ ร้านจะเก็บและใช้ข้อมูลของคุณตาม{" "}
+          <MuiLink component={Link} href="/privacy" color="inherit">
+            นโยบายความเป็นส่วนตัว
+          </MuiLink>
         </Typography>
       </Paper>
     </Box>

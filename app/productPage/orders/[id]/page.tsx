@@ -8,7 +8,9 @@ import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 import type { ORDERRECORD } from "@/app/models/order";
 import type { DELIVERYTRACKING } from "@/app/models/delivery";
+import { googleMapsSearchUrl, toDeliveryLocation } from "@/app/util/deliveryLocation";
 
+const sectionSx = { p: { xs: 2, sm: 2.5 } };
 const DELIVERY_LABELS: Record<string, string> = { pending: "รอจัดส่ง", inTransit: "กำลังนำส่ง", delivered: "ส่งถึงแล้ว" };
 
 // คืน null เมื่อยังไม่มีข้อมูลขนส่ง และ throw เมื่อดึงไม่สำเร็จ เพื่อให้ผู้เรียกแยกสองกรณีนี้ออกจากกันได้
@@ -24,16 +26,16 @@ async function fetchDeliveryTracking(orderId: string) {
   return result.results;
 }
 
-// เวลาที่เหลือ = เวลาที่คนส่งคาดไว้ ลบเวลาที่ผ่านไปตั้งแต่ตั้งค่า (ไม่ต่ำกว่า 0)
-function remainingMinutes(tracking: DELIVERYTRACKING, now: number) {
-  if (tracking.estimatedMinutes === null || !tracking.etaSetAt) return null;
-  const elapsed = Math.floor((now - new Date(tracking.etaSetAt).getTime()) / 60000);
-  return Math.max(0, tracking.estimatedMinutes - Math.max(0, elapsed));
+// แสดงเวลาที่คนส่ง/ระบบประเมินไว้ตรง ๆ ไม่นับถอยหลัง พร้อมบอกว่าประเมินไว้เมื่อไร
+function formatEtaSetAt(etaSetAt: string | null) {
+  if (!etaSetAt) return null;
+  const date = new Date(etaSetAt);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
 }
 
 const ORDER_LABELS: Record<string, string> = { pending: "รอดำเนินการ", preparing: "กำลังเตรียมสินค้า", delivering: "กำลังจัดส่ง", delivered: "จัดส่งแล้ว", cancelled: "ยกเลิกแล้ว" };
 const PAYMENT_LABELS: Record<string, string> = { pending: "รอชำระเงิน", paid: "ชำระเงินแล้ว", pendingPayment: "ค้างชำระ", pendingCart: "ค้างถัง" };
-const SALE_LABELS: Record<string, string> = { sell: "ซื้อถัง", exchange: "เปลี่ยนถัง", refill: "เติมแก๊ส" };
+const SALE_LABELS: Record<string, string> = { sell: "ซื้อถัง", exchange: "เปลี่ยนถัง", refill: "ฝากเติม" };
 const pendingOrderRequests = new Map<string, Promise<ORDERRECORD | null>>();
 
 function fetchCustomerOrder(orderId: string) {
@@ -82,12 +84,8 @@ export default function CustomerOrderDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [tracking, setTracking] = useState<DELIVERYTRACKING | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-
-  // ใช้เวลาของเซิร์ฟเวอร์เป็นฐาน แล้วบวกเวลาที่ผ่านไปในเครื่อง กันนาฬิกาโทรศัพท์เดินเพี้ยน
   const applyTracking = useCallback((next: DELIVERYTRACKING | null) => {
     setTracking(next);
-    setNow(next ? new Date(next.serverNow).getTime() : Date.now());
   }, []);
 
   const loadOrder = useCallback(async () => {
@@ -125,20 +123,22 @@ export default function CustomerOrderDetailPage() {
     return () => window.clearInterval(timer);
   }, [id, isDelivering, applyTracking]);
 
-  const minutesLeft = tracking ? remainingMinutes(tracking, now) : null;
+  const etaMinutes = tracking?.estimatedMinutes ?? null;
+  const etaSetAtLabel = formatEtaSetAt(tracking?.etaSetAt ?? null);
+  const pinnedLocation = order ? toDeliveryLocation(order.deliveryLat, order.deliveryLng) : null;
 
-  return <Container component="main" maxWidth="sm" sx={{ py: 4, flexGrow: 1 }}>
+  return <Container component="main" maxWidth="sm" sx={{ py: { xs: 2, sm: 3, md: 4 }, flexGrow: 1 }}>
     <Button component={Link} href="/productPage/orders" sx={{ mb: 2 }}>← กลับประวัติคำสั่งซื้อ</Button>
     <Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>รายละเอียดคำสั่งซื้อ</Typography>
     {loading ? <CircularProgress /> : error ? <Alert severity="error">{error}</Alert> : order && <Stack spacing={2}>
-      <Paper sx={{ p: 2.5 }}><Stack spacing={1}><Typography color="text.secondary">เลขที่คำสั่งซื้อ</Typography><Typography sx={{ fontWeight: 700, wordBreak: "break-all" }}>{order.id}</Typography><Typography color="text.secondary">สั่งเมื่อ {new Date(order.createdAt).toLocaleString("th-TH")}</Typography><Stack direction="row" spacing={1}><Chip color={order.status === "delivered" ? "success" : order.status === "cancelled" ? "error" : "primary"} label={ORDER_LABELS[order.status] ?? order.status} /><Chip label={PAYMENT_LABELS[order.paymentStatus] ?? order.paymentStatus} /></Stack></Stack></Paper>
+      <Paper sx={sectionSx}><Stack spacing={1}><Typography color="text.secondary">เลขที่คำสั่งซื้อ</Typography><Typography sx={{ fontWeight: 700, wordBreak: "break-all" }}>{order.id}</Typography><Typography color="text.secondary">สั่งเมื่อ {new Date(order.createdAt).toLocaleString("th-TH")}</Typography><Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}><Chip color={order.status === "delivered" ? "success" : order.status === "cancelled" ? "error" : "primary"} label={ORDER_LABELS[order.status] ?? order.status} /><Chip label={PAYMENT_LABELS[order.paymentStatus] ?? order.paymentStatus} /></Stack></Stack></Paper>
       <Alert severity={order.status === "cancelled" ? "error" : order.status === "delivered" ? "success" : "info"}><Typography sx={{ fontWeight: 700 }}>สิ่งที่ต้องทำต่อ</Typography>{nextStep(order)}</Alert>
-      {order.promptPayQrUrl && <Paper sx={{ p: 2.5, textAlign: "center" }}><Typography variant="h6">สแกนจ่ายผ่านพร้อมเพย์</Typography><Box component="img" src={order.promptPayQrUrl} alt="QR พร้อมเพย์สำหรับออเดอร์นี้" sx={{ display: "block", width: "100%", maxWidth: 280, height: "auto", mx: "auto", my: 1 }} /><Typography sx={{ fontWeight: 700 }}>ยอด {Number(order.totalAmount).toLocaleString("th-TH")} บาท</Typography></Paper>}
-      {tracking && order.status !== "cancelled" && <Paper sx={{ p: 2.5 }}><Stack spacing={1}><Typography variant="h6">สถานะการจัดส่ง</Typography><Stack direction="row" spacing={1} sx={{ alignItems: "center" }}><Chip color={order.status === "delivered" || tracking.status === "delivered" ? "success" : tracking.status === "inTransit" ? "primary" : "default"} label={order.status === "delivered" ? "ส่งถึงแล้ว" : DELIVERY_LABELS[tracking.status] ?? tracking.status} />{tracking.driverName && <Typography variant="body2">คนส่ง: {tracking.driverName}</Typography>}</Stack>{order.status === "delivering" && tracking.status === "inTransit" && (minutesLeft !== null ? <Typography sx={{ fontWeight: 700 }}>{minutesLeft > 0 ? `จะถึงในอีกประมาณ ${minutesLeft} นาที` : "คนส่งใกล้ถึงแล้ว"}</Typography> : <Typography color="text.secondary">คนส่งกำลังนำสินค้าไปหาคุณ</Typography>)}{order.status === "delivering" && <Typography variant="caption" color="text.secondary">หน้านี้อัปเดตเวลาให้อัตโนมัติทุก 30 วินาที</Typography>}</Stack></Paper>}
+      {order.promptPayQrUrl && <Paper sx={{ ...sectionSx, textAlign: "center" }}><Typography variant="h6">สแกนจ่ายผ่านพร้อมเพย์</Typography><Box component="img" src={order.promptPayQrUrl} alt="QR พร้อมเพย์สำหรับออเดอร์นี้" sx={{ display: "block", width: "100%", maxWidth: 280, height: "auto", mx: "auto", my: 1 }} /><Typography sx={{ fontWeight: 700 }}>ยอด {Number(order.totalAmount).toLocaleString("th-TH")} บาท</Typography></Paper>}
+      {tracking && order.status !== "cancelled" && <Paper sx={sectionSx}><Stack spacing={1}><Typography variant="h6">สถานะการจัดส่ง</Typography><Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}><Chip color={order.status === "delivered" || tracking.status === "delivered" ? "success" : tracking.status === "inTransit" ? "primary" : "default"} label={order.status === "delivered" ? "ส่งถึงแล้ว" : DELIVERY_LABELS[tracking.status] ?? tracking.status} />{tracking.driverName && <Typography variant="body2">คนส่ง: {tracking.driverName}</Typography>}</Stack>{order.status === "delivering" && tracking.status === "inTransit" && (etaMinutes !== null ? <Box><Typography sx={{ fontWeight: 700 }}>จะถึงในอีกประมาณ {etaMinutes} นาที</Typography>{etaSetAtLabel && <Typography variant="caption" color="text.secondary">ประเมินเมื่อ {etaSetAtLabel} น.</Typography>}</Box> : <Typography color="text.secondary">คนส่งกำลังนำสินค้าไปหาคุณ</Typography>)}{order.status === "delivering" && <Typography variant="caption" color="text.secondary">หน้านี้อัปเดตสถานะให้อัตโนมัติทุก 30 วินาที</Typography>}</Stack></Paper>}
       {Number(order.outstandingAmount ?? 0) > 0 && <Alert severity="warning"><Typography sx={{ fontWeight: 700 }}>ยอดค้างชำระ</Typography>เหลือชำระ {Number(order.outstandingAmount).toLocaleString("th-TH")} บาท</Alert>}
       {Number(order.outstandingCarts ?? 0) > 0 && <Alert severity="warning"><Typography sx={{ fontWeight: 700 }}>ถังค้างคืน</Typography>เหลือคืน {Number(order.outstandingCarts).toLocaleString("th-TH")} ถัง</Alert>}
-      <Paper sx={{ p: 2.5 }}><Typography variant="h6" sx={{ mb: 1 }}>รายการสินค้า</Typography>{(order.orderItems ?? []).map((item) => <Box key={item.id} sx={{ display: "flex", justifyContent: "space-between", gap: 2, py: 1 }}><Typography>{item.productNameSnapshot} · {SALE_LABELS[item.saleType] ?? item.saleType} × {item.quantity}</Typography><Typography>{Number(item.totalPrice).toLocaleString("th-TH")} บาท</Typography></Box>)}<Divider sx={{ my: 1 }} /><Box sx={{ display: "flex", justifyContent: "space-between", fontWeight: 700 }}><Typography>ยอดรวม</Typography><Typography>{Number(order.totalAmount).toLocaleString("th-TH")} บาท</Typography></Box></Paper>
-      <Paper sx={{ p: 2.5 }}><Typography variant="h6">จัดส่งไปที่</Typography><Typography>{order.deliveryAddress || "-"}</Typography>{order.note && <><Typography variant="h6" sx={{ mt: 2 }}>หมายเหตุ</Typography><Typography>{order.note}</Typography></>}</Paper>
+      <Paper sx={sectionSx}><Typography variant="h6" sx={{ mb: 1 }}>รายการสินค้า</Typography>{(order.orderItems ?? []).map((item) => <Box key={item.id} sx={{ display: "flex", justifyContent: "space-between", gap: 2, py: 1 }}><Typography sx={{ minWidth: 0, overflowWrap: "anywhere" }}>{item.productNameSnapshot} · {SALE_LABELS[item.saleType] ?? item.saleType} × {item.quantity}</Typography><Typography sx={{ flexShrink: 0, whiteSpace: "nowrap" }}>{Number(item.totalPrice).toLocaleString("th-TH")} บาท</Typography></Box>)}<Divider sx={{ my: 1 }} /><Box sx={{ display: "flex", justifyContent: "space-between", fontWeight: 700 }}><Typography>ยอดรวม</Typography><Typography>{Number(order.totalAmount).toLocaleString("th-TH")} บาท</Typography></Box></Paper>
+      <Paper sx={sectionSx}><Typography variant="h6">จัดส่งไปที่</Typography><Typography sx={{ overflowWrap: "anywhere" }}>{order.deliveryAddress || "-"}</Typography>{pinnedLocation ? <Button size="small" sx={{ mt: 1, px: 0 }} component="a" target="_blank" rel="noopener noreferrer" href={googleMapsSearchUrl(`${pinnedLocation.lat},${pinnedLocation.lng}`)}>ดูหมุดที่ปักไว้บนแผนที่</Button> : <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>ไม่ได้ปักหมุดจุดส่งของ</Typography>}{order.note && <><Typography variant="h6" sx={{ mt: 2 }}>หมายเหตุ</Typography><Typography sx={{ overflowWrap: "anywhere" }}>{order.note}</Typography></>}</Paper>
       <Button variant="outlined" onClick={() => void loadOrder()}>รีเฟรชสถานะ</Button>
     </Stack>}
   </Container>;

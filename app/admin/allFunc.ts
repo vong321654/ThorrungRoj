@@ -65,6 +65,18 @@ export function deleteAdmin(id: string) {
   });
 }
 
+export type BULKDELETEADMINRESULT = {
+  deleted: string[];
+  failed: Array<{ id: string; email: string | null; reason: string }>;
+};
+
+export function deleteAdminsPermanently(ids: string[]) {
+  return apiRequest<BULKDELETEADMINRESULT>("/api/admin/permanentDelete", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+  });
+}
+
 export async function signOutAdmin() {
   const { error } = await supabase.auth.signOut({ scope: "local" });
   if (error) throw new Error("Failed to sign out");

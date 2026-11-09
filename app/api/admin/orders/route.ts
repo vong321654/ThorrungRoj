@@ -9,15 +9,20 @@ import { recordDebtForDeliveredOrder, settleOrderMoneyDebts } from "@/app/api/se
 
 const ORDER_PAYMENT_STATUSES = new Set<string>(Object.values(ORDERPAYMENTSTATUS));
 const ORDER_STATUSES = new Set<string>(Object.values(ORDERSTATUS));
+const ORDER_FIELDS = "id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, customerType, createdAt, users(name, phone, shopName), payments(id, method, status, transferSlips(id, status, createdAt))";
 
 export async function GET(request: Request) {
   const auth = await authenticateAdmin(request);
   if (auth instanceof Response) return auth;
   if (!isAdminOrSuperAdmin(auth)) return Response.json(apiError("Only admins can view orders"), { status: 403 });
 
+  // รายการสินค้าและประเภทการซื้อให้เห็นเฉพาะ superAdmin ทางร้านเป็นคนแจ้งแอดมินและพนักงานเอง
+  const fields = auth.admin.role === ADMINROLE.SUPER_ADMIN
+    ? `${ORDER_FIELDS}, orderItems(id, productNameSnapshot, quantity, saleType)`
+    : ORDER_FIELDS;
   const { data, error } = await auth.adminSupabase
     .from("orders")
-    .select("id, totalAmount, paymentMethod, paymentStatus, status, deliveryAddress, createdAt, users(name, phone, shopName), payments(id, method, status, transferSlips(id, status, createdAt))")
+    .select(fields)
     .order("createdAt", { ascending: false });
 
   if (error) return Response.json(apiError("Failed to fetch orders"), { status: 500 });

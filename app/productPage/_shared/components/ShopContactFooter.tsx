@@ -2,7 +2,9 @@
 
 import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
+import MuiLink from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
+import Link from "next/link";
 
 export default function ShopContactFooter() {
   return (
@@ -15,6 +17,11 @@ export default function ShopContactFooter() {
         <Grid size={{ xs: 12, sm: 6 }} sx={{ textAlign: { sm: "right" } }}>
           <Typography variant="body2">ที่อยู่ : เลขที่ 12/213 ซอย หมู่บ้านเขาน้อย</Typography>
           <Typography variant="body2">ตำบลหัวหิน อำเภอหัวหิน ประจวบคีรีขันธ์ 77110</Typography>
+        </Grid>
+        <Grid size={12}>
+          <MuiLink component={Link} href="/privacy" variant="body2" color="inherit">
+            นโยบายความเป็นส่วนตัว
+          </MuiLink>
         </Grid>
       </Grid>
     </Box>

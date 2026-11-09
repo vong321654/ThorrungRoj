@@ -15,16 +15,41 @@ export async function convertImageToWebp(file: File) {
   }
 }
 
-export async function uploadWebpImage(
+// รูปประกาศถูกส่งเข้า LINE เป็นรูปในการ์ด Flex Message ซึ่งรับเฉพาะ JPEG/PNG (WebP แสดงเป็นรูปแตก)
+// จึงแปลงเป็น JPEG แทน WebP ปูพื้นขาวให้ PNG โปร่งใส และย่อด้านยาวไม่เกิน 1600px ให้ลูกค้าโหลดเร็ว
+export async function convertImageToJpeg(file: File) {
+  try {
+    return await sharp(Buffer.from(await file.arrayBuffer()), { limitInputPixels: 40_000_000 })
+      .rotate()
+      .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
+      .flatten({ background: "#ffffff" })
+      .jpeg({ quality: 85, mozjpeg: true })
+      .toBuffer();
+  } catch {
+    return null;
+  }
+}
+
+export async function uploadImage(
+  supabase: SupabaseClient,
+  bucket: string,
+  path: string,
+  image: Buffer,
+  contentType: "image/webp" | "image/jpeg",
+) {
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(path, image, { contentType, upsert: false });
+  return error;
+}
+
+export function uploadWebpImage(
   supabase: SupabaseClient,
   bucket: string,
   path: string,
   image: Buffer,
 ) {
-  const { error } = await supabase.storage
-    .from(bucket)
-    .upload(path, image, { contentType: "image/webp", upsert: false });
-  return error;
+  return uploadImage(supabase, bucket, path, image, "image/webp");
 }
 
 export function storagePathFromUrl(value: string | null, bucket: string) {

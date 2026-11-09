@@ -16,6 +16,7 @@ export default function PartCatalogView() {
       source: "part",
       name: part.name,
       price: part.price,
+      shopPrice: null,
       saleType: "sell",
       availableQuantity: null,
     });

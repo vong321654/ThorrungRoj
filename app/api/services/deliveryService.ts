@@ -6,6 +6,7 @@ import type { SERVICERESULT } from "@/app/models/api";
 import {
   DELIVERY_STATUSES,
   type DELIVERYDRIVER,
+  type DELIVERYETADETAIL,
   type DELIVERYJOB,
   type DELIVERYSTATUS,
   type DELIVERYTRACKING,
@@ -15,6 +16,9 @@ import { createAdminClient } from "@/app/api/util/supabase/admin";
 import { createAuthenticatedClient } from "@/app/api/util/supabase/authenticated";
 import { apiError, apiSuccess } from "../response";
 import { isAdminOrSuperAdmin } from "./adminService";
+import { SHOP_LOCATION, toDeliveryLocation } from "@/app/util/deliveryLocation";
+import { ETA_BUFFER_MINUTES, estimateDeliveryEta } from "./routingService";
+import { recordDebtForDeliveredOrder } from "./debtService";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 // ออเดอร์ที่ยังต้องจัดส่ง
@@ -23,7 +27,7 @@ const MAX_ETA_MINUTES = 600;
 
 const TRACKING_FIELDS = "orderId, status, driverId, estimatedMinutes, lastSyncedAt, updatedAt";
 const JOB_ORDER_FIELDS =
-  "id, status, deliveryAddress, totalAmount, paymentMethod, users(name, phone, shopName), orderItems(productNameSnapshot, quantity)";
+  "id, status, deliveryAddress, deliveryLat, deliveryLng, totalAmount, paymentMethod, users(name, phone, shopName), orderItems(productNameSnapshot, quantity)";
 
 type TrackingRow = {
   orderId: string;
@@ -38,6 +42,8 @@ type JobOrderRow = {
   id: string;
   status: string;
   deliveryAddress: string | null;
+  deliveryLat: number | string | null;
+  deliveryLng: number | string | null;
   totalAmount: number | string;
   paymentMethod: string | null;
   users: { name: string; phone: string | null; shopName: string | null } | null;
@@ -72,16 +78,17 @@ function toTracking(row: TrackingRow, driverNames: Map<string, string>): DELIVER
     estimatedMinutes: row.estimatedMinutes,
     etaSetAt: row.lastSyncedAt,
     updatedAt: row.updatedAt,
-    // เวลาของเซิร์ฟเวอร์ตอนตอบ ใช้ให้หน้าลูกค้านับถอยหลังไม่เพี้ยนถ้านาฬิกาโทรศัพท์เดินช้า/เร็ว
-    serverNow: new Date().toISOString(),
   };
 }
 
 function toJob(order: JobOrderRow, tracking: DELIVERYTRACKING | null): DELIVERYJOB {
+  const location = toDeliveryLocation(order.deliveryLat, order.deliveryLng);
   return {
     orderId: order.id,
     orderStatus: order.status,
     deliveryAddress: order.deliveryAddress,
+    deliveryLat: location?.lat ?? null,
+    deliveryLng: location?.lng ?? null,
     customerName: order.users?.shopName || order.users?.name || null,
     customerPhone: order.users?.phone ?? null,
     totalAmount: Number(order.totalAmount),
@@ -193,10 +200,14 @@ function parseUpdate(payload: unknown) {
     status = input.status as DELIVERYSTATUS;
   }
 
-  let estimatedMinutes: number | null | undefined;
+  // "auto" = ให้ระบบคำนวณจากที่ตั้งร้านถึงหมุดลูกค้า
+  let estimatedMinutes: number | null | "auto" | undefined;
   if (input.estimatedMinutes !== undefined) {
     if (input.estimatedMinutes === null || input.estimatedMinutes === "") {
       estimatedMinutes = null;
+    } else if (input.estimatedMinutes === "auto") {
+      if (status === "delivered") return { ok: false, message: "Cannot estimate arrival time for a delivered order" } as const;
+      estimatedMinutes = "auto";
     } else {
       // รับเฉพาะตัวเลขหรือสตริงตัวเลขล้วน กัน true / [] / "1e2" ที่ Number() แปลงเป็นเลขได้
       const raw = input.estimatedMinutes;
@@ -234,7 +245,7 @@ function parseUpdate(payload: unknown) {
 export async function updateDelivery(
   auth: ADMINAUTH,
   payload: unknown,
-): Promise<SERVICERESULT<DELIVERYTRACKING>> {
+): Promise<SERVICERESULT<DELIVERYTRACKING & { debtWarning: string | null; etaDetail: DELIVERYETADETAIL | null }>> {
   const parsed = parseUpdate(payload);
   if (!parsed.ok) return failure(parsed.message, 400);
 
@@ -243,7 +254,7 @@ export async function updateDelivery(
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .select("id, status")
+    .select("id, status, deliveryLat, deliveryLng")
     .eq("id", parsed.orderId)
     .maybeSingle();
   if (orderError) return failure("Failed to load order", 500);
@@ -281,14 +292,42 @@ export async function updateDelivery(
     if (!driver) return failure("Driver not found or inactive", 400);
   }
 
+  // คำนวณเวลาที่จะถึงจากที่ตั้งร้านถึงหมุดลูกค้า ทำหลังตรวจสิทธิ์แล้ว ไม่ให้คนที่ไม่มีสิทธิ์ยิงบริการเส้นทางได้
+  let estimatedMinutes = parsed.estimatedMinutes;
+  let etaDetail: DELIVERYETADETAIL | null = null;
+  if (estimatedMinutes === "auto") {
+    // ส่งถึงแล้ว (สถานะเดิมในฐานข้อมูล) ไม่มีเวลาให้ประเมิน กันคำขอที่ปั้นเองยิงบริการเส้นทางเปล่า ๆ
+    if ((parsed.status ?? current?.status) === "delivered") {
+      return failure("Cannot estimate arrival time for a delivered order", 400);
+    }
+    const destination = toDeliveryLocation(order.deliveryLat, order.deliveryLng);
+    if (!destination) return failure("ลูกค้าไม่ได้ปักหมุดจุดส่งของ กรุณากรอกเวลาที่จะถึงเอง", 400);
+    const eta = await estimateDeliveryEta(SHOP_LOCATION, destination);
+    estimatedMinutes = eta.minutes;
+    etaDetail = { distanceKm: eta.distanceKm, source: eta.source, bufferMinutes: ETA_BUFFER_MINUTES };
+  }
+
+  // ส่งถึงแล้ว = ออเดอร์จัดส่งแล้ว: ตัดสต๊อกและปิดออเดอร์ในทรานแซกชันเดียวกับปุ่ม "จัดส่งแล้ว" ในหน้าคำสั่งซื้อ
+  // ทำก่อนบันทึกสถานะขนส่ง ถ้าถังเต็มไม่พอจะได้ไม่ค้างว่า "ส่งถึงแล้ว" ทั้งที่ออเดอร์ยังไม่ปิด
+  // ฟังก์ชันล็อกแถวออเดอร์และปฏิเสธออเดอร์ที่จัดส่งแล้ว/ยกเลิก จึงไม่ตัดสต๊อกซ้ำแม้กดพร้อมกันสองหน้า
+  // ใช้ service role เพราะคนส่งที่เป็นพนักงานเรียก fulfill_order_as_admin (เฉพาะแอดมิน) ไม่ได้ สิทธิ์ตรวจแล้วข้างบน
+  if (parsed.status === "delivered") {
+    const { error: fulfillError } = await supabase
+      .rpc("fulfill_order_and_deduct_inventory", { p_order_id: parsed.orderId, p_admin_id: auth.admin.id })
+      .single();
+    if (fulfillError) {
+      return failure("Unable to mark as delivered because inventory could not be updated (not enough full cylinders?)", 400);
+    }
+  }
+
   const now = new Date().toISOString();
   const values: Record<string, unknown> = { updatedAt: now };
   if (parsed.status !== undefined) values.status = parsed.status;
   if (parsed.driverId !== undefined) values.driverId = parsed.driverId;
-  if (parsed.estimatedMinutes !== undefined) {
-    values.estimatedMinutes = parsed.estimatedMinutes;
-    // lastSyncedAt ใช้เป็นเวลาตั้งต้นของการนับถอยหลัง ETA ให้ลูกค้า
-    values.lastSyncedAt = parsed.estimatedMinutes === null ? null : now;
+  if (estimatedMinutes !== undefined) {
+    values.estimatedMinutes = estimatedMinutes;
+    // lastSyncedAt = เวลาที่ประเมิน ETA ล่าสุด หน้าลูกค้าแสดงเป็น "ประเมินเมื่อ HH:MM"
+    values.lastSyncedAt = estimatedMinutes === null ? null : now;
   }
 
   const query = current
@@ -296,12 +335,12 @@ export async function updateDelivery(
     : supabase.from("deliveryTracking").insert({ orderId: parsed.orderId, ...values });
   const { data: saved, error: saveError } = await query.select(TRACKING_FIELDS).single();
   if (saveError || !saved) {
+    if (parsed.status === "delivered") return failure("Order was marked as delivered but the delivery status could not be saved", 500);
     if (saveError?.code === "23505") return failure("Delivery was just created by someone else, please retry", 409);
     return failure("Failed to save delivery", 500);
   }
 
   // เริ่มนำส่งแล้ว ให้สถานะออเดอร์ที่ลูกค้าเห็นเป็น "กำลังจัดส่ง"
-  // ส่วน "จัดส่งแล้ว" ของออเดอร์ต้องให้แอดมินยืนยัน เพราะต้องตัดสต๊อกในคลังพร้อมกัน
   // เงื่อนไข status ในคำสั่ง update กันกรณีแอดมินเพิ่งยืนยัน "จัดส่งแล้ว"/ยกเลิก ระหว่างที่เรากำลังบันทึก
   // (ถ้าเขียนทับเป็น delivering จะทำให้ออเดอร์ถูกตัดสต๊อกซ้ำได้)
   if (parsed.status === "inTransit" && ["pending", "preparing"].includes(order.status as string)) {
@@ -315,7 +354,14 @@ export async function updateDelivery(
     }
   }
 
+  // บันทึกหนี้อัตโนมัติ (ค้างเงิน/ค้างถัง) เหมือนการยืนยันจัดส่งในหน้าคำสั่งซื้อ
+  // ออเดอร์ปิดและตัดสต๊อกไปแล้ว ถ้าขั้นนี้พลาดจึงแจ้งเตือนแทนการตอบ error ไม่ให้กดซ้ำ
+  let debtWarning: string | null = null;
+  if (parsed.status === "delivered") {
+    debtWarning = (await recordDebtForDeliveredOrder(supabase, parsed.orderId, auth.admin.id)).warning;
+  }
+
   const row = saved as TrackingRow;
   const names = await loadDriverNames([row.driverId]);
-  return { result: apiSuccess("Delivery updated", toTracking(row, names)), status: 200 };
+  return { result: apiSuccess("Delivery updated", { ...toTracking(row, names), debtWarning, etaDetail }), status: 200 };
 }

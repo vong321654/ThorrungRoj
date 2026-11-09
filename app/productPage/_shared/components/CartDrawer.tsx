@@ -28,7 +28,7 @@ function getSaleTypeLabel(item: CartLine["item"]) {
   if (item.source === "part") return "อะไหล่";
   if (item.saleType === "sell") return "ซื้อถัง";
   if (item.saleType === "exchange") return "เปลี่ยนถัง";
-  if (item.saleType === "refill") return "เติมแก๊ส";
+  if (item.saleType === "refill") return "ฝากเติม";
   return "ยังไม่พร้อมจำหน่าย";
 }
 
@@ -45,7 +45,7 @@ export default function CartDrawer({
 }: CartDrawerProps) {
   const quantityByProduct = new Map<number, number>();
   for (const line of lines) {
-    if (line.item.productId === null) continue;
+    if (line.item.productId === null || line.item.availableQuantity === null) continue;
     quantityByProduct.set(
       line.item.productId,
       (quantityByProduct.get(line.item.productId) ?? 0) + line.quantity,
@@ -67,7 +67,8 @@ export default function CartDrawer({
 
   return (
     <Drawer anchor="right" open={open} onClose={onClose}>
-      <Box sx={{ width: 320, p: 2, display: "flex", flexDirection: "column", height: "100%" }}>
+      {/* มือถือเต็มจอ แท็บเล็ตขึ้นไปเป็นแผงข้าง ส่วนรายการเลื่อนได้ในตัวเพื่อให้ปุ่มสั่งซื้ออยู่ในจอเสมอ */}
+      <Box sx={{ width: { xs: "100vw", sm: 400 }, p: 2, display: "flex", flexDirection: "column", height: "100%" }}>
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Typography variant="h6">ตะกร้าสินค้า</Typography>
           <IconButton onClick={onClose} aria-label="ปิดตะกร้า" size="small">
@@ -77,16 +78,16 @@ export default function CartDrawer({
         <Divider sx={{ my: 1.5 }} />
 
         {lines.length === 0 ? (
-          <Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
+          <Typography color="text.secondary" sx={{ flexGrow: 1, mt: 4, textAlign: "center" }}>
             ยังไม่มีสินค้าในตะกร้า
           </Typography>
         ) : (
-          <Box sx={{ flexGrow: 1, overflowY: "auto" }}>
+          <Box sx={{ flexGrow: 1, minHeight: 0, overflowY: "auto" }}>
             {lines.map((line) => (
               <Box key={line.item.id} sx={{ py: 1.5, borderBottom: "1px solid", borderColor: "divider" }}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1 }}>
-                  <Typography sx={{ fontWeight: 600 }}>{line.item.name}</Typography>
-                  <Button size="small" color="error" sx={{ minWidth: 0 }} onClick={() => onRemove(line.item.id)}>
+                  <Typography sx={{ fontWeight: 600, minWidth: 0, overflowWrap: "anywhere" }}>{line.item.name}</Typography>
+                  <Button size="small" color="error" sx={{ flexShrink: 0, minWidth: 44 }} onClick={() => onRemove(line.item.id)}>
                     ลบ
                   </Button>
                 </Box>
@@ -121,7 +122,7 @@ export default function CartDrawer({
                   >
                     +
                   </IconButton>
-                  <Typography sx={{ ml: "auto", fontWeight: 600 }}>
+                  <Typography sx={{ ml: "auto", fontWeight: 600, whiteSpace: "nowrap" }}>
                     {line.item.price !== null ? formatBaht(line.item.price * line.quantity) : "-- บาท"}
                   </Typography>
                 </Box>

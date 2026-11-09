@@ -17,6 +17,8 @@ import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import type { Theme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { createClient } from "@/app/api/util/supabase/client";
 import type { APIRESULT } from "@/app/api/response";
 import { PAYMENTMETHOD, type ORDERRECORD, type TRANSFERSLIPRECORD } from "@/app/models/order";
@@ -33,7 +35,7 @@ const PAYMENT_LABELS: Record<PAYMENTMETHOD, string> = {
 const SALE_TYPE_LABELS = {
   sell: "ซื้อถัง",
   exchange: "เปลี่ยนถัง",
-  refill: "เติมแก๊ส",
+  refill: "ฝากเติม",
 } as const;
 
 function formatBaht(value: number) {
@@ -80,6 +82,7 @@ export default function OrdersView() {
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [viewingSlipId, setViewingSlipId] = useState<string | null>(null);
+  const isPhone = useMediaQuery((theme: Theme) => theme.breakpoints.down("sm"), { noSsr: true });
 
   async function viewReceipt(slipId: string) {
     setViewingSlipId(slipId);
@@ -160,14 +163,14 @@ export default function OrdersView() {
   }, [router]);
 
   return (
-    <Container component="main" maxWidth="md" sx={{ py: 4, flexGrow: 1 }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+    <Container component="main" maxWidth="md" sx={{ py: { xs: 2, sm: 3, md: 4 }, flexGrow: 1 }}>
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "space-between", alignItems: "center", mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>ประวัติคำสั่งซื้อ</Typography>
         <Button variant="outlined" onClick={() => router.push("/productPage")}>เลือกสินค้า</Button>
       </Box>
 
       {createdOrderId && (
-        <Alert severity="success" sx={{ mb: 2 }}>
+        <Alert severity="success" sx={{ mb: 2, overflowWrap: "anywhere" }}>
           บันทึกคำสั่งซื้อเรียบร้อยแล้ว เลขที่ {createdOrderId}
         </Alert>
       )}
@@ -186,15 +189,15 @@ export default function OrdersView() {
       ) : (
         <Stack spacing={2}>
           {orders.map((order) => (
-            <Paper key={order.id} sx={{ p: 2.5 }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
-                <Box>
-                  <Typography sx={{ fontWeight: 700 }}>เลขที่ {order.id}</Typography>
+            <Paper key={order.id} sx={{ p: { xs: 2, sm: 2.5 } }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", gap: { xs: 1, sm: 2 }, flexWrap: "wrap" }}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 700, overflowWrap: "anywhere" }}>เลขที่ {order.id}</Typography>
                   <Typography variant="body2" color="text.secondary">
                     {new Date(order.createdAt).toLocaleString("th-TH")}
                   </Typography>
                 </Box>
-                <Stack direction="row" spacing={1}>
+                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
                   <Chip size="small" label={`คำสั่งซื้อ: ${order.status}`} />
                   <Chip size="small" color="primary" label={`ชำระเงิน: ${order.paymentStatus}`} />
                 </Stack>
@@ -202,23 +205,23 @@ export default function OrdersView() {
               <Divider sx={{ my: 1.5 }} />
               {(order.orderItems ?? []).map((item) => (
                 <Box key={item.id} sx={{ display: "flex", justifyContent: "space-between", gap: 2, py: 0.5 }}>
-                  <Typography variant="body2">
+                  <Typography variant="body2" sx={{ minWidth: 0, overflowWrap: "anywhere" }}>
                     {item.productNameSnapshot} ({SALE_TYPE_LABELS[item.saleType]}) × {item.quantity}
                   </Typography>
-                  <Typography variant="body2">{formatBaht(item.totalPrice)}</Typography>
+                  <Typography variant="body2" sx={{ flexShrink: 0, whiteSpace: "nowrap" }}>{formatBaht(item.totalPrice)}</Typography>
                 </Box>
               ))}
               <Divider sx={{ my: 1.5 }} />
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
                 <Typography variant="body2" color="text.secondary">
                   {order.paymentMethod ? PAYMENT_LABELS[order.paymentMethod] : "ยังไม่เลือกวิธีชำระเงิน"}
                 </Typography>
-                <Typography sx={{ fontWeight: 700 }}>{formatBaht(order.totalAmount)}</Typography>
+                <Typography sx={{ flexShrink: 0, fontWeight: 700, whiteSpace: "nowrap" }}>{formatBaht(order.totalAmount)}</Typography>
               </Box>
               <Button component={Link} href={`/productPage/orders/${order.id}`} size="small" sx={{ mt: 1.5 }}>ดูรายละเอียดและสถานะ</Button>
               {order.paymentMethod === "qrScan" && order.payments?.map((payment) => {
                 const hasSlip = (payment.transferSlips?.length ?? 0) > 0;
-                return <Box key={payment.id} sx={{ mt: 2 }}>
+                return <Box key={payment.id} sx={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 1, mt: 2 }}>
                   <Button component="label" size="small" variant="outlined" disabled={uploadingPaymentId === payment.id}>
                     {uploadingPaymentId === payment.id ? "กำลังอัปโหลด..." : hasSlip ? "แนบสลิปใหม่" : "แนบสลิปชำระเงิน"}
                     <input hidden type="file" accept={UPLOAD_IMAGE_TYPES.join(",")} onChange={(event) => {
@@ -228,18 +231,18 @@ export default function OrdersView() {
                       void uploadReceipt(payment.id, file);
                     }} />
                   </Button>
-                  {hasSlip && <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>ส่งสลิปแล้ว รอตรวจสอบ</Typography>}
-                  {payment.transferSlips?.map((slip) => <Button key={slip.id} size="small" sx={{ ml: 1 }} disabled={viewingSlipId === slip.id} onClick={() => void viewReceipt(slip.id)}>{viewingSlipId === slip.id ? "กำลังเปิด..." : "ดูสลิป"}</Button>)}
+                  {hasSlip && <Typography component="span" variant="body2" color="text.secondary">ส่งสลิปแล้ว รอตรวจสอบ</Typography>}
+                  {payment.transferSlips?.map((slip) => <Button key={slip.id} size="small" disabled={viewingSlipId === slip.id} onClick={() => void viewReceipt(slip.id)}>{viewingSlipId === slip.id ? "กำลังเปิด..." : "ดูสลิป"}</Button>)}
                 </Box>;
               })}
             </Paper>
           ))}
         </Stack>
       )}
-      <Dialog open={!!receiptUrl} onClose={() => setReceiptUrl(null)} fullWidth maxWidth="sm">
+      <Dialog open={!!receiptUrl} onClose={() => setReceiptUrl(null)} fullWidth fullScreen={isPhone} maxWidth="sm">
         <DialogTitle>สลิปการชำระเงิน</DialogTitle>
         <DialogContent>
-          {receiptUrl && <Box component="img" src={receiptUrl} alt="สลิปการชำระเงิน" sx={{ display: "block", width: "100%", height: "auto" }} />}
+          {receiptUrl && <Box component="img" src={receiptUrl} alt="สลิปการชำระเงิน" sx={{ display: "block", width: "100%", height: "auto", maxHeight: "70vh", objectFit: "contain" }} />}
         </DialogContent>
         <DialogActions><Button onClick={() => setReceiptUrl(null)}>ปิด</Button></DialogActions>
       </Dialog>

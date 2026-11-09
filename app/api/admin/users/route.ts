@@ -1,8 +1,10 @@
 import { apiError, apiSuccess } from "@/app/api/response";
 import { ADMINROLE } from "@/app/models/admin";
-import type { ADMINUSERUPDATEPAYLOAD, ADMINUSERUPDATEVALUES } from "@/app/models/user";
+import { ADMIN_CUSTOMER_FIELDS, type ADMINUSERUPDATEPAYLOAD, type ADMINUSERUPDATEVALUES } from "@/app/models/user";
 import { authenticateAdmin } from "../authorization";
 import { isAdminOrSuperAdmin } from "@/app/api/services/adminService";
+
+const CUSTOMER_FIELDS = ADMIN_CUSTOMER_FIELDS;
 
 export async function GET(request: Request) {
   const auth = await authenticateAdmin(request);
@@ -11,7 +13,8 @@ export async function GET(request: Request) {
 
   const { data, error } = await auth.adminSupabase
     .from("users")
-    .select("id, name, phone, email, address, contactName, shopName, customerType, isActive, createdAt")
+    .select(CUSTOMER_FIELDS)
+    .not("lineUserId", "like", "erased:%")
     .order("createdAt", { ascending: false });
 
   if (error) return Response.json(apiError("Failed to fetch users"), { status: 500 });
@@ -50,11 +53,15 @@ export async function PATCH(request: Request) {
       return Response.json(apiError("Invalid customer type"), { status: 400 });
     }
     values.customerType = body.customerType;
+    // ตั้งเป็นร้านค้าจากหน้าแก้ไข = ปิดคำขอที่ค้างอยู่ด้วย ไม่งั้นยังโผล่ในตารางคำขอและกดยกเลิกทับได้
+    if (body.customerType === "shop") values.shopRequestStatus = "approved";
   }
   if ("isActive" in body) {
     if (typeof body.isActive !== "boolean") return Response.json(apiError("Invalid active status"), { status: 400 });
     values.isActive = body.isActive;
   }
+  // ลูกค้าคัดค้านการใช้รูปโปรไฟล์ ลบได้อย่างเดียว ค่า null นี้ทำให้การเข้าสู่ระบบครั้งถัดไปไม่ดึงรูปกลับมา
+  if (body.avatarUrl === null) values.avatarUrl = null;
   if (Object.keys(values).length === 0) {
     return Response.json(apiError("No editable fields supplied"), { status: 400 });
   }
@@ -64,7 +71,7 @@ export async function PATCH(request: Request) {
     .from("users")
     .update(values)
     .eq("id", body.id)
-    .select("id, name, phone, email, address, contactName, shopName, customerType, isActive, createdAt")
+    .select(CUSTOMER_FIELDS)
     .maybeSingle();
 
   if (error) return Response.json(apiError("Failed to update user"), { status: 500 });
@@ -88,7 +95,7 @@ export async function DELETE(request: Request) {
     .from("users")
     .update({ isActive: false, updatedAt: new Date().toISOString() })
     .eq("id", id)
-    .select("id, name, phone, email, address, contactName, shopName, customerType, isActive, createdAt")
+    .select(CUSTOMER_FIELDS)
     .maybeSingle();
 
   if (error) return Response.json(apiError("Failed to delete user"), { status: 500 });
