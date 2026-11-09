@@ -216,22 +216,9 @@ export default function DeliveriesPage() {
     setError(null);
     setNotice(null);
     try {
-      const saved = await request<{
-        debtWarning?: string | null;
-        estimatedMinutes?: number | null;
-        etaDetail?: DELIVERYETADETAIL | null;
-      }>("/api/delivery", { method: "PATCH", body: JSON.stringify({ orderId, ...body }) });
+      const saved = await request<{ debtWarning?: string | null }>("/api/delivery", { method: "PATCH", body: JSON.stringify({ orderId, ...body }) });
       await load();
       if (saved?.debtWarning) setError(saved.debtWarning);
-      // แจ้งที่มาของเวลาที่ระบบคำนวณ ให้คนส่งตัดสินใจได้ว่าจะแก้ทับหรือไม่
-      if (saved?.etaDetail && saved.estimatedMinutes != null) {
-        const { distanceKm, source, bufferMinutes } = saved.etaDetail;
-        setNotice(
-          source === "osrm"
-            ? `คำนวณได้ ${saved.estimatedMinutes} นาที (ระยะทางถนนจากร้าน ${distanceKm} กม. + เผื่อ ${bufferMinutes} นาที) คำนวณจากร้าน ถ้าออกจากที่อื่นให้แก้เวลาเอง`
-            : `บริการเส้นทางไม่ตอบ จึงประมาณจากระยะทางตรงได้ ${saved.estimatedMinutes} นาที (ประมาณ ${distanceKm} กม. + เผื่อ ${bufferMinutes} นาที) ตรวจสอบและแก้เวลาได้`,
-        );
-      }
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "ไม่สามารถอัปเดตงานจัดส่งได้");
     } finally {
